@@ -119,7 +119,10 @@
     .supervisor-summary-heading h1 { margin: 0; font-size: clamp(24px, 3vw, 32px); letter-spacing: -.5px; }
     .supervisor-summary-heading p { margin: 8px 0 0; color: var(--muted); font-size: 13px; line-height: 1.55; }
     .supervisor-charts-section { padding: 20px; border: 1px solid #343743; border-radius: 17px; background: #191b22cc; }
-    .supervisor-charts-heading { margin-bottom: 14px; }
+    .supervisor-charts-heading { display: flex; justify-content: space-between; align-items: flex-end; gap: 14px; margin-bottom: 14px; }
+    .supervisor-chart-date-filters { display: flex; align-items: flex-end; gap: 9px; }
+    .supervisor-chart-date-filters label { display: grid; gap: 5px; color: var(--muted); font-size: 10px; font-weight: 700; }
+    .supervisor-chart-date-filters select { min-width: 112px; }
     .supervisor-charts-heading h2 { margin: 0; font-size: 17px; }
     .supervisor-charts-heading p { margin: 6px 0 0; color: var(--muted); font-size: 12px; }
     .supervisor-charts-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 350px), 1fr)); gap: 14px; }
@@ -433,6 +436,8 @@
       .supervisor-shell.supervisor-mode .site-name { font-size: 11px; }
       .supervisor-shell.supervisor-mode .site-count { font-size: 9px; }
       .supervisor-charts-section { padding: 15px; }
+      .supervisor-charts-heading { align-items: stretch; flex-direction: column; }
+      .supervisor-chart-date-filters { flex-wrap: wrap; }
       .supervisor-chart-content { grid-template-columns: minmax(125px, 165px) minmax(100px, 1fr); gap: 8px; }
       .supervisor-pie-wrap { max-width: 165px; }
       .supervisor-chart-legend { max-height: 180px; }
@@ -493,8 +498,12 @@
       </header>
       <section class="supervisor-charts-section" aria-labelledby="supervisorChartsTitle">
         <div class="supervisor-charts-heading">
-          <h2 id="supervisorChartsTitle">Distribución de mantenimiento y equipos</h2>
-          <p>Pasa el cursor por un segmento para ver su porcentaje y selecciona una categoría para resaltarla.</p>
+          <div><h2 id="supervisorChartsTitle">Distribución de mantenimiento y equipos</h2>
+          <p>Pasa el cursor por un segmento para ver su porcentaje y selecciona una categoría para resaltarla.</p></div>
+          <div class="supervisor-chart-date-filters" aria-label="Filtrar gráficos de mantenimiento">
+            <label for="maintenanceChartMonthFilter">Mes<select class="supervisor-chart-filter" id="maintenanceChartMonthFilter"></select></label>
+            <label for="maintenanceChartYearFilter">Año<select class="supervisor-chart-filter" id="maintenanceChartYearFilter"></select></label>
+          </div>
         </div>
         <div class="supervisor-charts-grid">
           <article class="supervisor-chart-card">
@@ -514,11 +523,11 @@
             <div class="supervisor-chart-content" id="supervisorEquipmentBrandChart"></div>
           </article>
           <article class="supervisor-chart-card">
-            <div class="supervisor-chart-header"><div><h3>Estado de mantenimiento</h3><p>Último estado por equipo en todas tus sedes</p></div></div>
+            <div class="supervisor-chart-header"><div><h3>Estado de mantenimiento</h3><p>Estado más reciente por equipo en el período</p></div></div>
             <div class="supervisor-chart-content" id="maintenanceStatusChart"></div>
           </article>
           <article class="supervisor-chart-card">
-            <div class="supervisor-chart-header"><div><h3>Eventos por técnico</h3><p>Registros realizados en tus sedes asignadas</p></div></div>
+            <div class="supervisor-chart-header"><div><h3>Eventos por técnico</h3><p>Registros realizados en el período</p></div></div>
             <div class="supervisor-chart-content" id="maintenanceTechnicianChart"></div>
           </article>
           <article class="supervisor-chart-card">
@@ -691,7 +700,7 @@
   </div>
   <script src="admin-store.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="supabase-data.js?v=20261025-paged-reads"></script>
+  <script src="supabase-data.js?v=20261025-chart-month-year"></script>
   <script src="EQU/matrix-catalog.js"></script>
   <script src="EQU/booty-catalog.js"></script>
   <script src="EQU/other-catalogs.js"></script>
@@ -1623,6 +1632,42 @@
       return "";
     }
 
+    function maintenanceChartDateParts(entry) {
+      const value = String(entry?.date || entry?.recordedAt || "");
+      const isoDate = value.match(/^(\d{4})-(\d{2})/);
+      if (isoDate) return { year: Number(isoDate[1]), month: isoDate[2] };
+      const parsed = new Date(value);
+      return Number.isNaN(parsed.getTime()) ? null : { year: parsed.getFullYear(), month: String(parsed.getMonth() + 1).padStart(2, "0") };
+    }
+
+    function renderMaintenanceChartDateFilters(entries) {
+      const monthSelect = $("maintenanceChartMonthFilter"), yearSelect = $("maintenanceChartYearFilter");
+      const now = new Date(), currentMonth = String(now.getMonth() + 1).padStart(2, "0"), currentYear = String(now.getFullYear());
+      const priorMonth = monthSelect.value, priorYear = yearSelect.value;
+      const months = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+      monthSelect.innerHTML = `<option value="*">Todos los meses</option>${months.map((label, index) => `<option value="${String(index + 1).padStart(2, "0")}">${label}</option>`).join("")}`;
+      const years = new Set([currentYear]);
+      entries.forEach(entry => { const parts = maintenanceChartDateParts(entry); if (parts?.year) years.add(String(parts.year)); });
+      yearSelect.innerHTML = [...years].sort((a, b) => Number(b) - Number(a)).map(year => `<option value="${year}">${year}</option>`).join("");
+      monthSelect.value = [...monthSelect.options].some(option => option.value === priorMonth) ? priorMonth : currentMonth;
+      yearSelect.value = [...yearSelect.options].some(option => option.value === priorYear) ? priorYear : currentYear;
+    }
+
+    function maintenanceChartEntryMatchesDate(entry) {
+      const parts = maintenanceChartDateParts(entry);
+      return Boolean(parts && String(parts.year) === $("maintenanceChartYearFilter").value &&
+        ($("maintenanceChartMonthFilter").value === "*" || parts.month === $("maintenanceChartMonthFilter").value));
+    }
+
+    function maintenanceChartEntriesByEquipment(machineRecords) {
+      const entries = [];
+      assignedSites.forEach(site => supervisorEquipmentUnits(site).forEach(machine => {
+        const maintenance = machineRecords[machine.recordKey]?.maintenance;
+        if (Array.isArray(maintenance)) maintenance.forEach(entry => entries.push({ machine, entry }));
+      }));
+      return entries;
+    }
+
     function aggregateChartEntries(values) {
       const totals = new Map();
       values.forEach(({ label, value }) => {
@@ -1705,6 +1750,8 @@
           return {};
         }
       })();
+      const allMaintenanceEntries = maintenanceChartEntriesByEquipment(machineRecords);
+      renderMaintenanceChartDateFilters(allMaintenanceEntries.map(item => item.entry));
       const ticketSitesByRegion = setSupervisorRegionOptions($("supervisorTicketsRegionFilter"), assignedSites);
       const ticketSiteIds = new Set(ticketSitesByRegion.map(site => site.id));
       const ticketStatusCounts = new Map();
@@ -1744,7 +1791,7 @@
         const machines = supervisorEquipmentUnits(site);
         machines.forEach(machine => {
           const machineRecord = machineRecords[machine.recordKey] || {};
-          const maintenance = Array.isArray(machineRecord.maintenance) ? machineRecord.maintenance : [];
+          const maintenance = (Array.isArray(machineRecord.maintenance) ? machineRecord.maintenance : []).filter(maintenanceChartEntryMatchesDate);
           const chronological = maintenance.slice().sort((a, b) => {
             const dateA = Date.parse(a.date || "") || Date.parse(a.recordedAt || "") || 0;
             const dateB = Date.parse(b.date || "") || Date.parse(b.recordedAt || "") || 0;
@@ -1753,12 +1800,12 @@
           const latestStatus = maintenanceStatusLabel(chronological[0]?.type);
           const statusLabel = latestStatus || "Sin registro";
           statusCounts.set(statusLabel, (statusCounts.get(statusLabel) || 0) + 1);
-          maintenance.forEach(entry => {
-            technicianEventEntries.push({ label: entry.technician || "Sin técnico registrado", value: 1 });
-          });
         });
         const unclassifiedMachines = Math.max(0, (Number(site.machineCount) || 0) - machines.length);
         statusCounts.set("Sin registro", statusCounts.get("Sin registro") + unclassifiedMachines);
+      });
+      allMaintenanceEntries.forEach(({ entry }) => {
+        if (maintenanceChartEntryMatchesDate(entry)) technicianEventEntries.push({ label: entry.technician || "Sin técnico registrado", value: 1 });
       });
       const statusOrder = ["Mantenimiento preventivo", "Mantenimiento correctivo", "Revisión", "Fuera de servicio", "Sin registro"];
       renderSupervisorPieChart("maintenanceStatusChart", statusOrder.map(label => ({ label, value: statusCounts.get(label) || 0 })));
@@ -2454,6 +2501,8 @@
       $("supervisorMenuToggle").setAttribute("aria-label", "Abrir menú");
     });
     $("siteEquipmentRegionFilter").addEventListener("change", renderSupervisorSummary);
+    $("maintenanceChartMonthFilter").addEventListener("change", renderSupervisorSummary);
+    $("maintenanceChartYearFilter").addEventListener("change", renderSupervisorSummary);
     $("technicianEquipmentRegionFilter").addEventListener("change", renderSupervisorSummary);
     $("supervisorTicketsRegionFilter").addEventListener("change", renderSupervisorSummary);
     $("supervisorEquipmentBrandRegionFilter").addEventListener("change", renderSupervisorSummary);
