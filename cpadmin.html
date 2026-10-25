@@ -1027,7 +1027,7 @@
   </div>
   <script src="admin-store.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="supabase-data.js?v=20261025-realtime"></script>
+  <script src="supabase-data.js?v=20261025-equipment-reconcile"></script>
   <script src="EQU/matrix-catalog.js"></script>
   <script src="EQU/booty-catalog.js"></script>
   <script src="EQU/other-catalogs.js"></script>
@@ -2455,6 +2455,8 @@
     $("siteForm").addEventListener("submit", async event => {
       event.preventDefault();
       const submitButton = event.target.querySelector('[type="submit"]');
+      const previousSites = localStorage.getItem("smartfit.admin.sites.v1");
+      const previousUsers = localStorage.getItem("smartfit.admin.users.v1");
       const fields = {
         name: $("siteName").value,
         region: $("siteRegion").value,
@@ -2479,6 +2481,16 @@
       } catch (error) {
         $("siteFormError").textContent = error.message;
         $("siteFormError").classList.add("visible");
+        try {
+          await SmartFitSupabaseData.hydrate();
+          render();
+        } catch (reloadError) {
+          if (previousSites === null) localStorage.removeItem("smartfit.admin.sites.v1");
+          else localStorage.setItem("smartfit.admin.sites.v1", previousSites);
+          if (previousUsers === null) localStorage.removeItem("smartfit.admin.users.v1");
+          else localStorage.setItem("smartfit.admin.users.v1", previousUsers);
+          render();
+        }
       } finally {
         submitButton.disabled = false;
         submitButton.textContent = "Guardar sede";
