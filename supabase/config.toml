@@ -1,6 +1,10 @@
 [functions.login-by-username]
 verify_jwt = false
 
+[functions.login-directory]
+# Devuelve únicamente nombre, usuario y perfil de cuentas activas técnico/supervisor.
+verify_jwt = false
+
 [functions.admin-manage-user]
 # La función valida la sesión con auth.getUser() y comprueba el rol administrador.
 # Desactivar el filtro del gateway evita rechazos prematuros por formato/firma JWT.

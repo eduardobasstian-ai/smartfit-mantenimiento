@@ -909,15 +909,26 @@
 
       <form id="loginForm" novalidate>
         <div class="field">
-          <label class="field-label" id="technicianLabel" for="technicianUsername">
+          <div class="field-label" id="technicianLabel">
             <span>RUT o nombre de usuario
               <span class="required">*</span>
             </span>
-          </label>
+          </div>
 
-          <div class="control username-wrap">
+          <div class="picker" id="technicianPicker">
+            <button type="button" class="picker-trigger" id="technicianTrigger" aria-haspopup="listbox" aria-expanded="false" aria-labelledby="technicianLabel technicianValue">
+              <span class="field-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.5"></circle><path d="M5 20c.8-3.2 3.2-5 7-5s6.2 1.8 7 5"></path></svg></span>
+              <span class="picker-value placeholder" id="technicianValue">Cargando nómina...</span>
+              <span class="picker-actions" aria-hidden="true"><span>⌄</span></span>
+            </button>
+            <div class="picker-menu" id="technicianMenu" hidden>
+              <input class="picker-search" id="technicianSearch" type="search" placeholder="Buscar nombre o usuario..." autocomplete="off" aria-label="Buscar en la nómina">
+              <div class="options-list" id="technicianOptions" role="listbox" aria-label="Técnicos y supervisores"></div>
+            </div>
+          </div>
+          <div class="control username-wrap" id="usernameFallback" hidden>
             <span class="field-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.5"></circle><path d="M5 20c.8-3.2 3.2-5 7-5s6.2 1.8 7 5"></path></svg></span>
-            <input id="technicianUsername" name="username" type="text" placeholder="Ingresa tu RUT o usuario" autocomplete="username" required>
+            <input id="technicianUsername" name="username" type="text" placeholder="Ingresa tu RUT o usuario" autocomplete="username">
           </div>
         </div>
 
@@ -1004,6 +1015,8 @@
     "use strict";
 
     const $ = (id) => document.getElementById(id);
+    let loginDirectory = [];
+    let selectedLoginAccount = null;
     const notificationItems = [
       {
         title: "Panel de notificaciones",
@@ -1032,6 +1045,92 @@
       element.textContent = message;
     }
 
+    function closeTechnicianPicker() {
+      $("technicianMenu").hidden = true;
+      $("technicianTrigger").setAttribute("aria-expanded", "false");
+    }
+
+    function renderLoginDirectory() {
+      const list = $("technicianOptions");
+      const query = $("technicianSearch").value.trim().toLocaleLowerCase("es");
+      const filtered = loginDirectory.filter(account =>
+        `${account.name} ${account.username} ${account.role}`.toLocaleLowerCase("es").includes(query)
+      );
+      list.replaceChildren();
+      if (!filtered.length) {
+        const empty = document.createElement("div");
+        empty.className = "empty-options";
+        empty.textContent = loginDirectory.length ? "No se encontraron coincidencias." : "No hay cuentas activas disponibles.";
+        list.appendChild(empty);
+        return;
+      }
+      filtered.forEach(account => {
+        const option = document.createElement("button");
+        option.type = "button";
+        option.className = "option";
+        option.setAttribute("role", "option");
+        option.setAttribute("aria-selected", String(selectedLoginAccount?.username === account.username));
+        const label = document.createElement("span");
+        label.textContent = account.name;
+        const detail = document.createElement("small");
+        detail.textContent = `${account.username} · ${account.role}`;
+        label.appendChild(detail);
+        option.appendChild(label);
+        option.addEventListener("click", () => {
+          selectedLoginAccount = account;
+          $("technicianValue").textContent = `${account.name} · ${account.username}`;
+          $("technicianValue").classList.remove("placeholder");
+          closeTechnicianPicker();
+          showMessage("", "");
+          $("technicianTrigger").focus();
+        });
+        list.appendChild(option);
+      });
+    }
+
+    $("technicianTrigger").addEventListener("click", () => {
+      const opening = $("technicianMenu").hidden;
+      closeTechnicianPicker();
+      if (!opening) return;
+      $("technicianMenu").hidden = false;
+      $("technicianTrigger").setAttribute("aria-expanded", "true");
+      $("technicianSearch").value = "";
+      renderLoginDirectory();
+      $("technicianSearch").focus();
+    });
+    $("technicianSearch").addEventListener("input", renderLoginDirectory);
+    $("technicianSearch").addEventListener("keydown", event => {
+      if (event.key === "Escape") {
+        closeTechnicianPicker();
+        $("technicianTrigger").focus();
+      } else if (event.key === "Enter") {
+        event.preventDefault();
+        $("technicianOptions").querySelector(".option")?.click();
+      }
+    });
+    document.addEventListener("click", event => {
+      if (!$("technicianPicker").contains(event.target)) closeTechnicianPicker();
+    });
+
+    async function loadLoginDirectory() {
+      try {
+        loginDirectory = await SmartFitSupabaseAuth.listLoginDirectory();
+        $("technicianValue").textContent = loginDirectory.length ? "Selecciona tu nombre..." : "No hay cuentas activas";
+        if (!loginDirectory.length) {
+          $("technicianPicker").hidden = true;
+          $("usernameFallback").hidden = false;
+          showMessage("error", "No hay cuentas activas en la nómina. Puedes ingresar tu RUT o usuario manualmente.");
+        }
+      } catch (error) {
+        $("technicianPicker").hidden = true;
+        $("usernameFallback").hidden = false;
+        showMessage("error", "No se pudo cargar la nómina. Ingresa tu RUT o usuario manualmente.");
+        console.warn("No se pudo cargar la nómina para el acceso:", error);
+      }
+    }
+
+    loadLoginDirectory();
+
     $("togglePassword").addEventListener("click", () => {
       const input = $("password");
       const button = $("togglePassword");
@@ -1044,10 +1143,11 @@
 
     $("loginForm").addEventListener("submit", async event => {
       event.preventDefault();
-      const username = $("technicianUsername").value.trim();
+      const username = selectedLoginAccount?.username || $("technicianUsername").value.trim();
       if (!username) {
-        showMessage("error", "Ingresa tu RUT o nombre de usuario.");
-        $("technicianUsername").focus();
+        showMessage("error", "Selecciona tu nombre de la nómina.");
+        if ($("usernameFallback").hidden) $("technicianTrigger").focus();
+        else $("technicianUsername").focus();
         return;
       }
       if (!$("password").value.trim()) {
@@ -1234,7 +1334,8 @@
 
     $("accessButton").addEventListener("click", () => {
       $("loginForm").scrollIntoView({ behavior: "smooth", block: "center" });
-      $("technicianUsername").focus({ preventScroll: true });
+      if ($("usernameFallback").hidden) $("technicianTrigger").focus({ preventScroll: true });
+      else $("technicianUsername").focus({ preventScroll: true });
     });
 
     $("adminButton").addEventListener("click", openAdminModal);

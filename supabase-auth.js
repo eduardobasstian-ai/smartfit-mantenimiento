@@ -6,6 +6,21 @@
   const SUPABASE_URL = "https://acmcksmiqrfrxopceies.supabase.co";
   const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_uWaLgff_Xc03iC68QpUUuQ_QkmCLLGy";
   const LOGIN_FUNCTION_URL = `${SUPABASE_URL}/functions/v1/login-by-username`;
+  const LOGIN_DIRECTORY_URL = `${SUPABASE_URL}/functions/v1/login-directory`;
+
+  async function listLoginDirectory() {
+    const response = await fetch(LOGIN_DIRECTORY_URL, {
+      method: "GET",
+      headers: {
+        apikey: SUPABASE_PUBLISHABLE_KEY,
+        Authorization: `Bearer ${SUPABASE_PUBLISHABLE_KEY}`,
+      },
+    });
+    let result = {};
+    try { result = await response.json(); } catch (error) { /* respuesta vacía */ }
+    if (!response.ok) throw new Error(result.error || "No se pudo cargar la nómina de acceso.");
+    return Array.isArray(result.users) ? result.users : [];
+  }
 
   async function login(username, password) {
     const normalizedUsername = String(username || "").trim();
@@ -35,5 +50,5 @@
     sessionStorage.removeItem("smartfit.supabase.auth");
   }
 
-  global.SmartFitSupabaseAuth = { login, clearSession };
+  global.SmartFitSupabaseAuth = { login, listLoginDirectory, clearSession };
 })(window);
