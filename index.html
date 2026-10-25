@@ -426,6 +426,28 @@
       padding-right: 6px;
     }
 
+    .username-wrap {
+      display: flex;
+      align-items: center;
+      padding: 0 13px;
+    }
+
+    .username-wrap > .field-icon {
+      margin-right: 13px;
+    }
+
+    .username-wrap input {
+      flex: 1;
+      min-width: 0;
+      height: 47px;
+      padding: 0;
+      color: var(--text);
+      background: transparent;
+      border: 0;
+      outline: none;
+      font-size: 14px;
+    }
+
     .password-wrap > .field-icon {
       margin-left: 11px;
     }
@@ -876,9 +898,7 @@
     <section class="intro">
       <div class="eyebrow">Sistema de mantenimiento</div>
       <h1>Bienvenido</h1>
-      <p>
-        Selecciona tu usuario para continuar al sistema.
-      </p>
+      <p>Ingresa tu RUT o nombre de usuario para continuar al sistema.</p>
     </section>
 
     <section class="login-card" aria-labelledby="login-title">
@@ -895,7 +915,7 @@
             </span>
           </label>
 
-          <div class="control">
+          <div class="control username-wrap">
             <span class="field-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.5"></circle><path d="M5 20c.8-3.2 3.2-5 7-5s6.2 1.8 7 5"></path></svg></span>
             <input id="technicianUsername" name="username" type="text" placeholder="Ingresa tu RUT o usuario" autocomplete="username" required>
           </div>
