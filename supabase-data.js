@@ -11,6 +11,48 @@
     try { return JSON.parse(sessionStorage.getItem("smartfit.supabase.auth") || "null"); }
     catch (error) { return null; }
   }
+  let refreshInFlight = null;
+  async function refreshAuth(force = false) {
+    const current = auth();
+    if (!current?.refresh_token) throw new Error("La sesión de Supabase venció. Vuelve a iniciar sesión.");
+    const expiresAt = Number(current.expires_at) || 0;
+    if (!force && expiresAt > Math.floor(Date.now() / 1000) + 60) return current;
+    if (refreshInFlight) return refreshInFlight;
+
+    refreshInFlight = (async () => {
+      const response = await fetch(`${URL}/auth/v1/token?grant_type=refresh_token`, {
+        method: "POST",
+        headers: { apikey: KEY, "Content-Type": "application/json" },
+        body: JSON.stringify({ refresh_token: current.refresh_token })
+      });
+      const text = await response.text();
+      let result = {};
+      try { result = text ? JSON.parse(text) : {}; } catch (error) {}
+      if (!response.ok || !result.access_token || !result.refresh_token) {
+        throw new Error(result.error_description || result.msg || result.message || "La sesión venció y no se pudo renovar.");
+      }
+      const next = Object.assign({}, current, result, {
+        expires_at: Number(result.expires_at) || Math.floor(Date.now() / 1000) + Number(result.expires_in || 3600)
+      });
+      sessionStorage.setItem("smartfit.supabase.auth", JSON.stringify(next));
+      return next;
+    })();
+    try { return await refreshInFlight; }
+    finally { refreshInFlight = null; }
+  }
+  async function authorizedFetch(url, options = {}) {
+    let session = await refreshAuth();
+    const headers = new Headers(options.headers || {});
+    headers.set("apikey", KEY);
+    headers.set("Authorization", `Bearer ${session.access_token}`);
+    let response = await fetch(url, Object.assign({}, options, { headers }));
+    if (response.status === 401 && session.refresh_token) {
+      session = await refreshAuth(true);
+      headers.set("Authorization", `Bearer ${session.access_token}`);
+      response = await fetch(url, Object.assign({}, options, { headers }));
+    }
+    return response;
+  }
   function appSession() {
     const sessions = ["smartfit.site.session", "smartfit.leader.session", "smartfit.admin.session"]
       .map(key => { try { return JSON.parse(sessionStorage.getItem(key) || "null"); } catch (error) { return null; } })
@@ -35,9 +77,7 @@
     const limit = Math.max(1, Math.min(1000, Number(pageSize) || 1000));
     for (let offset = 0; ; offset += limit) {
       const separator = path.includes("?") ? "&" : "?";
-      const response = await fetch(`${URL}/rest/v1/${path}${separator}limit=${limit}&offset=${offset}`, {
-        headers: { apikey: KEY, Authorization: `Bearer ${token}` }
-      });
+      const response = await authorizedFetch(`${URL}/rest/v1/${path}${separator}limit=${limit}&offset=${offset}`);
       const text = await response.text();
       if (!response.ok) throw new Error(`No se pudo consultar Supabase (${response.status}): ${text}`);
       const page = text ? JSON.parse(text) : [];
@@ -50,9 +90,9 @@
   async function postRow(table, row, conflict = "legacy_id") {
     const token = auth()?.access_token;
     if (!token) throw new Error("No hay una sesión autenticada de Supabase.");
-    const response = await fetch(`${URL}/rest/v1/${table}?on_conflict=${conflict}&select=id,legacy_id`, {
+    const response = await authorizedFetch(`${URL}/rest/v1/${table}?on_conflict=${conflict}&select=id,legacy_id`, {
       method: "POST",
-      headers: { apikey: KEY, Authorization: `Bearer ${token}`, "Content-Type": "application/json", Prefer: "resolution=merge-duplicates,return=representation" },
+      headers: { "Content-Type": "application/json", Prefer: "resolution=merge-duplicates,return=representation" },
       body: JSON.stringify(row)
     });
     const text = await response.text();
@@ -67,11 +107,9 @@
     if (!Array.isArray(rows) || !rows.length) return [];
     const token = auth()?.access_token;
     if (!token) throw new Error("No hay una sesión autenticada de Supabase.");
-    const response = await fetch(`${URL}/rest/v1/${table}?on_conflict=${encodeURIComponent(conflict)}&select=id,legacy_id`, {
+    const response = await authorizedFetch(`${URL}/rest/v1/${table}?on_conflict=${encodeURIComponent(conflict)}&select=id,legacy_id`, {
       method: "POST",
       headers: {
-        apikey: KEY,
-        Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
         Prefer: "resolution=merge-duplicates,return=representation"
       },
@@ -88,9 +126,9 @@
   async function deleteRow(table, filter) {
     const token = auth()?.access_token;
     if (!token) throw new Error("No hay una sesión autenticada de Supabase.");
-    const response = await fetch(`${URL}/rest/v1/${table}?${filter}`, {
+    const response = await authorizedFetch(`${URL}/rest/v1/${table}?${filter}`, {
       method: "DELETE",
-      headers: { apikey: KEY, Authorization: `Bearer ${token}`, Prefer: "return=minimal" }
+      headers: { Prefer: "return=minimal" }
     });
     if (!response.ok) throw new Error(`No se pudo eliminar en ${table} (${response.status}): ${await response.text()}`);
   }
@@ -149,11 +187,9 @@
     const token = auth()?.access_token;
     if (!token) throw new Error("No hay una sesión autenticada para registrar el acceso.");
     if (!user?.authId) throw new Error("El perfil no está vinculado a una cuenta de Supabase Auth.");
-    const response = await fetch(`${URL}/rest/v1/audit_log`, {
+    const response = await authorizedFetch(`${URL}/rest/v1/audit_log`, {
       method: "POST",
       headers: {
-        apikey: KEY,
-        Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
         Prefer: "return=minimal"
       },
@@ -174,9 +210,9 @@
   async function manageUser(payload) {
     const token = auth()?.access_token;
     if (!token) throw new Error("No hay una sesión autenticada de Supabase.");
-    const response = await fetch(`${URL}/functions/v1/admin-manage-user`, {
+    const response = await authorizedFetch(`${URL}/functions/v1/admin-manage-user`, {
       method: "POST",
-      headers: { apikey: KEY, Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload)
     });
     const text = await response.text();
@@ -357,9 +393,9 @@
   async function postLinks(eventId, links) {
     const token = auth()?.access_token;
     if (!token) throw new Error("No hay una sesión autenticada de Supabase.");
-    const response = await fetch(`${URL}/rest/v1/maintenance_event_tickets?on_conflict=event_id,ticket_id`, {
+    const response = await authorizedFetch(`${URL}/rest/v1/maintenance_event_tickets?on_conflict=event_id,ticket_id`, {
       method: "POST",
-      headers: { apikey: KEY, Authorization: `Bearer ${token}`, "Content-Type": "application/json", Prefer: "resolution=merge-duplicates,return=minimal" },
+      headers: { "Content-Type": "application/json", Prefer: "resolution=merge-duplicates,return=minimal" },
       body: JSON.stringify(links)
     });
     if (!response.ok) throw new Error(`No se pudo vincular el ticket al evento (${response.status}): ${await response.text()}`);
