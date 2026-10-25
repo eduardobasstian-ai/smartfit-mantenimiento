@@ -1026,7 +1026,8 @@
     </div>
   </div>
   <script src="admin-store.js"></script>
-  <script src="supabase-data.js?v=20261025-auth-refresh"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase-data.js?v=20261025-realtime"></script>
   <script src="EQU/matrix-catalog.js"></script>
   <script src="EQU/booty-catalog.js"></script>
   <script src="EQU/other-catalogs.js"></script>
@@ -2365,7 +2366,7 @@
       }
     });
 
-    $("sitesBody").addEventListener("click", event => {
+    $("sitesBody").addEventListener("click", async event => {
       const editButton = event.target.closest("[data-edit-site]");
       const deleteButton = event.target.closest("[data-delete-site]");
       if (editButton) {
@@ -2376,7 +2377,11 @@
         const site = AdminStore.listSites().find(entry => entry.id === deleteButton.dataset.deleteSite);
         if (!site || !window.confirm(`¿Eliminar la sede ${site.name}?`)) return;
         try {
+          const block = AdminStore.siteDeletionBlock(site.id);
+          if (block) throw new Error(block);
+          await SmartFitSupabaseData.deleteSite(site.id);
           AdminStore.deleteSite(site.id);
+          await SmartFitSupabaseData.hydrate();
           render();
         } catch (error) {
           window.alert(error.message);
@@ -2384,7 +2389,7 @@
       }
     });
 
-    $("equipmentGrid").addEventListener("click", event => {
+    $("equipmentGrid").addEventListener("click", async event => {
       const editButton = event.target.closest("[data-edit-brand]");
       const deleteButton = event.target.closest("[data-delete-brand]");
       if (editButton) {
@@ -2396,7 +2401,11 @@
         const brand = AdminStore.listBrands().find(entry => entry.id === deleteButton.dataset.deleteBrand);
         if (!brand || !window.confirm(`¿Eliminar la marca ${brand.name}?`)) return;
         try {
+          const block = AdminStore.brandDeletionBlock(brand.id);
+          if (block) throw new Error(block);
+          await SmartFitSupabaseData.deleteBrand(brand.id);
           AdminStore.deleteBrand(brand.id);
+          await SmartFitSupabaseData.hydrate();
           render();
         } catch (error) {
           window.alert(error.message);
@@ -2476,20 +2485,30 @@
       }
     });
 
-    $("brandForm").addEventListener("submit", event => {
+    $("brandForm").addEventListener("submit", async event => {
       event.preventDefault();
+      const submitButton = event.target.querySelector('[type="submit"]');
       const fields = {
         name: $("brandName").value,
         equipmentCount: $("brandEquipmentCount").value
       };
       try {
-        if ($("brandId").value) AdminStore.updateBrand($("brandId").value, fields);
-        else AdminStore.createBrand(fields);
+        submitButton.disabled = true;
+        submitButton.textContent = "Guardando marca…";
+        const brand = $("brandId").value
+          ? AdminStore.updateBrand($("brandId").value, fields)
+          : AdminStore.createBrand(fields);
+        $("brandId").value = brand.id;
+        await SmartFitSupabaseData.persistBrand(brand);
+        await SmartFitSupabaseData.hydrate();
         closeBrandModal();
         render();
       } catch (error) {
         $("brandFormError").textContent = error.message;
         $("brandFormError").classList.add("visible");
+      } finally {
+        submitButton.disabled = false;
+        submitButton.textContent = "Guardar marca";
       }
     });
 
@@ -2520,7 +2539,10 @@
       if (!$('maintenanceHistoryView').hidden && !$('mileageHistoryBlank').hidden) renderMileageHistory();
     });
     SmartFitSupabaseData.hydrate().then(result => {
-      if (!result.skipped) window.dispatchEvent(new Event("smartfit:supabase-data-hydrated"));
+      if (!result.skipped) {
+        SmartFitSupabaseData.startRealtimeSync();
+        window.dispatchEvent(new Event("smartfit:supabase-data-hydrated"));
+      }
     }).catch(error => {
       console.error("No se pudieron cargar los datos de Supabase:", error);
       const message = $("supabaseLoadError");

@@ -6,6 +6,9 @@
   const RECORDS_KEY = "smartfit.machine-records.v1";
   const PENDING_KEY = "smartfit.supabase.pending.v1";
   const ACCESS_HISTORY_KEY = "smartfit.admin.access-history.v1";
+  let realtimeClient = null;
+  let realtimeChannel = null;
+  let realtimeRefreshTimer = null;
 
   function auth() {
     try { return JSON.parse(sessionStorage.getItem("smartfit.supabase.auth") || "null"); }
@@ -103,11 +106,11 @@
     }
     return text ? JSON.parse(text)[0] : null;
   }
-  async function postRows(table, rows, conflict = "legacy_id") {
+  async function postRows(table, rows, conflict = "legacy_id", returning = "id,legacy_id") {
     if (!Array.isArray(rows) || !rows.length) return [];
     const token = auth()?.access_token;
     if (!token) throw new Error("No hay una sesión autenticada de Supabase.");
-    const response = await authorizedFetch(`${URL}/rest/v1/${table}?on_conflict=${encodeURIComponent(conflict)}&select=id,legacy_id`, {
+    const response = await authorizedFetch(`${URL}/rest/v1/${table}?on_conflict=${encodeURIComponent(conflict)}&select=${encodeURIComponent(returning)}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -146,13 +149,34 @@
     });
     if (!remoteSite?.id) throw new Error("Supabase no devolvió el identificador de la sede guardada.");
 
-    // Si el inventario no se modificó en el formulario, solo se guarda la sede.
+    const [brands, remoteEquipment, assignments] = await Promise.all([
+      Array.isArray(site.equipment) ? getRows("brands", "id,legacy_id,name") : Promise.resolve([]),
+      Array.isArray(site.equipment) ? queryRows(`equipment?select=id,legacy_id&site_id=eq.${encodeURIComponent(remoteSite.id)}`) : Promise.resolve([]),
+      queryRows(`site_assignments?select=user_id,assignment_role&site_id=eq.${encodeURIComponent(remoteSite.id)}`)
+    ]);
+    const users = AdminStore.listUsers();
+    const desiredAssignments = [];
+    for (const [role, localUserId] of [["Técnico", site.technicianUserId], ["Supervisor", site.supervisorUserId]]) {
+      if (!localUserId) continue;
+      const localUser = users.find(user => String(user.id) === String(localUserId) && user.role === role && user.active);
+      if (!localUser) throw new Error(`No se encontró el perfil activo de ${role.toLocaleLowerCase("es")} seleccionado para la sede.`);
+      const userId = await profileIdForLegacy(localUser.id, session);
+      if (!userId) throw new Error(`La cuenta de ${role.toLocaleLowerCase("es")} seleccionada aún no está vinculada a Supabase.`);
+      desiredAssignments.push({ site_id: remoteSite.id, user_id: userId, assignment_role: role });
+    }
+    if (desiredAssignments.length) {
+      await postRows("site_assignments", desiredAssignments, "site_id,user_id,assignment_role", "id");
+    }
+    const desiredAssignmentKeys = new Set(desiredAssignments.map(row => `${row.assignment_role}::${row.user_id}`));
+    for (const row of assignments) {
+      const key = `${row.assignment_role}::${row.user_id}`;
+      if (["Técnico", "Supervisor"].includes(row.assignment_role) && !desiredAssignmentKeys.has(key)) {
+        await deleteRow("site_assignments", `site_id=eq.${encodeURIComponent(remoteSite.id)}&user_id=eq.${encodeURIComponent(row.user_id)}&assignment_role=eq.${encodeURIComponent(row.assignment_role)}`);
+      }
+    }
+    // Si el inventario no se modificó en el formulario, se conserva el remoto.
     if (!Array.isArray(site.equipment)) return remoteSite;
 
-    const [brands, remoteEquipment] = await Promise.all([
-      getRows("brands", "id,legacy_id,name"),
-      queryRows(`equipment?select=id,legacy_id&site_id=eq.${encodeURIComponent(remoteSite.id)}`)
-    ]);
     const brandIdByLegacy = new Map(brands.map(row => [String(row.legacy_id || ""), row.id]));
     const brandIdByName = new Map(brands.map(row => [cleanName(row.name), row.id]));
     const equipmentRows = [];
@@ -183,6 +207,18 @@
     }
     return { ...remoteSite, equipment: savedEquipment.length };
   }
+  async function persistBrand(brand) {
+    if (!brand?.id || !String(brand.name || "").trim()) throw new Error("Completa el nombre de la marca antes de guardar.");
+    return postRow("brands", { legacy_id: String(brand.id), name: String(brand.name).trim(), active: brand.active !== false });
+  }
+  async function deleteBrand(legacyId) {
+    const brand = await lookupOne("brands", "id,legacy_id", "legacy_id", legacyId);
+    if (brand?.id) await deleteRow("brands", `id=eq.${encodeURIComponent(brand.id)}`);
+  }
+  async function deleteSite(legacyId) {
+    const site = await lookupOne("sites", "id,legacy_id", "legacy_id", legacyId);
+    if (site?.id) await deleteRow("sites", `id=eq.${encodeURIComponent(site.id)}`);
+  }
   async function recordAccess(user) {
     const token = auth()?.access_token;
     if (!token) throw new Error("No hay una sesión autenticada para registrar el acceso.");
@@ -206,6 +242,46 @@
       })
     });
     if (!response.ok) throw new Error(`No se pudo registrar el acceso (${response.status}): ${await response.text()}`);
+  }
+  function startRealtimeSync() {
+    if (realtimeChannel) return true;
+    if (!auth()?.access_token) return false;
+    if (!global.supabase?.createClient) {
+      console.warn("No se pudo iniciar sincronización: falta cargar el cliente oficial de Supabase.");
+      return false;
+    }
+    realtimeClient = global.supabase.createClient(URL, KEY, {
+      auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+      accessToken: async () => {
+        try { return (await refreshAuth()).access_token; }
+        catch (error) {
+          console.warn("No se pudo renovar la sesión de tiempo real.", error);
+          return null;
+        }
+      }
+    });
+    realtimeChannel = realtimeClient.channel("smartfit-live-sync", { config: { private: true } });
+    const scheduleRefresh = () => {
+      clearTimeout(realtimeRefreshTimer);
+      realtimeRefreshTimer = setTimeout(async () => {
+        try {
+          const result = await hydrate();
+          if (!result.skipped) global.dispatchEvent(new Event("smartfit:supabase-data-hydrated"));
+        } catch (error) {
+          console.warn("No se pudieron actualizar los datos en tiempo real.", error);
+        }
+      }, 350);
+    };
+    // El mensaje de Broadcast solo anuncia que hubo un cambio; los datos siempre
+    // se vuelven a consultar por REST, donde Supabase aplica RLS por perfil.
+    realtimeChannel.on("broadcast", { event: "smartfit-change" }, scheduleRefresh);
+    realtimeChannel.subscribe((status, error) => {
+      if (status === "SUBSCRIBED") scheduleRefresh();
+      if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+        console.warn("La sincronización en tiempo real no pudo conectarse.", error || status);
+      }
+    });
+    return true;
   }
   async function manageUser(payload) {
     const token = auth()?.access_token;
@@ -716,5 +792,5 @@
     try { return JSON.parse(sessionStorage.getItem(key) || "null"); } catch (error) { return null; }
   }
 
-  global.SmartFitSupabaseData = { hydrate, manageUser, persistSite, recordAccess, persistTicket: persistTicketQueued, persistMachineRecord };
+  global.SmartFitSupabaseData = { hydrate, manageUser, persistSite, persistBrand, deleteBrand, deleteSite, recordAccess, startRealtimeSync, persistTicket: persistTicketQueued, persistMachineRecord };
 })(window);
