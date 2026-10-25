@@ -1014,6 +1014,7 @@
   </div>
 
   <script src="admin-store.js"></script>
+  <script src="supabase-data.js?v=20261025-login-audit"></script>
   <script src="supabase-auth.js"></script>
   <script>
     "use strict";
@@ -1172,7 +1173,12 @@
         SmartFitSupabaseAuth.clearSession();
         return;
       }
-      AdminStore.recordAccess(authenticatedUser);
+      try {
+        await SmartFitSupabaseData.recordAccess(authenticatedUser);
+      } catch (error) {
+        console.warn("No se pudo sincronizar el acceso; se conserva en este navegador.", error);
+        AdminStore.recordAccess(authenticatedUser);
+      }
       sessionStorage.setItem("smartfit.site.session", JSON.stringify(authenticatedUser));
       window.location.href = authenticatedUser.mustChangePassword ? "change-password.html" : "cpsedes.html";
     });
@@ -1267,7 +1273,12 @@
           message.textContent = "Esta cuenta no tiene el perfil Administrador.";
           return;
         }
-        AdminStore.recordAccess(admin);
+        try {
+          await SmartFitSupabaseData.recordAccess(admin);
+        } catch (error) {
+          console.warn("No se pudo sincronizar el acceso; se conserva en este navegador.", error);
+          AdminStore.recordAccess(admin);
+        }
         sessionStorage.setItem("smartfit.admin.session", JSON.stringify(admin));
         window.location.href = admin.mustChangePassword ? "change-password.html" : "cpadmin.html";
       });
@@ -1324,7 +1335,12 @@
           $("leaderMessage").textContent = "Esta cuenta no tiene el perfil Líder.";
           return;
         }
-        AdminStore.recordAccess(leader);
+        try {
+          await SmartFitSupabaseData.recordAccess(leader);
+        } catch (error) {
+          console.warn("No se pudo sincronizar el acceso; se conserva en este navegador.", error);
+          AdminStore.recordAccess(leader);
+        }
         sessionStorage.setItem("smartfit.leader.session", JSON.stringify(leader));
         window.location.href = leader.mustChangePassword ? "change-password.html" : "cplider.html";
       });

@@ -5,6 +5,7 @@
   const TICKETS_KEY = "smartfit.leader-tickets.v1";
   const RECORDS_KEY = "smartfit.machine-records.v1";
   const PENDING_KEY = "smartfit.supabase.pending.v1";
+  const ACCESS_HISTORY_KEY = "smartfit.admin.access-history.v1";
 
   function auth() {
     try { return JSON.parse(sessionStorage.getItem("smartfit.supabase.auth") || "null"); }
@@ -27,20 +28,21 @@
     try { const value = JSON.parse(localStorage.getItem(key) || ""); return value ?? fallback; }
     catch (error) { return fallback; }
   }
-  async function queryRows(path) {
+  async function queryRows(path, pageSize = 1000) {
     const token = auth()?.access_token;
     if (!token) return [];
     const rows = [];
-    for (let offset = 0; ; offset += 1000) {
+    const limit = Math.max(1, Math.min(1000, Number(pageSize) || 1000));
+    for (let offset = 0; ; offset += limit) {
       const separator = path.includes("?") ? "&" : "?";
-      const response = await fetch(`${URL}/rest/v1/${path}${separator}limit=1000&offset=${offset}`, {
+      const response = await fetch(`${URL}/rest/v1/${path}${separator}limit=${limit}&offset=${offset}`, {
         headers: { apikey: KEY, Authorization: `Bearer ${token}` }
       });
       const text = await response.text();
       if (!response.ok) throw new Error(`No se pudo consultar Supabase (${response.status}): ${text}`);
       const page = text ? JSON.parse(text) : [];
       rows.push(...page);
-      if (page.length < 1000) break;
+      if (page.length < limit) break;
     }
     return rows;
   }
@@ -142,6 +144,32 @@
       await deleteRow("equipment", `id=eq.${encodeURIComponent(row.id)}`);
     }
     return { ...remoteSite, equipment: savedEquipment.length };
+  }
+  async function recordAccess(user) {
+    const token = auth()?.access_token;
+    if (!token) throw new Error("No hay una sesión autenticada para registrar el acceso.");
+    if (!user?.authId) throw new Error("El perfil no está vinculado a una cuenta de Supabase Auth.");
+    const response = await fetch(`${URL}/rest/v1/audit_log`, {
+      method: "POST",
+      headers: {
+        apikey: KEY,
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+        Prefer: "return=minimal"
+      },
+      body: JSON.stringify({
+        actor_id: user.authId,
+        action: "login_success",
+        entity_type: "profile",
+        entity_id: user.authId,
+        details: {
+          full_name: String(user.name || "Usuario"),
+          username: String(user.username || "—"),
+          role: String(user.role || "Usuario")
+        }
+      })
+    });
+    if (!response.ok) throw new Error(`No se pudo registrar el acceso (${response.status}): ${await response.text()}`);
   }
   async function manageUser(payload) {
     const token = auth()?.access_token;
@@ -549,7 +577,7 @@
   async function hydrate() {
     if (!auth()?.access_token) return { skipped: true };
     const canReadAccountEmails = appSession()?.role === "Administrador";
-    const [sites, brands, equipment, tickets, events, mileageRows, eventLinks, profiles, assignments, accountAccess] = await Promise.all([
+    const [sites, brands, equipment, tickets, events, mileageRows, eventLinks, profiles, assignments, accountAccess, accessRows] = await Promise.all([
       getRows("sites", "id,legacy_id,name,region,internal_code,active"),
       getRows("brands", "id,legacy_id,name,active"),
       getRows("equipment", "id,legacy_id,site_id,brand_id,fixed_asset,name,model,category,image_url,active,metadata"),
@@ -564,6 +592,9 @@
           console.warn("No se pudo consultar el directorio de correos de administración; se continúa cargando el panel.", error);
           return [];
         })
+        : Promise.resolve([]),
+      canReadAccountEmails
+        ? queryRows("audit_log?select=id,actor_id,action,entity_id,details,created_at&action=eq.login_success&order=created_at.desc", 15)
         : Promise.resolve([])
     ]);
     const siteIdToLegacy = new Map(sites.map(row => [row.id, String(row.legacy_id || "")]));
@@ -609,6 +640,20 @@
     }));
     const mergedUsers = mergeById(localUsers, hydratedUsers);
     mergedUsers.forEach(user => { if (user.authId) user.password = ""; });
+    if (canReadAccountEmails) {
+      const remoteAccesses = accessRows.map(row => ({
+        userId: String(row.actor_id || row.entity_id || ""),
+        name: String(row.details?.full_name || "Usuario"),
+        username: String(row.details?.username || "—"),
+        role: String(row.details?.role || "Usuario"),
+        accessedAt: row.created_at
+      }));
+      const localAccesses = parseLocal(ACCESS_HISTORY_KEY, []);
+      const mergedAccesses = [...remoteAccesses, ...(Array.isArray(localAccesses) ? localAccesses : [])]
+        .filter(entry => entry?.accessedAt)
+        .sort((a, b) => String(b.accessedAt).localeCompare(String(a.accessedAt)));
+      setLocal(ACCESS_HISTORY_KEY, mergedAccesses.slice(0, 500));
+    }
     const ticketUuidToLegacy = new Map(tickets.map(row => [row.id, String(row.legacy_id || "")]));
     const hydratedRecords = hydrateRecords(events, mileageRows, eventLinks, ticketUuidToLegacy, siteIdToLegacy, profileIdToLegacy);
     const localTickets = parseLocal(TICKETS_KEY, []);
@@ -635,5 +680,5 @@
     try { return JSON.parse(sessionStorage.getItem(key) || "null"); } catch (error) { return null; }
   }
 
-  global.SmartFitSupabaseData = { hydrate, manageUser, persistSite, persistTicket: persistTicketQueued, persistMachineRecord };
+  global.SmartFitSupabaseData = { hydrate, manageUser, persistSite, recordAccess, persistTicket: persistTicketQueued, persistMachineRecord };
 })(window);
