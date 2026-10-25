@@ -2502,7 +2502,7 @@
     setupChartInteractions();
     render();
     window.addEventListener("smartfit:supabase-data-hydrated", () => {
-      if (!$('usersView').hidden) render();
+      render();
       if (!$('ticketsView').hidden) renderTickets();
       if (!$('maintenanceHistoryView').hidden && !$('maintenanceHistoryBlank').hidden) renderMaintenanceHistory();
       if (!$('maintenanceHistoryView').hidden && !$('mileageHistoryBlank').hidden) renderMileageHistory();

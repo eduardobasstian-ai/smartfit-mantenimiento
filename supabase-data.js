@@ -513,9 +513,19 @@
       assignmentSitesByUser.set(row.user_id, list);
     });
     const siteRowsForLocal = hydrateSites(sites, brands, equipment, parseLocal("smartfit.admin.sites.v1", []));
-    const brandRowsForLocal = mergeById(parseLocal("smartfit.admin.brands.v1", []), brands.map(row => ({
-      id: String(row.legacy_id || row.id), name: row.name, active: row.active !== false
-    })));
+    const brandLegacyIdByUuid = new Map(brands.map(row => [row.id, String(row.legacy_id || row.id)]));
+    const equipmentCountByBrand = new Map();
+    equipment.forEach(row => {
+      const brandId = brandLegacyIdByUuid.get(row.brand_id) || String(row.metadata?.legacyBrandId || "");
+      if (brandId) equipmentCountByBrand.set(brandId, (equipmentCountByBrand.get(brandId) || 0) + 1);
+    });
+    const brandRowsForLocal = mergeById(parseLocal("smartfit.admin.brands.v1", []), brands.map(row => {
+      const id = String(row.legacy_id || row.id);
+      return {
+        id, name: row.name, active: row.active !== false,
+        equipmentCount: equipmentCountByBrand.get(id) || 0
+      };
+    }));
     const hydratedTickets = hydrateTickets(tickets, siteIdToLegacy, profileIdToLegacy);
     const localUsers = parseLocal("smartfit.admin.users.v1", []);
     const hydratedUsers = profiles.filter(row => row.legacy_id).map(row => ({
