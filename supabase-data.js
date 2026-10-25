@@ -61,6 +61,28 @@
     }
     return text ? JSON.parse(text)[0] : null;
   }
+  async function postRows(table, rows, conflict = "legacy_id") {
+    if (!Array.isArray(rows) || !rows.length) return [];
+    const token = auth()?.access_token;
+    if (!token) throw new Error("No hay una sesión autenticada de Supabase.");
+    const response = await fetch(`${URL}/rest/v1/${table}?on_conflict=${encodeURIComponent(conflict)}&select=id,legacy_id`, {
+      method: "POST",
+      headers: {
+        apikey: KEY,
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+        Prefer: "resolution=merge-duplicates,return=representation"
+      },
+      body: JSON.stringify(rows)
+    });
+    const text = await response.text();
+    if (!response.ok) {
+      let message = text;
+      try { const data = JSON.parse(text); message = data.message || data.details || text; } catch (error) {}
+      throw new Error(`No se pudo guardar en ${table} (${response.status}): ${message}`);
+    }
+    return text ? JSON.parse(text) : [];
+  }
   async function deleteRow(table, filter) {
     const token = auth()?.access_token;
     if (!token) throw new Error("No hay una sesión autenticada de Supabase.");
@@ -69,6 +91,57 @@
       headers: { apikey: KEY, Authorization: `Bearer ${token}`, Prefer: "return=minimal" }
     });
     if (!response.ok) throw new Error(`No se pudo eliminar en ${table} (${response.status}): ${await response.text()}`);
+  }
+  async function persistSite(site) {
+    if (!site || !site.id) throw new Error("No se encontró la sede que se debe guardar.");
+    const session = appSession();
+    if (session?.role !== "Administrador") throw new Error("Solo un administrador puede guardar sedes e inventario.");
+
+    const remoteSite = await postRow("sites", {
+      legacy_id: String(site.id),
+      internal_code: Number(site.internalCode) || null,
+      name: String(site.name || "").trim(),
+      region: String(site.region || "").trim() || null,
+      active: site.active !== false
+    });
+    if (!remoteSite?.id) throw new Error("Supabase no devolvió el identificador de la sede guardada.");
+
+    // Si el inventario no se modificó en el formulario, solo se guarda la sede.
+    if (!Array.isArray(site.equipment)) return remoteSite;
+
+    const [brands, remoteEquipment] = await Promise.all([
+      getRows("brands", "id,legacy_id,name"),
+      queryRows(`equipment?select=id,legacy_id&site_id=eq.${encodeURIComponent(remoteSite.id)}`)
+    ]);
+    const brandIdByLegacy = new Map(brands.map(row => [String(row.legacy_id || ""), row.id]));
+    const brandIdByName = new Map(brands.map(row => [cleanName(row.name), row.id]));
+    const equipmentRows = [];
+    for (const [groupIndex, group] of site.equipment.entries()) {
+      for (const [unitIndex, unit] of (Array.isArray(group.units) ? group.units : []).entries()) {
+        const brandLegacyId = String(group.brandId || group.catalogId || "");
+        const brandId = brandIdByLegacy.get(brandLegacyId) || brandIdByName.get(cleanName(group.brandName)) || null;
+        equipmentRows.push({
+          legacy_id: `${site.id}::${group.brandId || group.catalogId || groupIndex}::${unit.unitId || unitIndex}`,
+          site_id: remoteSite.id,
+          brand_id: brandId,
+          fixed_asset: unit.activeFixed === "" || unit.activeFixed === null || unit.activeFixed === undefined ? null : String(unit.activeFixed),
+          name: String(group.name || "Equipo sin nombre"),
+          model: String(group.model || "") || null,
+          category: String(group.category || "") || null,
+          image_url: String(group.image || "") || null,
+          active: true,
+          metadata: { legacyBrandId: group.brandId || null, catalogId: group.catalogId || null }
+        });
+      }
+    }
+
+    const savedEquipment = await postRows("equipment", equipmentRows);
+    const retainedLegacyIds = new Set(equipmentRows.map(row => row.legacy_id));
+    const staleRows = remoteEquipment.filter(row => row.legacy_id && !retainedLegacyIds.has(String(row.legacy_id)));
+    for (const row of staleRows) {
+      await deleteRow("equipment", `id=eq.${encodeURIComponent(row.id)}`);
+    }
+    return { ...remoteSite, equipment: savedEquipment.length };
   }
   async function manageUser(payload) {
     const token = auth()?.access_token;
@@ -386,8 +459,8 @@
         name: row.name || prior.name,
         region: row.region || prior.region || "",
         internalCode: row.internal_code ?? prior.internalCode,
-        equipment: groups.length ? groups : (prior.equipment || []),
-        machineCount: groups.length ? groups.reduce((sum, group) => sum + group.quantity, 0) : Number(prior.machineCount) || 0,
+        equipment: groups,
+        machineCount: groups.reduce((sum, group) => sum + group.quantity, 0),
         active: row.active
       }));
     });
@@ -562,5 +635,5 @@
     try { return JSON.parse(sessionStorage.getItem(key) || "null"); } catch (error) { return null; }
   }
 
-  global.SmartFitSupabaseData = { hydrate, manageUser, persistTicket: persistTicketQueued, persistMachineRecord };
+  global.SmartFitSupabaseData = { hydrate, manageUser, persistSite, persistTicket: persistTicketQueued, persistMachineRecord };
 })(window);

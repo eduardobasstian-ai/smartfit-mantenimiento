@@ -2443,8 +2443,9 @@
       }
     });
 
-    $("siteForm").addEventListener("submit", event => {
+    $("siteForm").addEventListener("submit", async event => {
       event.preventDefault();
+      const submitButton = event.target.querySelector('[type="submit"]');
       const fields = {
         name: $("siteName").value,
         region: $("siteRegion").value,
@@ -2454,13 +2455,24 @@
         equipment: siteEquipmentTouched || !$("siteId").value ? selectedSiteEquipment : undefined
       };
       try {
-        if ($("siteId").value) AdminStore.updateSite($("siteId").value, fields);
-        else AdminStore.createSite(fields);
+        submitButton.disabled = true;
+        submitButton.textContent = "Guardando sede y equipos…";
+        const site = $("siteId").value
+          ? AdminStore.updateSite($("siteId").value, fields)
+          : AdminStore.createSite(fields);
+        // Guardar el identificador local para que, si falla la red, el reintento
+        // actualice esta misma sede en vez de crear un duplicado.
+        $("siteId").value = site.id;
+        await SmartFitSupabaseData.persistSite(site);
+        await SmartFitSupabaseData.hydrate();
         closeSiteModal();
         render();
       } catch (error) {
         $("siteFormError").textContent = error.message;
         $("siteFormError").classList.add("visible");
+      } finally {
+        submitButton.disabled = false;
+        submitButton.textContent = "Guardar sede";
       }
     });
 
