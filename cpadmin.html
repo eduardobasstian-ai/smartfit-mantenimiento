@@ -507,6 +507,7 @@
     </nav>
 
     <main class="main-content">
+      <div class="form-error" id="supabaseLoadError" role="alert" style="margin:0 0 16px;"></div>
       <section class="view" id="overviewView">
         <div class="page-heading">
           <div>
@@ -2508,7 +2509,12 @@
     });
     SmartFitSupabaseData.hydrate().then(result => {
       if (!result.skipped) window.dispatchEvent(new Event("smartfit:supabase-data-hydrated"));
-    }).catch(error => console.error("No se pudieron cargar los datos de Supabase:", error));
+    }).catch(error => {
+      console.error("No se pudieron cargar los datos de Supabase:", error);
+      const message = $("supabaseLoadError");
+      message.textContent = `No se pudieron cargar usuarios y sedes desde Supabase. ${error.message || "Revisa la conexión y vuelve a cargar el panel."}`;
+      message.classList.add("visible");
+    });
   </script>
 </body>
 </html>

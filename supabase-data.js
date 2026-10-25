@@ -486,7 +486,12 @@
       getRows("maintenance_event_tickets", "event_id,ticket_id"),
       getRows("profiles", "id,legacy_id,full_name,username,role,active,password_change_required,updated_at"),
       getRows("site_assignments", "site_id,user_id,assignment_role"),
-      canReadAccountEmails ? getRows("admin_user_access", "profile_id,email") : Promise.resolve([])
+      canReadAccountEmails
+        ? getRows("admin_user_access", "profile_id,email").catch(error => {
+          console.warn("No se pudo consultar el directorio de correos de administración; se continúa cargando el panel.", error);
+          return [];
+        })
+        : Promise.resolve([])
     ]);
     const siteIdToLegacy = new Map(sites.map(row => [row.id, String(row.legacy_id || "")]));
     // La función de login devuelve asignaciones como UUID de Supabase; las vistas locales
