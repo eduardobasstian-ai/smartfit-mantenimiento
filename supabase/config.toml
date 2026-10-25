@@ -1,0 +1,7 @@
+[functions.login-by-username]
+verify_jwt = false
+
+[functions.admin-manage-user]
+# La función valida la sesión con auth.getUser() y comprueba el rol administrador.
+# Desactivar el filtro del gateway evita rechazos prematuros por formato/firma JWT.
+verify_jwt = false

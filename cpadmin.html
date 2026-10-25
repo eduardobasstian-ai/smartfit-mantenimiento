@@ -1,0 +1,2514 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#101116">
+  <title>Panel administrador | Mantenimiento</title>
+  <link rel="icon" type="image/x-icon" href="IMG/favicon.ico">
+  <link rel="icon" type="image/png" href="IMG/favicon.png">
+  <style>
+    :root {
+      --bg: #101116;
+      --panel: #191b22;
+      --panel-2: #22252e;
+      --border: #343743;
+      --yellow: #ffb51b;
+      --yellow-hover: #ffc443;
+      --text: #f5f5f7;
+      --muted: #a3a6b2;
+      --danger: #ff737b;
+      --green: #35c987;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: radial-gradient(ellipse at 50% 0%, #25232a 0%, transparent 55%), var(--bg);
+      color: var(--text);
+      font-family: Inter, "Segoe UI", Arial, sans-serif;
+    }
+    button, input, select { font: inherit; }
+    button { cursor: pointer; }
+    button:focus-visible, input:focus-visible, select:focus-visible {
+      outline: 2px solid var(--yellow);
+      outline-offset: 3px;
+    }
+    .topbar {
+      min-height: 76px;
+      padding: 14px clamp(18px, 5vw, 64px);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 18px;
+      border-bottom: 1px solid #292b33;
+    }
+    .brand { display: flex; align-items: center; gap: 13px; }
+    .brand img { width: auto; height: 42px; max-width: 120px; object-fit: contain; }
+    .brand-title { margin: 0; font-size: 14px; font-weight: 800; letter-spacing: .5px; }
+    .brand-subtitle { margin: 5px 0 0; color: var(--muted); font-size: 12px; }
+    .top-actions { display: flex; align-items: center; gap: 12px; }
+    .admin-identity { color: var(--muted); font-size: 13px; }
+    .admin-identity strong { color: var(--text); }
+    .logout-button, .primary-button, .secondary-button, .danger-button, .nav-button {
+      border-radius: 10px;
+      font-weight: 750;
+      transition: background .15s, border-color .15s, transform .15s;
+    }
+    .logout-button {
+      min-height: 40px;
+      padding: 0 13px;
+      border: 1px solid #4b4028;
+      background: #2c261b;
+      color: var(--yellow);
+      font-size: 12px;
+    }
+    .logout-button:hover { border-color: var(--yellow); background: #3a301f; }
+
+    .layout {
+      width: min(1320px, 100%);
+      margin: 0 auto;
+      padding: 30px 22px 50px;
+      display: grid;
+      grid-template-columns: 220px minmax(0, 1fr);
+      gap: 24px;
+    }
+    .sidebar {
+      align-self: start;
+      padding: 14px;
+      background: #191b22cc;
+      border: 1px solid var(--border);
+      border-radius: 17px;
+    }
+    .sidebar-label {
+      margin: 4px 10px 12px;
+      color: #777b87;
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 1.4px;
+      text-transform: uppercase;
+    }
+    .nav-button {
+      width: 100%;
+      min-height: 44px;
+      padding: 0 11px;
+      margin: 3px 0;
+      border: 1px solid transparent;
+      background: transparent;
+      color: #c9cad0;
+      text-align: left;
+      font-size: 13px;
+    }
+    .nav-button:hover, .nav-button.active {
+      border-color: #4b4028;
+      background: #2c261b;
+      color: var(--yellow);
+    }
+    .main-content { min-width: 0; }
+    .view[hidden] { display: none; }
+    .page-heading {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 18px;
+      margin: 2px 0 24px;
+    }
+    .eyebrow {
+      margin-bottom: 8px;
+      color: var(--yellow);
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 1.8px;
+      text-transform: uppercase;
+    }
+    h1 { margin: 0; font-size: clamp(24px, 3vw, 32px); letter-spacing: -.5px; }
+    .page-description { margin: 8px 0 0; color: var(--muted); font-size: 13px; line-height: 1.55; }
+    .primary-button {
+      min-height: 44px;
+      padding: 0 15px;
+      border: 0;
+      background: var(--yellow);
+      color: #171717;
+      font-size: 13px;
+    }
+    .primary-button:hover { background: var(--yellow-hover); transform: translateY(-1px); }
+    .secondary-button {
+      min-height: 38px;
+      padding: 0 12px;
+      border: 1px solid #383b47;
+      background: #20222a;
+      color: #e7e7eb;
+      font-size: 12px;
+    }
+    .secondary-button:hover { border-color: #626573; background: #2b2e38; }
+    .danger-button {
+      min-height: 34px;
+      padding: 0 10px;
+      border: 1px solid #63363b;
+      background: #3a2025;
+      color: #ffb5b9;
+      font-size: 11px;
+    }
+    .danger-button:hover { border-color: var(--danger); background: #4b2028; }
+    .danger-button:disabled { opacity: .48; cursor: not-allowed; }
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(175px, 1fr));
+      gap: 14px;
+      margin-bottom: 20px;
+    }
+    .stat-card, .panel-card {
+      background: linear-gradient(145deg, #1d1f27, #17191f);
+      border: 1px solid #353743;
+      border-radius: 16px;
+      box-shadow: 0 14px 40px #0002;
+    }
+    .stat-card { padding: 19px; }
+    .stat-label { color: var(--muted); font-size: 12px; }
+    .stat-value { margin-top: 10px; font-size: 29px; font-weight: 850; }
+    .stat-detail { margin-top: 5px; color: #777b87; font-size: 11px; }
+    .charts-section { margin-bottom: 20px; }
+    .charts-section > .panel-heading { margin-bottom: 14px; }
+    .charts-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 350px), 1fr)); gap: 14px; }
+    .chart-card { min-width: 0; padding: 16px; border: 1px solid #353743; border-radius: 14px; background: #17191f; }
+    .chart-card-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+    .chart-card h3 { margin: 0; font-size: 14px; }
+    .chart-card p { margin: 5px 0 0; color: var(--muted); font-size: 11px; }
+    .chart-filter { width: auto; min-width: 145px; min-height: 34px; padding: 0 9px; font-size: 11px; }
+    .chart-content { display: grid; grid-template-columns: minmax(150px, 205px) minmax(120px, 1fr); align-items: center; gap: 12px; margin-top: 10px; }
+    .pie-wrap { position: relative; width: 100%; max-width: 205px; aspect-ratio: 1; margin: auto; }
+    .pie-svg { display: block; width: 100%; height: 100%; overflow: visible; }
+    .pie-slice { stroke: #17191f; stroke-width: 1.2; cursor: pointer; transition: opacity .15s, filter .15s, transform .15s; transform-origin: 100px 100px; }
+    .pie-slice:hover, .pie-slice.selected { filter: brightness(1.22); stroke: #fff; stroke-width: 2.2; }
+    .pie-slice.dimmed { opacity: .32; }
+    .pie-tooltip { position: absolute; z-index: 2; top: 50%; left: 50%; min-width: 105px; max-width: 180px; padding: 8px 10px; transform: translate(-50%, -50%); border: 1px solid #555866; border-radius: 9px; background: #101116ed; color: var(--text); text-align: center; font-size: 11px; line-height: 1.45; pointer-events: none; box-shadow: 0 8px 24px #0008; }
+    .pie-tooltip[hidden] { display: none; }
+    .pie-empty { fill: #30333d; }
+    .chart-legend { display: grid; gap: 5px; max-height: 210px; overflow: auto; padding-right: 3px; }
+    .legend-item { display: flex; align-items: center; gap: 7px; width: 100%; padding: 5px 6px; border: 1px solid transparent; border-radius: 7px; background: transparent; color: #d9dae0; text-align: left; font-size: 10px; cursor: pointer; }
+    .legend-item:hover, .legend-item.selected { border-color: #4b4028; background: #2c261b; }
+    .legend-dot { flex: 0 0 9px; width: 9px; height: 9px; border-radius: 50%; }
+    .legend-name { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .legend-value { color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .chart-empty { grid-column: 1 / -1; padding: 16px; color: var(--muted); text-align: center; font-size: 12px; }
+    .panel-card { padding: 20px; }
+    .panel-heading {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 16px;
+    }
+    .panel-heading h2 { margin: 0; font-size: 16px; }
+    .panel-heading p { margin: 6px 0 0; color: var(--muted); font-size: 12px; }
+    .note {
+      display: flex;
+      gap: 11px;
+      margin-top: 16px;
+      padding: 14px;
+      border: 1px solid #4b4028;
+      border-radius: 11px;
+      background: #2c261b;
+      color: #e8d5ae;
+      font-size: 12px;
+      line-height: 1.6;
+    }
+    .note strong { color: var(--yellow); }
+    .table-tools { display: flex; gap: 10px; align-items: center; }
+    .search-input, .form-control {
+      width: 100%;
+      min-height: 42px;
+      padding: 0 12px;
+      border: 1px solid #383b47;
+      border-radius: 10px;
+      background: #111319;
+      color: var(--text);
+      font-size: 13px;
+    }
+    .search-input { width: min(270px, 45vw); }
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; min-width: 690px; }
+    th, td { padding: 13px 11px; border-bottom: 1px solid #30323c; text-align: left; }
+    th { color: #858895; font-size: 10px; font-weight: 800; letter-spacing: .7px; text-transform: uppercase; }
+    td { color: #e7e7eb; font-size: 12px; }
+    tbody tr:last-child td { border-bottom: 0; }
+    .user-name { font-weight: 750; }
+    .subtext { display: block; margin-top: 4px; color: var(--muted); font-size: 11px; }
+    .role-badge, .status-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 5px 8px;
+      border-radius: 20px;
+      background: #2c261b;
+      color: var(--yellow);
+      font-size: 10px;
+      font-weight: 800;
+    }
+    .status-badge.active { background: #153b2d; color: #a7f3d0; }
+    .status-badge.inactive { background: #3a2025; color: #ffb5b9; }
+    .status-badge.in-progress { background: #1d3042; color: #a9d7ff; }
+    .status-badge.pending { background: #3b321d; color: #f7d98a; }
+    .row-actions { display: flex; justify-content: flex-end; gap: 7px; }
+    .empty-state { padding: 30px 12px; color: var(--muted); text-align: center; font-size: 13px; }
+    .settings-list { display: grid; gap: 12px; }
+    .history-filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(145px, 1fr)); gap: 10px; margin: 18px 0; }
+    .history-filter { display: grid; gap: 6px; color: var(--muted); font-size: 11px; font-weight: 700; }
+    .history-filter .form-control { min-width: 0; min-height: 38px; font-size: 12px; }
+    .history-table { min-width: 1120px; }
+    .event-status { display: inline-flex; padding: 5px 8px; border-radius: 20px; background: #30333d; color: #e7e7eb; font-size: 10px; font-weight: 800; white-space: nowrap; }
+    .event-ticket-mark { display: inline-flex; align-items: center; gap: 5px; padding: 4px 8px; border-radius: 20px; background: #3b321d; color: var(--yellow); font-size: 10px; font-weight: 800; white-space: nowrap; }
+    .event-ticket-mark[aria-label] { cursor: help; }
+    .history-event-detail { display: block; max-width: 320px; margin-top: 4px; color: var(--muted); font-size: 10px; line-height: 1.45; white-space: normal; }
+    .setting-row { padding: 15px; border: 1px solid #30323c; border-radius: 11px; background: #15171d; }
+    .setting-row strong { display: block; font-size: 13px; }
+    .setting-row p { margin: 6px 0 0; color: var(--muted); font-size: 12px; line-height: 1.6; }
+    .equipment-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    .equipment-card { min-height: 88px; padding: 15px 16px; display: flex; justify-content: space-between; align-items: center; gap: 12px; border: 1px solid #343743; border-radius: 12px; background: #22252e; }
+    .equipment-card h3 { margin: 0; font-size: 14px; }
+    .equipment-card p { margin: 6px 0 0; color: var(--muted); font-size: 12px; }
+    .equipment-actions { display: flex; flex-shrink: 0; gap: 6px; }
+    .equipment-actions button { min-height: 30px; padding: 0 8px; font-size: 10px; }
+    .brand-open { display: block; min-width: 0; padding: 0; border: 0; background: transparent; color: inherit; text-align: left; }
+    .brand-open[data-open-brand="brand-matrix"] { cursor: pointer; }
+    .brand-open[data-open-brand="brand-matrix"]:hover h3 { color: var(--yellow); }
+    .equipment-steps { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 22px; color: #9295a1; font-size: 12px; }
+    .equipment-steps .current { color: var(--yellow); font-weight: 800; }
+    .equipment-steps .step-arrow { color: #696d79; }
+    .detail-title-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 17px; }
+    .detail-title-row h2 { margin: 0; font-size: 20px; }
+    .detail-search { width: 100%; margin-bottom: 18px; }
+    .matrix-list { max-height: 430px; overflow-y: auto; padding: 1px 5px 2px 1px; scrollbar-color: #8e6411 #101116; scrollbar-width: thin; }
+    .matrix-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+    .matrix-item { min-height: 104px; display: flex; align-items: center; gap: 13px; padding: 14px 16px; border: 1px solid #343743; border-radius: 13px; background: #171920; }
+    .matrix-item:hover { border-color: #a66f06; }
+    .matrix-thumb { width: 54px; height: 54px; flex: 0 0 54px; display: block; border: 1px solid #e6e7eb; border-radius: 11px; background: #f5f5f7; object-fit: contain; padding: 3px; cursor: zoom-in; }
+    .matrix-thumb:hover { border-color: var(--yellow); }
+    .matrix-thumb-wrap { position: relative; width: 54px; height: 54px; flex: 0 0 54px; }
+    .matrix-thumb-wrap.is-empty { visibility: hidden; }
+    .matrix-info { min-width: 0; }
+    .matrix-info h3 { margin: 0; font-size: 14px; }
+    .matrix-info p { margin: 5px 0 7px; color: #a3a6b2; font-family: Consolas, monospace; font-size: 11px; }
+    .equipment-tag { display: inline-block; padding: 5px 9px; border-radius: 20px; background: #282a32; color: #d8d9de; font-size: 9px; font-weight: 800; }
+    .detail-footer { margin-top: 15px; padding-top: 14px; border-top: 1px solid #30323c; }
+    .detail-footer button { min-height: 39px; }
+    .equipment-modal { width: min(820px, 100%); }
+    .equipment-modal .modal-body { padding: 18px 20px 20px; }
+    .lightbox-backdrop { position: fixed; z-index: 200; inset: 0; padding: 24px; display: grid; place-items: center; background: #000e; }
+    .lightbox-backdrop[hidden] { display: none; }
+    .lightbox-frame { position: relative; width: fit-content; height: fit-content; max-width: 92vw; max-height: 90vh; display: grid; place-items: center; overflow: hidden; border: 1px solid #555966; border-radius: 14px; background: #f5f5f7; box-shadow: 0 24px 90px #000b; }
+    .lightbox-image { display: block; width: auto; height: auto; max-width: 90vw; max-height: 88vh; object-fit: contain; }
+    .lightbox-close { position: absolute; z-index: 1; top: 12px; right: 12px; width: 38px; height: 38px; border: 1px solid #d1d3d8; border-radius: 50%; background: #fff; color: #17191f; font-size: 23px; line-height: 1; box-shadow: 0 2px 12px #0003; }
+    .lightbox-close:hover { border-color: var(--yellow); color: #8a5a00; }
+    @media (max-width: 520px) {
+      .lightbox-backdrop { padding: 10px; }
+      .lightbox-frame { max-width: 96vw; max-height: 90vh; border-radius: 11px; }
+      .lightbox-image { max-width: 94vw; max-height: 88vh; }
+      .lightbox-close { top: 8px; right: 8px; }
+    }
+
+    .modal-backdrop {
+      position: fixed;
+      z-index: 100;
+      inset: 0;
+      padding: 18px;
+      display: grid;
+      place-items: center;
+      background: #000b;
+      backdrop-filter: blur(5px);
+    }
+    .modal-backdrop[hidden] { display: none; }
+    .site-equipment-backdrop { z-index: 120; }
+    .modal {
+      width: min(500px, 100%);
+      max-height: min(90vh, 720px);
+      overflow: auto;
+      border: 1px solid #3a3d48;
+      border-radius: 18px;
+      background: #191b22;
+      box-shadow: 0 24px 80px #0008;
+    }
+    .ticket-detail-modal { width: min(720px, 100%); }
+    .ticket-detail-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+    .ticket-detail-item { min-width: 0; padding: 11px; border: 1px solid #30323c; border-radius: 9px; background: #15171d; }
+    .ticket-detail-item.full { grid-column: 1 / -1; }
+    .ticket-detail-label { display: block; margin-bottom: 5px; color: var(--muted); font-size: 11px; }
+    .ticket-detail-value { color: var(--text); font-size: 12px; overflow-wrap: anywhere; white-space: pre-wrap; }
+    .ticket-detail-photos { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 8px; }
+    .ticket-detail-photos img { width: 120px; height: 100px; object-fit: cover; border: 1px solid #3d404b; border-radius: 9px; }
+    @media (max-width: 560px) { .ticket-detail-grid { grid-template-columns: 1fr; } .ticket-detail-item.full { grid-column: auto; } }
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 14px;
+      padding: 18px 20px;
+      border-bottom: 1px solid var(--border);
+    }
+    .modal-header h2 { margin: 0; font-size: 17px; }
+    .modal-close {
+      width: 34px;
+      height: 34px;
+      border: 1px solid #3d404b;
+      border-radius: 9px;
+      background: #252731;
+      color: white;
+      font-size: 20px;
+    }
+    .modal-body { padding: 20px; }
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .form-field { display: grid; gap: 7px; }
+    .form-field.full { grid-column: 1 / -1; }
+    .form-field label { font-size: 12px; font-weight: 750; }
+    .form-help { color: var(--muted); font-size: 11px; line-height: 1.5; }
+    .form-select { appearance: none; }
+    .site-checklist { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+    .site-check {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      padding: 10px;
+      border: 1px solid #30323c;
+      border-radius: 9px;
+      background: #15171d;
+      color: #e7e7eb;
+      font-size: 11px;
+      font-weight: 600;
+      line-height: 1.4;
+    }
+    .site-check input { flex-shrink: 0; accent-color: var(--yellow); }
+    .site-check[hidden] { display: none; }
+    .site-equipment-toolbar { display: grid; grid-template-columns: minmax(180px, .7fr) minmax(220px, 1.3fr); gap: 10px; margin-bottom: 14px; }
+    .site-equipment-choice { display: flex; align-items: center; gap: 12px; min-width: 0; padding: 11px; border: 1px solid #343743; border-radius: 12px; background: #171920; }
+    .site-equipment-choice.is-selected { border-color: #a66f06; }
+    .site-equipment-choice > input[type="checkbox"] { flex: 0 0 auto; accent-color: var(--yellow); width: 17px; height: 17px; }
+    .site-equipment-choice .matrix-thumb-wrap, .site-equipment-choice .matrix-thumb { width: 48px; height: 48px; flex-basis: 48px; }
+    .site-equipment-choice .matrix-info { flex: 1; }
+    .site-equipment-choice .matrix-info h3 { font-size: 12px; }
+    .site-equipment-choice .matrix-info p { margin-bottom: 4px; }
+    .site-equipment-quantity { width: 67px; min-height: 36px; padding: 0 7px; }
+    .site-equipment-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 14px; padding-top: 14px; border-top: 1px solid #30323c; }
+    .site-equipment-footer .form-help { flex: 1; }
+    .inventory-modal { width: min(1120px, 100%); }
+    .inventory-filter-tools { display: grid; grid-template-columns: repeat(2, minmax(180px, 1fr)); gap: 10px; margin-bottom: 12px; }
+    .inventory-list { max-height: min(62vh, 620px); overflow: auto; border: 1px solid #30323c; border-radius: 11px; }
+    .inventory-list table { min-width: 790px; }
+    .inventory-list th, .inventory-list td { vertical-align: middle; }
+    .inventory-brand-row td { padding: 10px 12px; background: #22252e; color: var(--yellow); font-size: 11px; font-weight: 800; letter-spacing: .4px; }
+    .inventory-thumb { width: 44px; height: 44px; object-fit: contain; border: 1px solid #e6e7eb; border-radius: 9px; background: #f5f5f7; padding: 2px; cursor: zoom-in; }
+    .inventory-fixed-input { width: 145px; min-height: 36px; }
+    .inventory-fixed-input[readonly] { opacity: .75; }
+    .inventory-actions { display: flex; gap: 7px; }
+    .inventory-actions button { min-height: 34px; padding: 0 10px; }
+    .check-row { display: flex; align-items: center; gap: 9px; color: #e7e7eb; font-size: 12px; }
+    .check-row input { accent-color: var(--yellow); width: 16px; height: 16px; }
+    .form-error {
+      display: none;
+      padding: 10px 12px;
+      border: 1px solid #75333b;
+      border-radius: 9px;
+      background: #4b2028;
+      color: #ffb5b9;
+      font-size: 12px;
+      line-height: 1.5;
+    }
+    .form-error.visible { display: block; }
+    .modal-actions { display: flex; justify-content: flex-end; gap: 9px; margin-top: 19px; }
+
+    @media (max-width: 850px) {
+      .layout { grid-template-columns: 1fr; gap: 16px; }
+      .sidebar { display: flex; gap: 6px; overflow-x: auto; padding: 8px; }
+      .sidebar-label { display: none; }
+      .nav-button { width: auto; flex: 0 0 auto; padding: 0 12px; }
+    }
+    @media (max-width: 600px) {
+      .topbar { min-height: 68px; padding: 11px 15px; }
+      .brand img { height: 36px; max-width: 100px; }
+      .brand-title { font-size: 11px; }
+      .brand-subtitle { font-size: 9px; }
+      .admin-identity { display: none; }
+      .layout { padding: 18px 13px 35px; }
+      .page-heading { align-items: flex-start; flex-direction: column; }
+      .stats-grid { grid-template-columns: 1fr; gap: 9px; }
+      .stat-card { padding: 15px; }
+      .chart-content { grid-template-columns: minmax(125px, 165px) minmax(100px, 1fr); gap: 8px; }
+      .pie-wrap { max-width: 165px; }
+      .inventory-filter-tools { grid-template-columns: 1fr; }
+      .stat-value { margin-top: 5px; font-size: 24px; }
+      .panel-card { padding: 15px; }
+      .panel-heading { align-items: flex-start; flex-direction: column; }
+      .table-tools { width: 100%; flex-wrap: wrap; }
+      .search-input { width: 100%; }
+      .form-grid { grid-template-columns: 1fr; }
+      .form-field.full { grid-column: auto; }
+      .site-checklist { grid-template-columns: 1fr; }
+      .equipment-grid { grid-template-columns: 1fr; }
+      .matrix-grid { grid-template-columns: 1fr; }
+      .site-equipment-toolbar { grid-template-columns: 1fr; }
+      .site-equipment-footer { align-items: stretch; flex-direction: column; }
+      .detail-title-row { align-items: flex-start; flex-direction: column; }
+    }
+    @media (max-width: 420px) {
+      .topbar { align-items: flex-start; flex-direction: column; gap: 10px; }
+      .top-actions { width: 100%; justify-content: flex-end; }
+      .layout { padding-right: 9px; padding-left: 9px; }
+      .sidebar { margin-right: -2px; margin-left: -2px; }
+      .nav-button { min-height: 40px; padding: 0 10px; font-size: 11px; }
+      .page-heading { gap: 11px; }
+      .page-heading > .primary-button { width: 100%; }
+      .panel-card { padding: 12px; }
+      .chart-content { grid-template-columns: minmax(0, 1fr); }
+      .pie-wrap { max-width: 190px; }
+      .chart-legend { grid-template-columns: repeat(2, minmax(0, 1fr)); max-height: 150px; }
+      .legend-item { min-width: 0; }
+      .equipment-card { align-items: flex-start; flex-direction: column; padding: 12px; }
+      .equipment-actions { width: 100%; }
+      .equipment-actions button { flex: 1; }
+      .modal-backdrop { padding: 8px; }
+      .modal { max-height: 94dvh; border-radius: 14px; }
+      .modal-header { padding: 13px 14px; }
+      .modal-header h2 { font-size: 15px; }
+      .modal-body { padding: 14px; }
+      .equipment-modal .modal-body { padding: 14px; }
+      .site-equipment-choice { flex-wrap: wrap; gap: 8px; }
+      .site-equipment-quantity { margin-left: auto; }
+      .inventory-list table { min-width: 740px; }
+      .lightbox-backdrop { padding: 6px; }
+      .lightbox-frame { max-width: 98vw; max-height: 94dvh; }
+      .lightbox-image { max-width: 96vw; max-height: 92dvh; }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <img src="IMG/logo-header.png" alt="Smart Fit">
+      <div>
+        <p class="brand-title">PANEL DE ADMINISTRADOR</p>
+        <p class="brand-subtitle">Gestión del sistema de mantenimiento</p>
+      </div>
+    </div>
+    <div class="top-actions">
+      <div class="admin-identity">Sesión: <strong id="adminName">Edu Admin</strong></div>
+      <button class="logout-button" id="logoutButton" type="button">Cerrar sesión</button>
+    </div>
+  </header>
+
+  <div class="layout">
+    <nav class="sidebar" aria-label="Secciones del panel">
+      <div class="sidebar-label">Administración</div>
+      <button class="nav-button active" type="button" data-view="overview">◈ &nbsp; Resumen</button>
+      <button class="nav-button" type="button" data-view="users">♙ &nbsp; Usuarios y accesos</button>
+      <button class="nav-button" type="button" data-view="sites">⌖ &nbsp; Sedes</button>
+      <button class="nav-button" type="button" data-view="equipment">⚙ &nbsp; Equipos</button>
+      <button class="nav-button" type="button" data-view="tickets">▤ &nbsp; Tickets</button>
+      <button class="nav-button" type="button" data-view="maintenanceHistory">▤ &nbsp; Eventos / Registros</button>
+      <button class="nav-button" type="button" data-view="settings">⚙ &nbsp; Configuración</button>
+    </nav>
+
+    <main class="main-content">
+      <section class="view" id="overviewView">
+        <div class="page-heading">
+          <div>
+            <div class="eyebrow">Control del sistema</div>
+            <h1>Resumen</h1>
+            <p class="page-description">Administra las cuentas y los permisos de acceso a la aplicación.</p>
+          </div>
+          <button type="button" class="primary-button" data-open-users>Gestionar usuarios</button>
+        </div>
+        <div class="stats-grid">
+          <article class="stat-card">
+            <div class="stat-label">Usuarios registrados</div>
+            <div class="stat-value" id="totalUsers">0</div>
+            <div class="stat-detail">Cuentas del sistema</div>
+          </article>
+          <article class="stat-card">
+            <div class="stat-label">Cuentas activas</div>
+            <div class="stat-value" id="activeUsers">0</div>
+            <div class="stat-detail">Con acceso habilitado</div>
+          </article>
+          <article class="stat-card">
+            <div class="stat-label">Administradores</div>
+            <div class="stat-value" id="adminUsers">0</div>
+            <div class="stat-detail">Con permisos de administración</div>
+          </article>
+          <article class="stat-card">
+            <div class="stat-label">Sedes activas</div>
+            <div class="stat-value" id="activeSites">0</div>
+            <div class="stat-detail">Sedes habilitadas</div>
+          </article>
+          <article class="stat-card">
+            <div class="stat-label">Total máquinas</div>
+            <div class="stat-value" id="totalMachines">0</div>
+            <div class="stat-detail">Unidades asignadas a las sedes</div>
+          </article>
+        </div>
+        <section class="panel-card charts-section" aria-labelledby="summaryChartsTitle">
+          <div class="panel-heading">
+            <div>
+              <h2 id="summaryChartsTitle">Distribución de sedes y máquinas</h2>
+              <p>Pasa el cursor por un segmento para ver su porcentaje; selecciónalo para resaltarlo.</p>
+            </div>
+          </div>
+          <div class="charts-grid">
+            <article class="chart-card">
+              <div class="chart-card-header"><div><h3>Sedes por región</h3><p>Porcentaje del total de sedes</p></div></div>
+              <div class="chart-content" id="sitesByRegionChart"></div>
+            </article>
+            <article class="chart-card">
+              <div class="chart-card-header">
+                <div><h3>Supervisor por región</h3><p>Sedes asignadas por supervisor</p></div>
+                <select class="form-control form-select chart-filter" id="supervisorRegionFilter" aria-label="Filtrar supervisores por región"></select>
+              </div>
+              <div class="chart-content" id="supervisorByRegionChart"></div>
+            </article>
+            <article class="chart-card">
+              <div class="chart-card-header"><div><h3>Máquinas por región</h3><p>Porcentaje del total de máquinas</p></div></div>
+              <div class="chart-content" id="machinesByRegionChart"></div>
+            </article>
+            <article class="chart-card">
+              <div class="chart-card-header"><div><h3>Máquinas por supervisor</h3><p>Según las sedes asignadas</p></div></div>
+              <div class="chart-content" id="machinesBySupervisorChart"></div>
+            </article>
+            <article class="chart-card">
+              <div class="chart-card-header"><div><h3>Máquinas por técnico</h3><p>Según las sedes asignadas</p></div></div>
+              <div class="chart-content" id="machinesByTechnicianChart"></div>
+            </article>
+          </div>
+        </section>
+        <section class="panel-card">
+          <div class="panel-heading">
+            <div>
+              <h2>Accesos recientes</h2>
+              <p>Los 15 inicios de sesión más recientes de todos los usuarios.</p>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Usuario</th><th>Rol</th><th>Fecha y hora</th></tr></thead>
+              <tbody id="recentAccessesBody"></tbody>
+            </table>
+          </div>
+        </section>
+        <div class="note">
+          <span aria-hidden="true">ⓘ</span>
+          <div><strong>Autenticación protegida.</strong> Los accesos y las claves temporales se gestionan mediante Supabase Auth y funciones seguras de servidor.</div>
+        </div>
+      </section>
+
+      <section class="view" id="usersView" hidden>
+        <div class="page-heading">
+          <div>
+            <div class="eyebrow">Cuentas y credenciales</div>
+            <h1>Usuarios y accesos</h1>
+            <p class="page-description">Administra accesos de Supabase Auth, claves temporales, roles y sedes asignadas.</p>
+          </div>
+          <button type="button" class="primary-button" id="newUserButton">+ Nuevo usuario</button>
+        </div>
+        <section class="panel-card">
+          <div class="panel-heading">
+            <div>
+              <h2>Directorio de usuarios</h2>
+              <p>Los accesos se sincronizan con Supabase. Una clave temporal exige cambio al próximo ingreso.</p>
+            </div>
+            <div class="table-tools">
+              <input class="search-input" id="userSearch" type="search" placeholder="Buscar por nombre, usuario o rol" aria-label="Buscar por nombre, usuario o rol">
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Nombre / usuario</th><th>Rol</th><th>Sedes</th><th>Estado</th><th>Actualizado</th><th></th></tr></thead>
+              <tbody id="usersBody"></tbody>
+            </table>
+          </div>
+        </section>
+      </section>
+
+      <section class="view" id="settingsView" hidden>
+        <div class="page-heading">
+          <div>
+            <div class="eyebrow">Aplicación</div>
+            <h1>Configuración</h1>
+            <p class="page-description">Estado de las funciones disponibles y preparación para conectar el backend.</p>
+          </div>
+        </div>
+        <section class="panel-card settings-list">
+          <div class="setting-row">
+            <strong>Gestión de usuarios</strong>
+            <p>Las cuentas, roles, sedes y claves temporales se administran en Supabase. El usuario debe cambiar su clave temporal al ingresar.</p>
+          </div>
+          <div class="setting-row">
+            <strong>Persistencia actual</strong>
+            <p>Usuarios y accesos se sincronizan con Supabase. El navegador conserva copias de respaldo de catálogos y actividad.</p>
+          </div>
+          <div class="setting-row">
+            <strong>Autenticación</strong>
+            <p>El inicio de sesión y la gestión de contraseñas usan Supabase Auth. Las claves temporales deben cambiarse en el primer ingreso.</p>
+          </div>
+        </section>
+      </section>
+
+      <section class="view" id="sitesView" hidden>
+        <div class="page-heading">
+          <div>
+            <div class="eyebrow">Ubicaciones y asignaciones</div>
+            <h1>Sedes</h1>
+            <p class="page-description">Administra las sedes disponibles y la cantidad de máquinas que verá cada usuario asignado.</p>
+          </div>
+          <button type="button" class="primary-button" id="newSiteButton">+ Nueva sede</button>
+        </div>
+        <section class="panel-card">
+          <div class="panel-heading">
+            <div>
+              <h2>Directorio de sedes</h2>
+              <p>132 sedes con sus códigos internos, técnico responsable y supervisor.</p>
+            </div>
+            <div class="table-tools"><input class="search-input" id="siteSearch" type="search" placeholder="Buscar sede, código, región o responsable" aria-label="Buscar sedes"></div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Código</th><th>Sede</th><th>Región</th><th>Técnico</th><th>Supervisor</th><th>Máquinas</th><th>Usuarios asignados</th><th></th></tr></thead>
+              <tbody id="sitesBody"></tbody>
+            </table>
+          </div>
+        </section>
+      </section>
+
+      <section class="view" id="equipmentView" hidden>
+        <div class="page-heading">
+          <div>
+            <div class="eyebrow">Inventario general</div>
+            <h1>Equipos</h1>
+            <p class="page-description">Marcas y categorías registradas con su cantidad total de equipos.</p>
+          </div>
+          <button type="button" class="primary-button" id="newBrandButton">+ Agregar marca</button>
+        </div>
+        <section class="panel-card">
+          <div class="panel-heading" id="brandCatalogHeading">
+            <div>
+              <h2>Marcas</h2>
+              <p id="equipmentTotal">0 equipos registrados</p>
+            </div>
+          </div>
+          <div class="equipment-grid" id="equipmentGrid" aria-live="polite"></div>
+        </section>
+      </section>
+
+      <section class="view" id="ticketsView" hidden aria-labelledby="ticketsPageTitle">
+        <div class="page-heading">
+          <div>
+            <div class="eyebrow">Administración</div>
+            <h1 id="ticketsPageTitle">Tickets</h1>
+            <p class="page-description">Solicitudes enviadas desde los paneles de Líder y Supervisor.</p>
+          </div>
+        </div>
+        <section class="panel-card" aria-label="Tickets recibidos">
+          <div class="panel-heading">
+            <div><h2>Tickets recibidos</h2><p>Selecciona “Ver ticket” para consultar el detalle y sus imágenes.</p></div>
+          </div>
+          <div class="history-filters" aria-label="Filtros de tickets">
+            <label class="history-filter">Desde<input class="form-control" id="ticketsDateFrom" type="date"></label>
+            <label class="history-filter">Hasta<input class="form-control" id="ticketsDateTo" type="date"></label>
+            <label class="history-filter">Técnico<select class="form-control" id="ticketsTechnician"><option value="*">Todos</option></select></label>
+            <label class="history-filter">Supervisor<select class="form-control" id="ticketsSupervisor"><option value="*">Todos</option></select></label>
+            <label class="history-filter">Sede<select class="form-control" id="ticketsSite"><option value="*">Todas</option></select></label>
+            <label class="history-filter">Estado<select class="form-control" id="ticketsStatus"><option value="*">Todos</option></select></label>
+            <label class="history-filter">Activo fijo<input class="form-control" id="ticketsActiveFixed" type="search" placeholder="Buscar activo fijo..."></label>
+          </div>
+          <div class="table-tools" style="justify-content: space-between; margin: 0 0 10px;">
+            <span class="subtext" id="ticketsResultCount" aria-live="polite">0 tickets</span>
+            <div style="display:flex;gap:8px"><button class="secondary-button" id="exportTicketsPdf" type="button">PDF</button><button class="secondary-button" id="clearTicketsFilters" type="button">Limpiar filtros</button></div>
+          </div>
+          <div class="table-wrap">
+            <table class="history-table">
+              <thead><tr><th>Número de ticket</th><th>Sede</th><th>Solicitante</th><th>Fecha</th><th>Supervisor</th><th>Técnico</th><th>Activo fijo</th><th>Tipo</th><th>Estado</th><th></th></tr></thead>
+              <tbody id="ticketsBody"></tbody>
+            </table>
+          </div>
+        </section>
+      </section>
+
+      <section class="view" id="maintenanceHistoryView" hidden aria-labelledby="maintenanceHistoryPageTitle">
+        <section id="maintenanceHistoryChooser" class="panel-card" aria-labelledby="maintenanceHistoryPageTitle" style="padding: 28px 32px;">
+          <div class="panel-heading" style="margin-bottom: 20px;">
+            <div>
+              <h1 id="maintenanceHistoryPageTitle" style="font-size: 21px;">Registros / Eventos / Historial</h1>
+              <p>Selecciona el tipo de solicitud que necesitas ingresar.</p>
+            </div>
+          </div>
+          <div class="equipment-grid">
+            <button class="chart-card" type="button" disabled aria-disabled="true" style="text-align: left; color: #777b87; cursor: not-allowed;">
+              <h3>Infraestructura</h3>
+              <p>Solicitudes relacionadas con infraestructura</p>
+            </button>
+            <button class="chart-card" id="openMaintenanceHistory" type="button" style="text-align: left; color: var(--text);">
+              <h3>Mantenimiento</h3>
+              <p>Solicitudes relacionadas con mantenimiento</p>
+            </button>
+          </div>
+        </section>
+        <section id="maintenanceHistoryBlank" class="panel-card" aria-labelledby="maintenanceHistoryBlankTitle" style="padding: 24px;" hidden>
+          <div class="page-heading" style="margin: 0; align-items: center;">
+            <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+              <h1 id="maintenanceHistoryBlankTitle" style="font-size: 21px;">Mantenimiento</h1>
+              <button class="secondary-button" id="openMileageHistoryPage" type="button">Historial KM</button>
+            </div>
+            <button class="secondary-button" id="backToMaintenanceHistory" type="button">← Volver</button>
+          </div>
+          <p class="page-description">Registro de eventos de mantenimiento preventivo, correctivo e inspecciones.</p>
+          <div class="history-filters" aria-label="Filtros del historial de mantenimiento">
+            <label class="history-filter">Desde<input class="form-control" id="historyDateFrom" type="date"></label>
+            <label class="history-filter">Hasta<input class="form-control" id="historyDateTo" type="date"></label>
+            <label class="history-filter">Técnico<select class="form-control" id="historyTechnician"><option value="*">Todos</option></select></label>
+            <label class="history-filter">Supervisor<select class="form-control" id="historySupervisor"><option value="*">Todos</option></select></label>
+            <label class="history-filter">Sede<select class="form-control" id="historySite"><option value="*">Todas</option></select></label>
+            <label class="history-filter">Estado<select class="form-control" id="historyStatus"><option value="*">Todos</option></select></label>
+          </div>
+          <div class="table-tools" style="justify-content: space-between; margin: 0 0 10px;">
+            <span class="subtext" id="historyResultCount" aria-live="polite">0 eventos</span>
+            <div style="display:flex; gap:8px;">
+              <button class="secondary-button" id="exportHistoryPdf" type="button">PDF</button>
+              <button class="secondary-button" id="clearHistoryFilters" type="button">Limpiar filtros</button>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table class="history-table">
+              <thead><tr><th>Fecha</th><th>Sede</th><th>Equipo / Activo fijo</th><th>Estado</th><th>Técnico</th><th>Supervisor</th><th>Registrado por</th><th>Detalle</th><th>Ticket</th></tr></thead>
+              <tbody id="maintenanceHistoryBody"></tbody>
+            </table>
+          </div>
+        </section>
+        <section id="mileageHistoryBlank" class="panel-card" aria-labelledby="mileageHistoryPageTitle" style="padding: 24px;" hidden>
+          <div class="page-heading" style="margin: 0; align-items: center;">
+            <div><h1 id="mileageHistoryPageTitle" style="font-size: 21px;">Historial KM</h1><p class="page-description">Lecturas de kilometraje registradas en las trotadoras de todas las sedes.</p></div>
+            <button class="secondary-button" id="backToMaintenanceFromMileage" type="button">← Volver a Mantenimiento</button>
+          </div>
+          <div class="history-filters" aria-label="Filtros del historial de kilometraje">
+            <label class="history-filter">Desde<input class="form-control" id="mileageHistoryDateFrom" type="date"></label>
+            <label class="history-filter">Hasta<input class="form-control" id="mileageHistoryDateTo" type="date"></label>
+            <label class="history-filter">Técnico<select class="form-control" id="mileageHistoryTechnician"><option value="*">Todos</option></select></label>
+            <label class="history-filter">Supervisor<select class="form-control" id="mileageHistorySupervisor"><option value="*">Todos</option></select></label>
+            <label class="history-filter">Sede<select class="form-control" id="mileageHistorySite"><option value="*">Todas</option></select></label>
+            <label class="history-filter">Activo fijo<input class="form-control" id="mileageHistoryActiveFixed" type="search" placeholder="Buscar activo fijo..."></label>
+          </div>
+          <div class="table-tools" style="justify-content: space-between; margin: 0 0 10px;">
+            <span class="subtext" id="mileageHistoryResultCount" aria-live="polite">0 registros</span>
+            <div style="display:flex; gap:8px;"><button class="secondary-button" id="exportMileageHistoryPdf" type="button">PDF</button><button class="secondary-button" id="clearMileageHistoryFilters" type="button">Limpiar filtros</button></div>
+          </div>
+          <div class="table-wrap"><table class="history-table">
+            <thead><tr><th>Fecha</th><th>Sede</th><th>Trotadora / Activo fijo</th><th>Kilometraje</th><th>Técnico / responsable</th><th>Supervisor</th><th>Registrado por</th><th>Lubricación</th><th>Observación</th></tr></thead>
+            <tbody id="mileageHistoryBody"></tbody>
+          </table></div>
+        </section>
+      </section>
+    </main>
+  </div>
+
+  <div class="modal-backdrop" id="ticketDetailModal" hidden>
+    <section class="modal ticket-detail-modal" role="dialog" aria-modal="true" aria-labelledby="ticketDetailTitle">
+      <header class="modal-header">
+        <h2 id="ticketDetailTitle">Detalle del ticket</h2>
+        <button class="modal-close" type="button" id="closeTicketDetail" aria-label="Cerrar ventana">×</button>
+      </header>
+      <div class="modal-body" id="ticketDetailBody"></div>
+    </section>
+  </div>
+
+  <div class="modal-backdrop" id="userModal" hidden>
+    <section class="modal" role="dialog" aria-modal="true" aria-labelledby="userModalTitle">
+      <header class="modal-header">
+        <h2 id="userModalTitle">Nuevo usuario</h2>
+        <button class="modal-close" type="button" id="closeUserModal" aria-label="Cerrar ventana">×</button>
+      </header>
+      <div class="modal-body">
+        <form id="userForm" novalidate>
+          <input type="hidden" id="userId">
+          <div class="form-grid">
+            <div class="form-field full">
+              <label for="userName">Nombre completo</label>
+              <input class="form-control" id="userName" autocomplete="name" required>
+            </div>
+            <div class="form-field">
+              <label for="userUsername">Usuario / RUT</label>
+              <input class="form-control" id="userUsername" autocomplete="off" required>
+            </div>
+            <div class="form-field">
+              <label for="userEmail">Correo de acceso</label>
+              <input class="form-control" id="userEmail" type="email" autocomplete="email" required>
+            </div>
+            <div class="form-field">
+              <label for="userRole">Rol</label>
+              <select class="form-control form-select" id="userRole">
+                <option>Técnico</option>
+                <option>Supervisor</option>
+                <option>Líder</option>
+                <option>Administrador</option>
+              </select>
+            </div>
+            <div class="form-field full">
+              <label for="userPassword">Clave temporal</label>
+              <input class="form-control" id="userPassword" type="password" autocomplete="new-password">
+              <span class="form-help" id="passwordHelp">Al crear el acceso, debe tener al menos 8 caracteres. El usuario tendrá que cambiarla al ingresar.</span>
+            </div>
+            <div class="form-field full">
+              <label>Sedes asignadas</label>
+              <input class="form-control" id="userSiteSearch" type="search" placeholder="Buscar sede..." autocomplete="off" aria-label="Buscar sede para asignar al usuario">
+              <div class="site-checklist" id="siteAssignmentList"></div>
+              <span class="form-help" id="userSiteSearchEmpty" hidden>No hay sedes que coincidan con la búsqueda.</span>
+              <span class="form-help">El usuario verá estas sedes y su cantidad de máquinas al ingresar.</span>
+            </div>
+            <label class="check-row form-field full" id="activeUserRow">
+              <input type="checkbox" id="userActive" checked>
+              <span>Cuenta activa</span>
+            </label>
+            <div class="form-error full" id="formError" role="alert"></div>
+          </div>
+          <div class="modal-actions">
+            <button type="button" class="secondary-button" id="cancelUserModal">Cancelar</button>
+            <button type="submit" class="primary-button">Guardar usuario</button>
+          </div>
+        </form>
+      </div>
+    </section>
+  </div>
+
+  <div class="modal-backdrop" id="siteModal" hidden>
+    <section class="modal" role="dialog" aria-modal="true" aria-labelledby="siteModalTitle">
+      <header class="modal-header">
+        <h2 id="siteModalTitle">Nueva sede</h2>
+        <button class="modal-close" type="button" id="closeSiteModal" aria-label="Cerrar ventana">×</button>
+      </header>
+      <div class="modal-body">
+        <form id="siteForm" novalidate>
+          <input type="hidden" id="siteId">
+          <div class="form-grid">
+            <div class="form-field">
+              <label for="siteCode">Código interno</label>
+              <input class="form-control" id="siteCode" readonly>
+            </div>
+            <div class="form-field full">
+              <label for="siteName">Nombre de la sede</label>
+              <input class="form-control" id="siteName" required>
+            </div>
+            <div class="form-field full">
+              <label for="siteRegion">Región</label>
+              <select class="form-control form-select" id="siteRegion" required></select>
+            </div>
+            <div class="form-field">
+              <label for="siteTechnician">Técnico asignado</label>
+              <select class="form-control form-select" id="siteTechnician"></select>
+            </div>
+            <div class="form-field">
+              <label for="siteSupervisor">Supervisor asignado</label>
+              <select class="form-control form-select" id="siteSupervisor"></select>
+            </div>
+            <div class="form-field full">
+              <label for="siteMachineCount">Cantidad de máquinas</label>
+              <div class="table-tools">
+                <input class="form-control" id="siteMachineCount" type="number" min="0" step="1" readonly aria-readonly="true">
+                <button type="button" class="secondary-button" id="viewSiteInventory">Inventario</button>
+                <button type="button" class="secondary-button" id="manageSiteEquipment">+ Agregar máquinas</button>
+              </div>
+              <span class="form-help" id="siteEquipmentSummary">La cantidad se calcula desde los equipos asignados.</span>
+            </div>
+            <div class="form-error full" id="siteFormError" role="alert"></div>
+          </div>
+          <div class="modal-actions">
+            <button type="button" class="secondary-button" id="cancelSiteModal">Cancelar</button>
+            <button type="submit" class="primary-button">Guardar sede</button>
+          </div>
+        </form>
+      </div>
+    </section>
+  </div>
+
+  <div class="modal-backdrop site-equipment-backdrop" id="siteEquipmentModal" hidden>
+    <section class="modal equipment-modal" role="dialog" aria-modal="true" aria-labelledby="siteEquipmentTitle">
+      <header class="modal-header">
+        <div><h2 id="siteEquipmentTitle">Agregar máquinas a la sede</h2><span class="form-help">Selecciona los equipos y las unidades que existen en esta sede.</span></div>
+        <button class="modal-close" type="button" id="closeSiteEquipment" aria-label="Cerrar ventana">×</button>
+      </header>
+      <div class="modal-body">
+        <div class="site-equipment-toolbar">
+          <select class="form-control form-select" id="siteEquipmentBrand" aria-label="Filtrar por marca"></select>
+          <input class="search-input" id="siteEquipmentSearch" type="search" placeholder="Buscar equipo por nombre o modelo..." aria-label="Buscar equipos para la sede">
+        </div>
+        <div class="matrix-list"><div class="matrix-grid" id="siteEquipmentGrid" aria-live="polite"></div></div>
+        <div class="site-equipment-footer">
+          <span class="form-help" id="siteEquipmentSelectionSummary">0 máquinas seleccionadas</span>
+          <div class="modal-actions" style="margin-top:0">
+            <button type="button" class="secondary-button" id="cancelSiteEquipment">Cancelar</button>
+            <button type="button" class="primary-button" id="applySiteEquipment">Aplicar selección</button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div class="modal-backdrop site-equipment-backdrop" id="siteInventoryModal" hidden>
+    <section class="modal inventory-modal" role="dialog" aria-modal="true" aria-labelledby="siteInventoryTitle">
+      <header class="modal-header">
+        <div><h2 id="siteInventoryTitle">Inventario de máquinas</h2><span class="form-help" id="siteInventorySubtitle">Listado por marca de los equipos asignados a la sede.</span></div>
+        <button class="modal-close" type="button" id="closeSiteInventory" aria-label="Cerrar inventario">×</button>
+      </header>
+      <div class="modal-body">
+        <div class="inventory-filter-tools">
+          <select class="form-control form-select" id="inventoryBrandFilter" aria-label="Filtrar inventario por marca">
+            <option value="*">Todas las marcas</option>
+          </select>
+          <select class="form-control form-select" id="inventorySectorFilter" aria-label="Filtrar inventario por sector">
+            <option value="*">Todos los sectores</option>
+          </select>
+        </div>
+        <div class="inventory-list">
+          <table>
+            <thead><tr><th>Imagen</th><th>Equipo</th><th>Modelo</th><th>Sector</th><th>Activo fijo</th><th>Acciones</th></tr></thead>
+            <tbody id="siteInventoryBody"></tbody>
+          </table>
+        </div>
+        <div class="modal-actions"><button type="button" class="primary-button" id="doneSiteInventory">Listo</button></div>
+      </div>
+    </section>
+  </div>
+
+  <div class="modal-backdrop" id="brandModal" hidden>
+    <section class="modal" role="dialog" aria-modal="true" aria-labelledby="brandModalTitle">
+      <header class="modal-header">
+        <h2 id="brandModalTitle">Agregar marca</h2>
+        <button class="modal-close" type="button" id="closeBrandModal" aria-label="Cerrar ventana">×</button>
+      </header>
+      <div class="modal-body">
+        <form id="brandForm" novalidate>
+          <input type="hidden" id="brandId">
+          <div class="form-grid">
+            <div class="form-field full">
+              <label for="brandName">Marca o categoría</label>
+              <input class="form-control" id="brandName" required>
+            </div>
+            <div class="form-field full">
+              <label for="brandEquipmentCount">Cantidad de equipos</label>
+              <input class="form-control" id="brandEquipmentCount" type="number" min="0" step="1" required>
+            </div>
+            <div class="form-error full" id="brandFormError" role="alert"></div>
+          </div>
+          <div class="modal-actions">
+            <button type="button" class="secondary-button" id="cancelBrandModal">Cancelar</button>
+            <button type="submit" class="primary-button">Guardar marca</button>
+          </div>
+        </form>
+      </div>
+    </section>
+  </div>
+
+  <div class="modal-backdrop" id="matrixModal" hidden>
+    <section class="modal equipment-modal" role="dialog" aria-modal="true" aria-labelledby="matrixModalTitle">
+      <header class="modal-header">
+        <div>
+          <h2 id="matrixModalTitle">⚒ &nbsp; Equipo de Matrix</h2>
+        </div>
+        <button class="modal-close" type="button" id="closeMatrixModal" aria-label="Cerrar ventana">×</button>
+      </header>
+      <div class="modal-body">
+        <input class="search-input detail-search" id="matrixSearch" type="search" placeholder="⌕  Buscar equipo por nombre..." aria-label="Buscar equipo Matrix">
+        <div class="matrix-list"><div class="matrix-grid" id="matrixGrid" aria-live="polite"></div></div>
+        <div class="detail-footer">
+          <button type="button" class="secondary-button" id="backToBrands">← &nbsp; Cambiar marca</button>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div class="lightbox-backdrop" id="matrixImageLightbox" hidden>
+    <div class="lightbox-frame" role="dialog" aria-modal="true" aria-label="Imagen ampliada del equipo">
+      <button class="lightbox-close" id="closeMatrixImage" type="button" aria-label="Cerrar imagen">×</button>
+      <img class="lightbox-image" id="matrixLightboxImage" alt="">
+    </div>
+  </div>
+  <script src="admin-store.js"></script>
+  <script src="supabase-data.js"></script>
+  <script src="EQU/matrix-catalog.js"></script>
+  <script src="EQU/booty-catalog.js"></script>
+  <script src="EQU/other-catalogs.js"></script>
+  <script>
+    "use strict";
+
+    let adminSession = null;
+    try {
+      adminSession = JSON.parse(sessionStorage.getItem("smartfit.admin.session") || "null");
+    } catch (error) {
+      adminSession = null;
+    }
+    if (!adminSession || adminSession.role !== "Administrador") {
+      window.location.replace("index.html");
+    } else {
+      document.getElementById("adminName").textContent = adminSession.name;
+    }
+
+    const $ = id => document.getElementById(id);
+    const escapeHtml = value => String(value).replace(/[&<>"']/g, character => ({
+      "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;"
+    }[character]));
+    const formatRegion = value => ({
+      Tarapaca: "Tarapacá", Valparaiso: "Valparaíso", Nuble: "Ñuble", Biobio: "Biobío",
+      "La Araucania": "La Araucanía", "Los Rios": "Los Ríos", Aysen: "Aysén",
+      "Magallanes y la Antartica Chilena": "Magallanes y la Antártica Chilena"
+    }[value] || value || "—");
+    let searchTerm = "";
+    let siteSearchTerm = "";
+    let selectedSiteEquipment = [];
+    let siteEquipmentDraft = new Map();
+    let siteEquipmentTouched = false;
+    let editingFixedUnitId = null;
+    const chartSelections = new Map();
+    const TICKETS_STORAGE_KEY = "smartfit.leader-tickets.v1";
+    const MACHINE_RECORDS_KEY = "smartfit.machine-records.v1";
+    let adminFilteredTickets = [];
+    let maintenanceHistoryFilteredEvents = [];
+    let mileageHistoryFilteredEntries = [];
+    const chartColors = ["#ffb51b", "#f47721", "#ec5b68", "#ba78e5", "#7389ff", "#45b8d1", "#45c99a", "#a7c957", "#ff8fba", "#d4a373", "#7eccc1", "#a6a9b6", "#ffcf5c", "#ee8a4d"];
+    const brandCatalogs = Object.assign({
+      "brand-matrix": Array.isArray(window.MATRIX_CATALOG) ? window.MATRIX_CATALOG : [],
+      "brand-booty-builder": Array.isArray(window.BOOTY_CATALOG) ? window.BOOTY_CATALOG : []
+    }, window.BRAND_EQUIPMENT_CATALOGS || {});
+    let catalogBrands = AdminStore.listBrands();
+    const catalogEquipment = Object.entries(brandCatalogs).flatMap(([brandId, items]) => {
+      const brand = catalogBrands.find(entry => entry.id === brandId);
+      return items.map((item, index) => Object.assign({}, item, {
+        catalogId: `${brandId}:${index}`,
+        brandId,
+        brandName: brand ? brand.name : brandId
+      }));
+    });
+    let activeEquipmentCatalog = brandCatalogs["brand-matrix"];
+
+    function formatDate(value) {
+      if (!value) return "—";
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return "—";
+      return new Intl.DateTimeFormat("es-CL", { dateStyle: "medium" }).format(date);
+    }
+
+    function formatTicketDate(value) {
+      const match = String(value || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      return match ? `${match[3]}-${match[2]}-${match[1]}` : formatDate(value);
+    }
+
+    function readLeaderTickets() {
+      try {
+        const tickets = JSON.parse(localStorage.getItem(TICKETS_STORAGE_KEY) || "[]");
+        return Array.isArray(tickets) ? tickets.filter(ticket => ticket && typeof ticket === "object") : [];
+      } catch (error) {
+        return [];
+      }
+    }
+
+    function readMachineRecords() {
+      try {
+        const records = JSON.parse(localStorage.getItem(MACHINE_RECORDS_KEY) || "{}");
+        return records && typeof records === "object" && !Array.isArray(records) ? records : {};
+      } catch (error) {
+        return {};
+      }
+    }
+
+    function normalizeHistoryName(value) {
+      return String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLocaleLowerCase("es");
+    }
+
+    function displayHistoryStatus(value) {
+      const label = String(value || "").replace(/^Mantenimiento\s+/i, "").trim();
+      return label ? label.charAt(0).toLocaleUpperCase("es") + label.slice(1) : "Sin estado";
+    }
+
+    function buildMaintenanceHistoryEvents(allowedSiteIds = null) {
+      const sites = AdminStore.listSites();
+      const users = AdminStore.listUsers();
+      const tickets = readLeaderTickets();
+      const records = readMachineRecords();
+      const siteById = new Map(sites.map(site => [site.id, site]));
+      const metadataByRecordKey = new Map();
+      const resolveUser = (id, role) => users.find(user => user.id === id && (!role || user.role === role));
+      const assignedTechnicians = site => {
+        const assigned = users.filter(user => user.role === "Técnico" && (user.siteIds || []).includes(site.id));
+        const direct = resolveUser(site.technicianUserId, "Técnico");
+        if (direct && !assigned.some(user => user.id === direct.id)) assigned.unshift(direct);
+        if (!assigned.length && site.technician) {
+          const match = users.find(user => user.role === "Técnico" && normalizeHistoryName(user.name) === normalizeHistoryName(site.technician));
+          if (match) assigned.push(match);
+        }
+        return assigned;
+      };
+
+      sites.forEach(site => {
+        (Array.isArray(site.equipment) ? site.equipment : []).forEach(item => {
+          const brand = catalogBrands.find(entry => entry.id === item.brandId);
+          const catalogItem = catalogEquipment.find(entry => entry.catalogId === item.catalogId);
+          const units = Array.isArray(item.units) && item.units.length
+            ? item.units
+            : Array.from({ length: Math.max(0, Number(item.quantity) || 0) }, () => ({}));
+          units.forEach((unit, index) => {
+            const unitKey = unit.unitId || `${item.catalogId || item.brandId || brand?.id || "equipo"}:${index}`;
+            metadataByRecordKey.set(`${site.id}::${unitKey}`, {
+              site,
+              item,
+              activeFixed: unit.activeFixed,
+              equipmentImage: item.image || catalogItem?.image || "",
+              equipmentName: item.name || catalogItem?.name || "Equipo",
+              model: item.model || catalogItem?.model || "",
+              brandName: item.brandName || brand?.name || catalogItem?.brandName || ""
+            });
+          });
+        });
+      });
+
+      const events = [];
+      Object.entries(records).forEach(([recordKey, machineRecord]) => {
+        const siteId = recordKey.split("::")[0];
+        const site = siteById.get(siteId);
+        if (!site || (allowedSiteIds && !allowedSiteIds.has(siteId))) return;
+        const metadata = metadataByRecordKey.get(recordKey) || { site, item: {}, activeFixed: "", equipmentName: "Equipo sin inventario", model: "", brandName: "" };
+        const techUsers = assignedTechnicians(site);
+        const supervisor = resolveUser(site.supervisorUserId, "Supervisor");
+        const supervisorName = supervisor?.name || site.supervisor || "Sin supervisor asignado";
+        (Array.isArray(machineRecord?.maintenance) ? machineRecord.maintenance : []).forEach(entry => {
+          const recorder = resolveUser(entry.recordedById) || users.find(user => normalizeHistoryName(user.name) === normalizeHistoryName(entry.technician));
+          const recordedByName = entry.recordedByName || recorder?.name || entry.technician || "Sin responsable registrado";
+          const recordedByRole = entry.recordedByRole || recorder?.role || "";
+          const technicianMatch = users.find(user => user.role === "Técnico" && normalizeHistoryName(user.name) === normalizeHistoryName(entry.technician));
+          const eventTechUsers = technicianMatch
+            ? [technicianMatch]
+            : (recorder?.role === "Técnico" || recordedByRole === "Técnico") && recorder
+              ? [recorder]
+              : [...techUsers];
+          let techNames = eventTechUsers.map(user => user.name);
+          if (!techNames.length && site.technician) techNames = [site.technician];
+          const eventTickets = tickets.filter(ticket =>
+            (Array.isArray(entry.ticketIds) && entry.ticketIds.includes(ticket.id)) || (entry.id && ticket.linkedMaintenanceRecordId === entry.id)
+          );
+          const date = String(entry.date || entry.recordedAt || "").slice(0, 10);
+          events.push({
+            id: entry.id || `${recordKey}:${date}:${events.length}`,
+            recordKey,
+            date,
+            recordedAt: entry.recordedAt || "",
+            siteId,
+            siteName: site.name || "Sede sin nombre",
+            equipmentName: metadata.equipmentName,
+            model: metadata.model,
+            activeFixed: metadata.activeFixed,
+            equipmentImage: metadata.equipmentImage || "",
+            status: entry.status || entry.type || "Sin estado",
+            technicianNames: techNames,
+            supervisorId: supervisor?.id || `name:${normalizeHistoryName(supervisorName)}`,
+            supervisorName,
+            recordedByName,
+            work: entry.work || "",
+            replacement: entry.replacement || "",
+            observations: entry.observations || "",
+            images: Array.isArray(entry.images) ? entry.images.slice(0, 2) : [],
+            tickets: eventTickets
+          });
+        });
+      });
+      return events.sort((a, b) => b.date.localeCompare(a.date) || String(b.recordedAt).localeCompare(String(a.recordedAt)));
+    }
+
+    function setHistorySelectOptions(select, options, allLabel, currentValue) {
+      const uniqueOptions = Array.from(new Map(options.filter(option => option && option.value).map(option => [option.value, option])).values())
+        .sort((a, b) => a.label.localeCompare(b.label, "es"));
+      select.innerHTML = `<option value="*">${allLabel}</option>` + uniqueOptions.map(option => `<option value="${escapeHtml(option.value)}">${escapeHtml(option.label)}</option>`).join("");
+      select.value = uniqueOptions.some(option => option.value === currentValue) ? currentValue : "*";
+    }
+
+    function historySupervisorForSite(site, events, users) {
+      const assigned = users.find(candidate => candidate.id === site.supervisorUserId && candidate.role === "Supervisor");
+      if (assigned) return assigned.id;
+      const byName = users.find(candidate => candidate.role === "Supervisor" && normalizeHistoryName(candidate.name) === normalizeHistoryName(site.supervisor));
+      if (byName) return byName.id;
+      return events.find(event => event.siteId === site.id)?.supervisorId || `name:${normalizeHistoryName(site.supervisor || "Sin supervisor asignado")}`;
+    }
+
+    function historyTechnicianOptions(events, users, siteIds, getNames) {
+      const allowed = new Set(siteIds);
+      const options = users.filter(candidate => candidate.role === "Técnico" && (candidate.siteIds || []).some(id => allowed.has(id)))
+        .map(candidate => ({ value: candidate.name, label: candidate.name }));
+      events.filter(event => allowed.has(event.siteId)).forEach(event => (getNames(event) || []).forEach(name => options.push({ value: name, label: name })));
+      return options;
+    }
+
+    function mileageHistoryDate(entry) {
+      if (/^\d{4}-\d{2}-\d{2}$/.test(String(entry?.date || ""))) return entry.date;
+      const date = new Date(entry?.recordedAt || "");
+      if (Number.isNaN(date.getTime())) return "";
+      const pad = value => String(value).padStart(2, "0");
+      return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+    }
+
+    function buildMileageHistoryEntries() {
+      const sites = AdminStore.listSites();
+      const users = AdminStore.listUsers();
+      const records = readMachineRecords();
+      const siteById = new Map(sites.map(site => [site.id, site]));
+      const resolveUser = (id, role) => users.find(candidate => candidate.id === id && (!role || candidate.role === role));
+      const metadataByKey = new Map();
+      sites.forEach(site => (Array.isArray(site.equipment) ? site.equipment : []).forEach(item => {
+        const brand = catalogBrands.find(candidate => candidate.id === item.brandId);
+        const catalogItem = catalogEquipment.find(candidate => candidate.catalogId === item.catalogId);
+        const name = item.name || catalogItem?.name || "Equipo";
+        const normalizedName = normalizeHistoryName(name);
+        if (!normalizedName.includes("trotadora") && !normalizedName.includes("treadmill")) return;
+        const units = Array.isArray(item.units) && item.units.length ? item.units : Array.from({ length: Math.max(0, Number(item.quantity) || 0) }, () => ({}));
+        units.forEach((unit, index) => {
+          const unitKey = unit.unitId || `${item.catalogId || item.brandId || brand?.id || "equipo"}:${index}`;
+          metadataByKey.set(`${site.id}::${unitKey}`, { site, item, name, model: item.model || catalogItem?.model || "", activeFixed: unit.activeFixed });
+        });
+      }));
+      const entries = [];
+      Object.entries(records).forEach(([recordKey, machineRecord]) => {
+        const siteId = recordKey.split("::")[0];
+        const metadata = metadataByKey.get(recordKey);
+        const site = metadata?.site || siteById.get(siteId);
+        if (!site || !metadata) return;
+        const supervisor = resolveUser(site.supervisorUserId, "Supervisor");
+        const supervisorName = supervisor?.name || site.supervisor || "Sin supervisor asignado";
+        (Array.isArray(machineRecord?.mileage) ? machineRecord.mileage : []).forEach((entry, index) => {
+          const recorder = resolveUser(entry.recordedById) || users.find(candidate => normalizeHistoryName(candidate.name) === normalizeHistoryName(entry.recordedByName || entry.technician));
+          entries.push({
+            id: entry.id || `${recordKey}:km:${index}`,
+            recordKey,
+            date: mileageHistoryDate(entry),
+            recordedAt: entry.recordedAt || "",
+            siteId,
+            siteName: site.name || "Sede sin nombre",
+            equipmentName: metadata.name,
+            model: metadata.model,
+            activeFixed: metadata.activeFixed,
+            km: entry.km ?? "—",
+            technician: entry.technician || "Sin responsable registrado",
+            supervisorId: supervisor?.id || `name:${normalizeHistoryName(supervisorName)}`,
+            supervisorName,
+            recordedByName: entry.recordedByName || recorder?.name || entry.technician || "Sin responsable registrado",
+            lubrication: entry.lubrication || "Sin registro",
+            observation: entry.observation || ""
+          });
+        });
+      });
+      return entries.sort((a, b) => b.date.localeCompare(a.date) || String(b.recordedAt).localeCompare(String(a.recordedAt)));
+    }
+
+    function renderMileageHistory() {
+      const entries = buildMileageHistoryEntries();
+      const users = AdminStore.listUsers();
+      const sites = AdminStore.listSites();
+      const selectedSupervisor = $("mileageHistorySupervisor").value;
+      const selectedSite = $("mileageHistorySite").value;
+      const selectedTechnician = $("mileageHistoryTechnician").value;
+      const supervisorOptions = users.filter(candidate => candidate.role === "Supervisor").map(candidate => ({ value: candidate.id, label: candidate.name }));
+      entries.forEach(entry => {
+        if (entry.supervisorId.startsWith("name:")) supervisorOptions.push({ value: entry.supervisorId, label: entry.supervisorName });
+      });
+      setHistorySelectOptions($("mileageHistorySupervisor"), supervisorOptions, "Todos", selectedSupervisor);
+      const validSupervisor = $("mileageHistorySupervisor").value;
+      const sitesForSupervisor = sites.filter(site => validSupervisor === "*" || historySupervisorForSite(site, entries, users) === validSupervisor);
+      const technicianSiteIds = selectedSite !== "*" && sitesForSupervisor.some(site => site.id === selectedSite)
+        ? [selectedSite] : sitesForSupervisor.map(site => site.id);
+      setHistorySelectOptions($("mileageHistoryTechnician"), historyTechnicianOptions(entries, users, technicianSiteIds, entry => [entry.technician]), "Todos", selectedTechnician);
+      const validTechnician = $("mileageHistoryTechnician").value;
+      const sitesForTechnician = validTechnician === "*" ? sitesForSupervisor : sitesForSupervisor.filter(site =>
+        users.some(candidate => candidate.role === "Técnico" && candidate.name === validTechnician && (candidate.siteIds || []).includes(site.id)) ||
+        entries.some(entry => entry.siteId === site.id && entry.technician === validTechnician)
+      );
+      setHistorySelectOptions($("mileageHistorySite"), sitesForTechnician.map(site => ({ value: site.id, label: site.name })), "Todas", selectedSite);
+      const dateFrom = $("mileageHistoryDateFrom").value;
+      const dateTo = $("mileageHistoryDateTo").value;
+      const technician = $("mileageHistoryTechnician").value;
+      const supervisor = $("mileageHistorySupervisor").value;
+      const site = $("mileageHistorySite").value;
+      const activeFixedQuery = normalizeHistoryName($("mileageHistoryActiveFixed").value);
+      const filtered = entries.filter(entry =>
+        (!dateFrom || entry.date >= dateFrom) && (!dateTo || entry.date <= dateTo) &&
+        (technician === "*" || entry.technician === technician) &&
+        (supervisor === "*" || entry.supervisorId === supervisor) &&
+        (site === "*" || entry.siteId === site) &&
+        (!activeFixedQuery || normalizeHistoryName(entry.activeFixed ?? "").includes(activeFixedQuery))
+      );
+      mileageHistoryFilteredEntries = filtered;
+      $("mileageHistoryResultCount").textContent = `${filtered.length} ${filtered.length === 1 ? "registro" : "registros"}`;
+      $("mileageHistoryBody").innerHTML = filtered.map(entry => {
+        const activeFixed = entry.activeFixed === "" || entry.activeFixed === null || entry.activeFixed === undefined ? "—" : entry.activeFixed;
+        return `<tr><td>${escapeHtml(formatTicketDate(entry.date))}</td><td>${escapeHtml(entry.siteName)}</td><td><strong>${escapeHtml(entry.equipmentName)}</strong><span class="subtext">${entry.model ? `${escapeHtml(entry.model)} · ` : ""}AF: ${escapeHtml(activeFixed)}</span></td><td><strong>${escapeHtml(entry.km)}</strong></td><td>${escapeHtml(entry.technician)}</td><td>${escapeHtml(entry.supervisorName)}</td><td>${escapeHtml(entry.recordedByName)}</td><td>${escapeHtml(entry.lubrication)}</td><td>${escapeHtml(entry.observation || "—")}</td></tr>`;
+      }).join("") || '<tr><td colspan="9" class="empty-state">No hay registros de kilometraje para los filtros seleccionados.</td></tr>';
+    }
+
+    function exportMileageHistoryPdf() {
+      const entries = mileageHistoryFilteredEntries;
+      if (!entries.length) {
+        window.alert("No hay registros para generar el informe con los filtros seleccionados.");
+        return;
+      }
+      const reportWindow = window.open("", "_blank");
+      if (!reportWindow) {
+        window.alert("El navegador bloqueó la ventana del informe. Permite las ventanas emergentes e inténtalo nuevamente.");
+        return;
+      }
+      const logoUrl = new URL("IMG/logo-header.png", window.location.href).href;
+      const rows = entries.map(entry => `<tr><td>${escapeHtml(formatTicketDate(entry.date))}</td><td>${escapeHtml(entry.siteName)}</td><td>${escapeHtml(entry.equipmentName)}${entry.model ? ` · ${escapeHtml(entry.model)}` : ""} · AF: ${escapeHtml(entry.activeFixed ?? "—")}</td><td>${escapeHtml(entry.km)}</td><td>${escapeHtml(entry.technician)}</td><td>${escapeHtml(entry.supervisorName)}</td><td>${escapeHtml(entry.recordedByName)}</td><td>${escapeHtml(entry.lubrication)}</td><td>${escapeHtml(entry.observation || "—")}</td></tr>`).join("");
+      reportWindow.document.open();
+      const issuedAt = new Intl.DateTimeFormat("es-CL", { dateStyle: "long" }).format(new Date());
+      reportWindow.document.write(`<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Informe de kilometraje</title><style>@page{size:letter landscape;margin:12mm}*{box-sizing:border-box}body{font:9pt Arial,sans-serif;color:#171923}.head{display:flex;align-items:center;justify-content:space-between;gap:16px;border-bottom:3px solid #ffb51b;padding-bottom:10px;margin-bottom:14px}.head img{display:block;width:115px;background-color:#000!important;padding:4px 7px;border-radius:4px}.head-copy{flex:1;text-align:right}.head h1{margin:0 0 5px;font-size:18pt;color:#171923}.head p{margin:0;color:#555;font-size:10pt}table{width:100%;border-collapse:collapse}thead{display:table-header-group}th,td{padding:7px 6px;border:1px solid #cfd1d8;text-align:left;vertical-align:top;overflow-wrap:anywhere}th{background:#f0f1f4;font-size:8pt}td{font-size:8pt;line-height:1.35}tr{break-inside:avoid}footer{margin-top:18px;padding-top:8px;border-top:1px solid #cfd1d8;text-align:center;color:#555;font-size:8pt}@media print{*{-webkit-print-color-adjust:exact;print-color-adjust:exact}.head img{background-color:#000!important}}</style></head><body><header class="head"><img src="${escapeHtml(logoUrl)}" alt="Smart Fit"><div class="head-copy"><h1>INFORME DE KILOMETRAJE</h1><p>Fecha de emisión: ${escapeHtml(issuedAt)} · ${entries.length} ${entries.length === 1 ? "registro" : "registros"}</p></div></header><table><thead><tr><th>Fecha</th><th>Sede</th><th>Trotadora / Activo fijo</th><th>Kilometraje</th><th>Técnico / responsable</th><th>Supervisor</th><th>Registrado por</th><th>Lubricación</th><th>Observación</th></tr></thead><tbody>${rows}</tbody></table><footer>se genera el informe para lo que se estime conveniente.</footer></body></html>`);
+      reportWindow.document.close();
+      reportWindow.addEventListener("load", () => setTimeout(() => reportWindow.print(), 250), { once: true });
+    }
+
+    function renderMaintenanceHistory() {
+      const events = buildMaintenanceHistoryEvents();
+      const users = AdminStore.listUsers();
+      const sites = AdminStore.listSites();
+      const supervisorOptions = users.filter(user => user.role === "Supervisor").map(user => ({ value: user.id, label: user.name }));
+      events.forEach(event => {
+        if (event.supervisorId.startsWith("name:")) supervisorOptions.push({ value: event.supervisorId, label: event.supervisorName });
+      });
+      const selectedSupervisor = $("historySupervisor").value;
+      const selectedTechnician = $("historyTechnician").value;
+      const selectedSite = $("historySite").value;
+      setHistorySelectOptions($("historySupervisor"), supervisorOptions, "Todos", selectedSupervisor);
+      const validSupervisor = $("historySupervisor").value;
+      const sitesForSupervisor = sites.filter(site => validSupervisor === "*" || historySupervisorForSite(site, events, users) === validSupervisor);
+      const technicianSiteIds = selectedSite !== "*" && sitesForSupervisor.some(site => site.id === selectedSite)
+        ? [selectedSite] : sitesForSupervisor.map(site => site.id);
+      setHistorySelectOptions($("historyTechnician"), historyTechnicianOptions(events, users, technicianSiteIds, event => event.technicianNames), "Todos", selectedTechnician);
+      const validTechnician = $("historyTechnician").value;
+      const sitesForTechnician = validTechnician === "*" ? sitesForSupervisor : sitesForSupervisor.filter(site =>
+        users.some(candidate => candidate.role === "Técnico" && candidate.name === validTechnician && (candidate.siteIds || []).includes(site.id)) ||
+        events.some(event => event.siteId === site.id && event.technicianNames.includes(validTechnician))
+      );
+      setHistorySelectOptions($("historySite"), sitesForTechnician.map(site => ({ value: site.id, label: site.name })), "Todas", selectedSite);
+      const statusOptions = Array.from(new Set(events.map(event => event.status))).map(status => ({ value: status, label: displayHistoryStatus(status) }));
+      setHistorySelectOptions($("historyStatus"), statusOptions, "Todos", $("historyStatus").value);
+
+      const dateFrom = $("historyDateFrom").value;
+      const dateTo = $("historyDateTo").value;
+      const technician = $("historyTechnician").value;
+      const supervisorId = $("historySupervisor").value;
+      const siteId = $("historySite").value;
+      const status = $("historyStatus").value;
+      const filtered = events.filter(event =>
+        (!dateFrom || event.date >= dateFrom) && (!dateTo || event.date <= dateTo) &&
+        (technician === "*" || event.technicianNames.includes(technician)) &&
+        (supervisorId === "*" || event.supervisorId === supervisorId) &&
+        (siteId === "*" || event.siteId === siteId) &&
+        (status === "*" || event.status === status)
+      );
+      maintenanceHistoryFilteredEvents = filtered;
+      $("historyResultCount").textContent = `${filtered.length} ${filtered.length === 1 ? "evento" : "eventos"}`;
+      $("maintenanceHistoryBody").innerHTML = filtered.map(event => {
+        const detail = [event.work, event.replacement && `Repuesto: ${event.replacement}`, event.observations && `Observaciones: ${event.observations}`].filter(Boolean).join(" · ");
+        const ticketLabel = event.tickets.length ? `✓ ${event.tickets.length > 1 ? event.tickets.length : event.tickets[0].ticketNumber || "Ticket"}` : "—";
+        const activeFixed = event.activeFixed === "" || event.activeFixed === null || event.activeFixed === undefined ? "—" : event.activeFixed;
+        return `<tr>
+          <td>${escapeHtml(formatTicketDate(event.date))}</td>
+          <td>${escapeHtml(event.siteName)}</td>
+          <td><strong>${escapeHtml(event.equipmentName)}</strong><span class="subtext">${event.model ? `${escapeHtml(event.model)} · ` : ""}AF: ${escapeHtml(activeFixed)}</span></td>
+          <td><span class="event-status">${escapeHtml(displayHistoryStatus(event.status))}</span></td>
+          <td>${escapeHtml(event.technicianNames.join(", ") || "—")}</td>
+          <td>${escapeHtml(event.supervisorName)}</td>
+          <td>${escapeHtml(event.recordedByName)}</td>
+          <td>${detail ? `<span class="history-event-detail">${escapeHtml(detail)}</span>` : "—"}</td>
+          <td>${event.tickets.length ? `<span class="event-ticket-mark" aria-label="Evento vinculado a ${event.tickets.map(ticket => ticket.ticketNumber || "un ticket").map(escapeHtml).join(", ")}" title="${event.tickets.map(ticket => ticket.ticketNumber || "Ticket").map(escapeHtml).join(", ")}">${escapeHtml(ticketLabel)}</span>` : "—"}</td>
+        </tr>`;
+      }).join("") || '<tr><td colspan="9" class="empty-state">No hay eventos de mantenimiento para los filtros seleccionados.</td></tr>';
+    }
+
+    function exportMaintenanceHistoryPdf() {
+      const events = maintenanceHistoryFilteredEvents;
+      if (!events.length) {
+        window.alert("No hay registros para generar el informe con los filtros seleccionados.");
+        return;
+      }
+      const issuedAt = new Intl.DateTimeFormat("es-CL", { dateStyle: "long" }).format(new Date());
+      const logoUrl = new URL("IMG/logo-header.png", window.location.href).href;
+      const pages = events.map((event, index) => {
+        const photos = event.images.length
+          ? `<section class="section"><h2>Registro fotográfico</h2><div class="photos">${event.images.map((image, photoIndex) => `<figure><img src="${escapeHtml(image)}" alt="Fotografía ${photoIndex + 1}"><figcaption>Fotografía ${photoIndex + 1}</figcaption></figure>`).join("")}</div></section>`
+          : `<section class="section"><h2>Registro fotográfico</h2><p class="muted">Sin fotografías adjuntas.</p></section>`;
+        const ticketText = event.tickets.length ? event.tickets.map(ticket => ticket.ticketNumber || "Ticket sin número").join(", ") : "Sin ticket asociado";
+        const equipmentPhoto = event.equipmentImage
+          ? `<figure class="equipment-picture"><img src="${escapeHtml(new URL(event.equipmentImage, window.location.href).href)}" alt="${escapeHtml(event.equipmentName)}"><figcaption>Fotografía del equipo</figcaption></figure>`
+          : `<div class="equipment-picture equipment-picture-empty">Fotografía del equipo no disponible</div>`;
+        const ticketDetails = event.tickets.length ? `<section class="section"><h2>Información del ticket asociado</h2>${event.tickets.map(ticket => `
+          <div class="ticket-report"><div class="ticket-report-grid">
+            <p><b>Número:</b> ${escapeHtml(ticket.ticketNumber || "—")}</p><p><b>Fecha:</b> ${escapeHtml(formatTicketDate(ticket.date))}</p>
+            <p><b>Tipo:</b> ${escapeHtml(ticket.type || "—")}</p><p><b>Estado:</b> ${escapeHtml(ticket.status || "Pendiente")}</p>
+            <p><b>Solicitante:</b> ${escapeHtml(ticket.createdByName || ticket.leaderName || "—")}</p><p><b>Supervisor:</b> ${escapeHtml(ticket.supervisor || event.supervisorName || "—")}</p>
+            <p><b>Técnico asignado:</b> ${escapeHtml(ticket.technician || "—")}</p><p><b>Activo fijo:</b> ${escapeHtml(ticket.activeFixed || "N/A")}</p>
+            <p class="wide"><b>Equipo:</b> ${escapeHtml(ticket.machineName || event.equipmentName || "—")}${ticket.machineModel ? ` · ${escapeHtml(ticket.machineModel)}` : ""}</p>
+            <p class="wide"><b>Título:</b> ${escapeHtml(ticket.title || "—")}</p><p class="wide"><b>Descripción:</b> ${escapeHtml(ticket.description || "—")}</p>
+          </div>${Array.isArray(ticket.images) && ticket.images.length ? `<div class="ticket-photos">${ticket.images.slice(0, 2).map((image, photoIndex) => `<figure><img src="${escapeHtml(image)}" alt="Foto ${photoIndex + 1} del ticket"><figcaption>Adjunto del ticket ${photoIndex + 1}</figcaption></figure>`).join("")}</div>` : ""}</div>`).join("")}</section>` : "";
+        return `<article class="report-page">
+          <header class="report-header"><img src="${escapeHtml(logoUrl)}" alt="Smart Fit" style="background:#000;padding:4px 8px;border-radius:4px"><div><h1>INFORME DE EVENTO</h1><p>Fecha de emisión: ${escapeHtml(issuedAt)} · Registro ${index + 1} de ${events.length}</p></div></header>
+          <section class="section"><h2>Datos del evento</h2><div class="event-info-layout"><div class="data-grid">
+            <p><b>Fecha:</b> ${escapeHtml(formatTicketDate(event.date))}</p><p><b>Estado:</b> ${escapeHtml(displayHistoryStatus(event.status))}</p>
+            <p><b>Sede:</b> ${escapeHtml(event.siteName)}</p><p><b>Equipo:</b> ${escapeHtml(event.equipmentName)}${event.model ? ` · ${escapeHtml(event.model)}` : ""}</p>
+            <p><b>Activo fijo:</b> ${escapeHtml(event.activeFixed ?? "—")}</p><p><b>Técnico:</b> ${escapeHtml(event.technicianNames.join(", ") || "—")}</p>
+            <p><b>Supervisor:</b> ${escapeHtml(event.supervisorName)}</p><p><b>Registrado por:</b> ${escapeHtml(event.recordedByName)}</p>
+            <p class="wide"><b>Ticket:</b> ${escapeHtml(ticketText)}</p>
+          </div>${equipmentPhoto}</div></section>
+          ${ticketDetails}
+          <section class="section"><h2>Trabajo realizado</h2><p>${escapeHtml(event.work || "Sin detalle registrado")}</p></section>
+          <section class="section"><h2>Repuesto / material</h2><p>${escapeHtml(event.replacement || "Sin repuestos o materiales registrados")}</p></section>
+          <section class="section"><h2>Observaciones</h2><p>${escapeHtml(event.observations || "Sin observaciones")}</p></section>
+          ${photos}<footer>se genera el informe para lo que se estime conveniente.</footer>
+        </article>`;
+      }).join("");
+      const reportWindow = window.open("", "_blank");
+      if (!reportWindow) {
+        window.alert("El navegador bloqueó la ventana del informe. Permite las ventanas emergentes e inténtalo nuevamente.");
+        return;
+      }
+      reportWindow.document.open();
+      reportWindow.document.write(`<!doctype html><html lang="es"><head><meta charset="utf-8"><title>informe</title><style>
+        @page{size:letter;margin:14mm}*{box-sizing:border-box}body{margin:0;color:#171923;font:10pt Arial,sans-serif}.report-page{height:250mm;position:relative;page-break-after:always;break-after:page;display:flex;flex-direction:column}.report-page:last-child{page-break-after:auto;break-after:auto}.report-header{display:flex;align-items:center;gap:18px;border-bottom:2px solid #ffb51b;padding:0 0 12px}.report-header img{width:125px;height:auto;object-fit:contain}.report-header div{flex:1;text-align:right}.report-header h1{font-size:18pt;margin:0 0 6px}.report-header p,.muted{color:#5e6370;margin:0}.section{margin-top:13px}.section h2{font-size:11pt;margin:0 0 7px;padding-bottom:4px;border-bottom:1px solid #d8dae0}.section p{margin:0;line-height:1.5;text-align:justify;white-space:pre-wrap;overflow-wrap:anywhere}.event-info-layout{display:grid;grid-template-columns:minmax(0,1fr) 58mm;gap:10px;align-items:start}.data-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px 18px}.data-grid p,.ticket-report-grid p{line-height:1.35}.data-grid .wide,.ticket-report-grid .wide{grid-column:1/-1}.equipment-picture{margin:0;text-align:center;font-size:8pt;color:#555}.equipment-picture img{width:100%;height:58mm;object-fit:contain}.equipment-picture-empty{height:58mm;display:grid;place-items:center;border:1px dashed #c5c8d0}.ticket-report{padding:7px 0;border-bottom:1px solid #d8dae0}.ticket-report-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px 14px}.ticket-photos{display:flex;gap:8px;margin-top:6px}.ticket-photos figure{margin:0;width:36mm;text-align:center;font-size:7pt;color:#555}.ticket-photos img{width:100%;height:28mm;object-fit:contain;border:1px solid #d8dae0}.photos{display:flex;gap:12px;align-items:flex-start}.photos figure{margin:0;width:48%;text-align:center}.photos img{width:100%;height:60mm;object-fit:contain;border:1px solid #d8dae0}.photos figcaption{font-size:8pt;color:#555;margin-top:4px}footer{margin-top:auto;padding-top:10px;border-top:1px solid #cfd1d8;text-align:center;font-size:8pt;color:#555}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+      </style><style>.event-info-layout{display:grid;grid-template-columns:minmax(0,1fr) 48mm;gap:8px;align-items:start}.data-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px 12px}.data-grid p,.ticket-report-grid p{line-height:1.25}.data-grid .wide,.ticket-report-grid .wide{grid-column:1/-1}.equipment-picture{margin:0;text-align:center;font-size:7pt;color:#555}.equipment-picture img{width:100%;height:42mm;object-fit:contain}.equipment-picture-empty{height:42mm;display:grid;place-items:center;border:1px dashed #c5c8d0}.ticket-report{padding:5px 0;border-bottom:1px solid #d8dae0}.ticket-report-grid{display:grid;grid-template-columns:1fr 1fr;gap:3px 10px;font-size:8pt}.ticket-photos{display:flex;gap:7px;margin-top:4px}.ticket-photos figure{margin:0;width:31mm;text-align:center;font-size:6.5pt;color:#555}.ticket-photos img{width:100%;height:18mm;object-fit:contain;border:1px solid #d8dae0}.photos img{height:38mm}.section{margin-top:8px}.section h2{font-size:10pt;margin:0 0 4px;padding-bottom:3px}</style></head><body>${pages}<script>window.addEventListener('load',()=>{const imgs=[...document.images];Promise.all(imgs.map(img=>img.decode?.().catch(()=>{})||Promise.resolve())).then(()=>setTimeout(()=>window.print(),250));});<\/script></body></html>`);
+      reportWindow.document.close();
+    }
+
+    function renderTickets() {
+      const tickets = readLeaderTickets();
+      const users = AdminStore.listUsers();
+      const sites = AdminStore.listSites();
+      const siteById = new Map(sites.map(site => [site.id, site]));
+      const supervisorKey = ticket => {
+        const site = siteById.get(ticket.siteId);
+        const assigned = users.find(candidate => candidate.id === site?.supervisorUserId && candidate.role === "Supervisor");
+        if (assigned) return assigned.id;
+        const name = ticket.supervisor || site?.supervisor || "Sin supervisor asignado";
+        return users.find(candidate => candidate.role === "Supervisor" && normalizeHistoryName(candidate.name) === normalizeHistoryName(name))?.id || `name:${normalizeHistoryName(name)}`;
+      };
+      const supervisorOptions = users.filter(candidate => candidate.role === "Supervisor").map(candidate => ({ value: candidate.id, label: candidate.name }));
+      tickets.forEach(ticket => {
+        if (supervisorKey(ticket).startsWith("name:")) supervisorOptions.push({ value: supervisorKey(ticket), label: ticket.supervisor || "Sin supervisor asignado" });
+      });
+      const supervisorSelectValue = $("ticketsSupervisor").value;
+      const siteSelectValue = $("ticketsSite").value;
+      const technicianSelectValue = $("ticketsTechnician").value;
+      setHistorySelectOptions($("ticketsSupervisor"), supervisorOptions, "Todos", supervisorSelectValue);
+      const activeSupervisor = $("ticketsSupervisor").value;
+      const scopedTickets = tickets.filter(ticket => activeSupervisor === "*" || supervisorKey(ticket) === activeSupervisor);
+      const scopedSiteIds = new Set(scopedTickets.map(ticket => ticket.siteId).filter(Boolean));
+      const sitesForSupervisor = sites.filter(site => scopedSiteIds.has(site.id));
+      const techOptions = users.filter(candidate => candidate.role === "Técnico" && (candidate.siteIds || []).some(id => scopedSiteIds.has(id)))
+        .map(candidate => ({ value: candidate.id || `name:${normalizeHistoryName(candidate.name)}`, label: candidate.name }));
+      scopedTickets.forEach(ticket => techOptions.push({ value: ticket.technicianId || `name:${normalizeHistoryName(ticket.technician || "")}`, label: ticket.technician || "Sin técnico asignado" }));
+      const selectedSiteIsValid = siteSelectValue === "*" || sitesForSupervisor.some(site => site.id === siteSelectValue);
+      const technicianSiteId = selectedSiteIsValid && siteSelectValue !== "*" ? siteSelectValue : "*";
+      const filteredTechOptions = technicianSiteId === "*" ? techOptions : techOptions.filter(option => {
+        const assigned = users.find(candidate => (candidate.id || `name:${normalizeHistoryName(candidate.name)}`) === option.value);
+        return (assigned?.siteIds || []).includes(technicianSiteId) || scopedTickets.some(ticket => ticket.siteId === technicianSiteId && (ticket.technicianId || `name:${normalizeHistoryName(ticket.technician || "")}`) === option.value);
+      });
+      setHistorySelectOptions($("ticketsTechnician"), filteredTechOptions, "Todos", technicianSelectValue);
+      const activeTechnician = $("ticketsTechnician").value;
+      const sitesForTechnician = activeTechnician === "*" ? sitesForSupervisor : sitesForSupervisor.filter(site =>
+        users.some(candidate => (candidate.id || `name:${normalizeHistoryName(candidate.name)}`) === activeTechnician && candidate.role === "Técnico" && (candidate.siteIds || []).includes(site.id)) ||
+        scopedTickets.some(ticket => ticket.siteId === site.id && (ticket.technicianId || `name:${normalizeHistoryName(ticket.technician || "")}`) === activeTechnician)
+      );
+      setHistorySelectOptions($("ticketsSite"), sitesForTechnician.map(site => ({ value: site.id, label: site.name })), "Todas", selectedSiteIsValid ? siteSelectValue : "*");
+      const statusOptions = Array.from(new Set(tickets.map(ticket => ticket.status || "Pendiente"))).map(status => ({ value: status, label: status }));
+      setHistorySelectOptions($("ticketsStatus"), statusOptions, "Todos", $("ticketsStatus").value);
+      const from = $("ticketsDateFrom").value;
+      const to = $("ticketsDateTo").value;
+      const technician = $("ticketsTechnician").value;
+      const site = $("ticketsSite").value;
+      const status = $("ticketsStatus").value;
+      const fixedQuery = normalizeHistoryName($("ticketsActiveFixed").value);
+      const filtered = scopedTickets.filter(ticket => {
+        const date = String(ticket.date || ticket.createdAt || "").slice(0, 10);
+        const techKey = ticket.technicianId || `name:${normalizeHistoryName(ticket.technician || "")}`;
+        return (!from || date >= from) && (!to || date <= to) &&
+          (technician === "*" || techKey === technician) &&
+          (site === "*" || ticket.siteId === site) &&
+          (status === "*" || (ticket.status || "Pendiente") === status) &&
+          (!fixedQuery || normalizeHistoryName(ticket.activeFixed ?? "").includes(fixedQuery));
+      }).sort((first, second) => String(second.createdAt || second.date || "").localeCompare(String(first.createdAt || first.date || "")));
+      adminFilteredTickets = filtered;
+      $("ticketsResultCount").textContent = `${filtered.length} ${filtered.length === 1 ? "ticket" : "tickets"}`;
+      $("ticketsBody").innerHTML = filtered.map(ticket => `
+        <tr>
+          <td><span class="user-name">${escapeHtml(ticket.ticketNumber || "—")}</span></td>
+          <td>${escapeHtml(ticket.siteName || "—")}</td>
+          <td>${escapeHtml(ticket.createdByName || ticket.leaderName || "—")}</td>
+          <td>${escapeHtml(formatTicketDate(ticket.date))}</td>
+          <td>${escapeHtml(ticket.supervisor || "—")}</td>
+          <td>${escapeHtml(ticket.technician || "—")}</td>
+          <td>${escapeHtml(ticket.activeFixed || "N/A")}</td>
+          <td>${escapeHtml(ticket.type || "—")}</td>
+          <td><span class="status-badge ${ticketStatusClass(ticket.status)}">${escapeHtml(ticket.status || "Pendiente")}</span></td>
+          <td><button class="secondary-button" type="button" data-view-ticket="${escapeHtml(ticket.id || "")}">Ver ticket</button></td>
+        </tr>`).join("") || '<tr><td colspan="10" class="empty-state">No hay tickets para los filtros seleccionados.</td></tr>';
+    }
+
+    function ticketEquipmentImage(ticket) {
+      const site = AdminStore.listSites().find(entry => entry.id === ticket.siteId);
+      const equipment = Array.isArray(site?.equipment) ? site.equipment : [];
+      const machineName = normalizeHistoryName(ticket.machineName);
+      const machineModel = normalizeHistoryName(ticket.machineModel);
+      const fixedNumber = String(ticket.activeFixed ?? "N/A");
+      const item = equipment.find(candidate => normalizeHistoryName(candidate.name) === machineName && (!machineModel || normalizeHistoryName(candidate.model) === machineModel)) ||
+        equipment.find(candidate => Array.isArray(candidate.units) && candidate.units.some(unit => String(unit.activeFixed ?? "N/A") === fixedNumber));
+      if (!item) return "";
+      const catalogItem = catalogEquipment.find(candidate => candidate.catalogId === item.catalogId);
+      return item.image || catalogItem?.image || "";
+    }
+
+    function exportTicketsPdf(tickets, reportTitle) {
+      if (!tickets.length) { window.alert("No hay tickets para generar el PDF con los filtros seleccionados."); return; }
+      const reportWindow = window.open("", "_blank");
+      if (!reportWindow) { window.alert("El navegador bloqueó la ventana del informe. Permite las ventanas emergentes e inténtalo nuevamente."); return; }
+      const logoUrl = new URL("IMG/logo-header.png", window.location.href).href;
+      const issuedAt = new Intl.DateTimeFormat("es-CL", { dateStyle: "long" }).format(new Date());
+      const pages = tickets.map((ticket, index) => {
+        const equipmentImage = ticketEquipmentImage(ticket);
+        const equipmentPhoto = equipmentImage
+          ? `<figure class="equipment-picture"><img src="${escapeHtml(new URL(equipmentImage, window.location.href).href)}" alt="${escapeHtml(ticket.machineName || "Equipo")}"><figcaption>Fotografía del equipo</figcaption></figure>`
+          : `<div class="equipment-picture equipment-picture-empty">Fotografía del equipo no disponible</div>`;
+        const photos = Array.isArray(ticket.images) && ticket.images.length
+          ? `<section class="section"><h2>Registro fotográfico</h2><div class="photos">${ticket.images.slice(0, 2).map((image, photoIndex) => `<figure><img src="${escapeHtml(image)}" alt="Adjunto ${photoIndex + 1} del ticket"><figcaption>Adjunto ${photoIndex + 1}</figcaption></figure>`).join("")}</div></section>`
+          : `<section class="section"><h2>Registro fotográfico</h2><p class="muted">Sin imágenes adjuntas.</p></section>`;
+        return `<article class="report-page"><header class="report-header"><img src="${escapeHtml(logoUrl)}" alt="Smart Fit"><div><h1>${escapeHtml(reportTitle)}</h1><p>Fecha de emisión: ${escapeHtml(issuedAt)} · Registro ${index + 1} de ${tickets.length}</p></div></header><section class="section"><h2>Datos del ticket</h2><div class="event-info-layout"><div class="data-grid"><p><b>Número:</b> ${escapeHtml(ticket.ticketNumber || "—")}</p><p><b>Fecha:</b> ${escapeHtml(formatTicketDate(ticket.date))}</p><p><b>Sede:</b> ${escapeHtml(ticket.siteName || "—")}</p><p><b>Solicitante:</b> ${escapeHtml(ticket.createdByName || ticket.leaderName || "—")}</p><p><b>Supervisor:</b> ${escapeHtml(ticket.supervisor || "—")}</p><p><b>Técnico:</b> ${escapeHtml(ticket.technician || "—")}</p><p><b>Activo fijo:</b> ${escapeHtml(ticket.activeFixed || "N/A")}</p><p><b>Equipo:</b> ${escapeHtml(ticket.machineName || "—")}${ticket.machineModel ? ` · ${escapeHtml(ticket.machineModel)}` : ""}</p><p><b>Tipo:</b> ${escapeHtml(ticket.type || "—")}</p><p><b>Estado:</b> ${escapeHtml(ticket.status || "Pendiente")}</p><p class="wide"><b>Título:</b> ${escapeHtml(ticket.title || "—")}</p><p class="wide"><b>Descripción:</b> ${escapeHtml(ticket.description || "Sin descripción")}</p></div>${equipmentPhoto}</div></section>${photos}<footer>se genera el informe para lo que se estime conveniente.</footer></article>`;
+      }).join("");
+      reportWindow.document.open();
+      reportWindow.document.write(`<!doctype html><html lang="es"><head><meta charset="utf-8"><title>${escapeHtml(reportTitle)}</title><style>@page{size:letter;margin:14mm}*{box-sizing:border-box}body{margin:0;color:#171923;font:10pt Arial,sans-serif}.report-page{min-height:250mm;position:relative;page-break-after:always;break-after:page;display:flex;flex-direction:column}.report-page:last-child{page-break-after:auto;break-after:auto}.report-header{display:flex;align-items:center;gap:18px;border-bottom:3px solid #ffb51b;padding:0 0 12px}.report-header img{width:125px;height:auto;object-fit:contain;background:#000!important;padding:4px 8px;border-radius:4px}.report-header div{flex:1;text-align:right}.report-header h1{font-size:18pt;margin:0 0 6px}.report-header p,.muted{color:#5e6370;margin:0}.section{margin-top:16px}.section h2{font-size:11pt;margin:0 0 9px;padding-bottom:5px;border-bottom:1px solid #d8dae0}.section p{margin:0;line-height:1.5;text-align:justify;white-space:pre-wrap;overflow-wrap:anywhere}.event-info-layout{display:grid;grid-template-columns:minmax(0,1fr) 58mm;gap:10px;align-items:start}.data-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px 20px}.data-grid .wide{grid-column:1/-1}.equipment-picture{margin:0;text-align:center;font-size:8pt;color:#555}.equipment-picture img{width:100%;height:58mm;object-fit:contain}.equipment-picture-empty{height:58mm;display:grid;place-items:center;border:1px dashed #c5c8d0;color:#777}.photos{display:flex;gap:12px;align-items:flex-start}.photos figure{margin:0;width:48%;text-align:center}.photos img{width:100%;height:65mm;object-fit:contain;border:1px solid #d8dae0}.photos figcaption{font-size:8pt;color:#555;margin-top:4px}footer{margin-top:auto;padding-top:10px;border-top:1px solid #cfd1d8;text-align:center;font-size:8pt;color:#555}@media print{*{-webkit-print-color-adjust:exact;print-color-adjust:exact}}</style></head><body>${pages}<script>window.addEventListener('load',()=>{const imgs=[...document.images];Promise.all(imgs.map(img=>img.decode?.().catch(()=>{})||Promise.resolve())).then(()=>setTimeout(()=>window.print(),250));});<\/script></body></html>`);
+      reportWindow.document.close();
+    }
+
+    function ticketStatusClass(status) {
+      const normalized = String(status || "Pendiente").toLocaleLowerCase("es").replace("ó", "o");
+      return normalized === "ejecutado" || normalized === "ejecutada" ? "active" : normalized === "en ejecucion" ? "in-progress" : "pending";
+    }
+
+    function openTicketDetail(ticketId) {
+      const ticket = readLeaderTickets().find(entry => entry.id === ticketId);
+      if (!ticket) return;
+      $("ticketDetailTitle").textContent = `Ticket ${ticket.ticketNumber || ""}`;
+      const photos = Array.isArray(ticket.images) ? ticket.images.slice(0, 2) : [];
+      $("ticketDetailBody").innerHTML = `
+        <div class="ticket-detail-grid">
+          <div class="ticket-detail-item"><span class="ticket-detail-label">Sede</span><div class="ticket-detail-value">${escapeHtml(ticket.siteName || "—")}</div></div>
+          <div class="ticket-detail-item"><span class="ticket-detail-label">Solicitante</span><div class="ticket-detail-value">${escapeHtml(ticket.createdByName || ticket.leaderName || "—")}</div></div>
+          <div class="ticket-detail-item"><span class="ticket-detail-label">Fecha</span><div class="ticket-detail-value">${escapeHtml(formatTicketDate(ticket.date))}</div></div>
+          <div class="ticket-detail-item"><span class="ticket-detail-label">Supervisor</span><div class="ticket-detail-value">${escapeHtml(ticket.supervisor || "—")}</div></div>
+          <div class="ticket-detail-item"><span class="ticket-detail-label">Tipo</span><div class="ticket-detail-value">${escapeHtml(ticket.type || "—")}</div></div>
+          <div class="ticket-detail-item"><span class="ticket-detail-label">Estado</span><div class="ticket-detail-value">${escapeHtml(ticket.status || "Pendiente")}</div></div>
+          <div class="ticket-detail-item"><span class="ticket-detail-label">Activo fijo</span><div class="ticket-detail-value">${escapeHtml(ticket.activeFixed || "N/A")}</div></div>
+          <div class="ticket-detail-item"><span class="ticket-detail-label">Equipo</span><div class="ticket-detail-value">${escapeHtml(ticket.machineName || "—")}${ticket.machineModel ? ` · ${escapeHtml(ticket.machineModel)}` : ""}</div></div>
+          <div class="ticket-detail-item"><span class="ticket-detail-label">Técnico asignado</span><div class="ticket-detail-value">${escapeHtml(ticket.technician || "—")}</div></div>
+          <div class="ticket-detail-item full"><span class="ticket-detail-label">Título</span><div class="ticket-detail-value">${escapeHtml(ticket.title || "—")}</div></div>
+          <div class="ticket-detail-item full"><span class="ticket-detail-label">Descripción</span><div class="ticket-detail-value">${escapeHtml(ticket.description || "—")}</div></div>
+          <div class="ticket-detail-item full"><span class="ticket-detail-label">Imágenes adjuntas (${photos.length}/2)</span><div class="ticket-detail-photos">${photos.map((image, index) => `<img src="${escapeHtml(image)}" alt="Imagen ${index + 1} del ticket" loading="lazy">`).join("") || "<span class=\"ticket-detail-value\">Sin imágenes adjuntas</span>"}</div></div>
+        </div>`;
+      $("ticketDetailModal").hidden = false;
+      $("closeTicketDetail").focus();
+    }
+
+    function formatAccessDate(value) {
+      if (!value) return "—";
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return "—";
+      return new Intl.DateTimeFormat("es-CL", { dateStyle: "medium", timeStyle: "short" }).format(date);
+    }
+
+    function roleBadge(role) {
+      return `<span class="role-badge">${escapeHtml(role)}</span>`;
+    }
+
+    function statusBadge(active) {
+      return active
+        ? '<span class="status-badge active">Activa</span>'
+        : '<span class="status-badge inactive">Inactiva</span>';
+    }
+
+    function aggregateSites(sites, key, valueKey) {
+      const totals = new Map();
+      sites.forEach(site => {
+        const rawLabel = String(site[key] || "Sin asignar").trim() || "Sin asignar";
+        const label = key === "region" ? formatRegion(rawLabel) : rawLabel;
+        const value = valueKey ? Math.max(0, Number(site[valueKey]) || 0) : 1;
+        totals.set(label, (totals.get(label) || 0) + value);
+      });
+      return Array.from(totals, ([label, value]) => ({ label, value })).sort((a, b) => b.value - a.value || a.label.localeCompare(b.label, "es"));
+    }
+
+    function renderPieChart(containerId, entries) {
+      const host = $(containerId);
+      const positiveEntries = entries.filter(entry => entry.value > 0);
+      const total = positiveEntries.reduce((sum, entry) => sum + entry.value, 0);
+      if (!total) {
+        host.innerHTML = '<div class="chart-empty">Aún no hay datos para mostrar.</div>';
+        return;
+      }
+      const selected = chartSelections.get(containerId) || "";
+      let angle = -90;
+      const paths = positiveEntries.map((entry, index) => {
+        const fraction = entry.value / total;
+        const color = chartColors[index % chartColors.length];
+        const startAngle = angle;
+        angle += fraction * 360;
+        let shape;
+        if (fraction >= 0.999999) {
+          shape = '<circle cx="100" cy="100" r="78"';
+        } else {
+          const radiansStart = startAngle * Math.PI / 180;
+          const radiansEnd = angle * Math.PI / 180;
+          const x1 = 100 + 78 * Math.cos(radiansStart);
+          const y1 = 100 + 78 * Math.sin(radiansStart);
+          const x2 = 100 + 78 * Math.cos(radiansEnd);
+          const y2 = 100 + 78 * Math.sin(radiansEnd);
+          const largeArc = fraction > .5 ? 1 : 0;
+          shape = `<path d="M 100 100 L ${x1.toFixed(3)} ${y1.toFixed(3)} A 78 78 0 ${largeArc} 1 ${x2.toFixed(3)} ${y2.toFixed(3)} Z"`;
+        }
+        const percentage = fraction * 100;
+        const isSelected = selected === entry.label;
+        const classes = `${isSelected ? " selected" : ""}${selected && !isSelected ? " dimmed" : ""}`;
+        return `${shape} fill="${color}" class="pie-slice${classes}" data-chart-slice="${escapeHtml(entry.label)}" tabindex="0" role="button" aria-label="${escapeHtml(entry.label)}: ${percentage.toFixed(1)} por ciento, ${entry.value}"></${shape.startsWith("<circle") ? "circle" : "path"}>`;
+      }).join("");
+      const legend = positiveEntries.map((entry, index) => {
+        const percentage = entry.value / total * 100;
+        const isSelected = selected === entry.label;
+        return `<button class="legend-item${isSelected ? " selected" : ""}" type="button" data-chart-select="${escapeHtml(entry.label)}"><span class="legend-dot" style="background:${chartColors[index % chartColors.length]}"></span><span class="legend-name" title="${escapeHtml(entry.label)}">${escapeHtml(entry.label)}</span><span class="legend-value">${percentage.toFixed(1)}% · ${entry.value}</span></button>`;
+      }).join("");
+      host.innerHTML = `<div class="pie-wrap"><svg class="pie-svg" viewBox="0 0 200 200" role="img" aria-label="Gráfico circular con ${positiveEntries.length} categorías">${paths}</svg><div class="pie-tooltip" data-chart-tooltip hidden></div></div><div class="chart-legend">${legend}</div>`;
+    }
+
+    function renderSummaryCharts(sites) {
+      const regions = Array.from(new Set(sites.map(site => site.region).filter(Boolean))).sort((a, b) => a.localeCompare(b, "es"));
+      const filter = $("supervisorRegionFilter");
+      const currentRegion = filter.value;
+      filter.innerHTML = '<option value="*">Todas las regiones</option>' + regions.map(region => `<option value="${escapeHtml(region)}">${escapeHtml(formatRegion(region))}</option>`).join("");
+      filter.value = regions.includes(currentRegion) ? currentRegion : "*";
+
+      const filteredByRegion = filter.value === "*" ? sites : sites.filter(site => site.region === filter.value);
+      renderPieChart("sitesByRegionChart", aggregateSites(sites, "region"));
+      renderPieChart("supervisorByRegionChart", aggregateSites(filteredByRegion, "supervisor"));
+      renderPieChart("machinesByRegionChart", aggregateSites(sites, "region", "machineCount"));
+      renderPieChart("machinesBySupervisorChart", aggregateSites(sites, "supervisor", "machineCount"));
+      renderPieChart("machinesByTechnicianChart", aggregateSites(sites, "technician", "machineCount"));
+    }
+
+    function setupChartInteractions() {
+      document.querySelectorAll(".chart-content").forEach(host => {
+        host.addEventListener("pointerover", event => {
+          const slice = event.target.closest("[data-chart-slice]");
+          if (!slice) return;
+          const chartHost = slice.closest(".chart-content");
+          const tooltip = chartHost.querySelector("[data-chart-tooltip]");
+          if (!tooltip) return;
+          const label = slice.dataset.chartSlice;
+          const legend = Array.from(chartHost.querySelectorAll("[data-chart-select]")).find(button => button.dataset.chartSelect === label);
+          tooltip.innerHTML = `<strong>${escapeHtml(label)}</strong><br>${legend ? escapeHtml(legend.querySelector(".legend-value").textContent) : ""}`;
+          tooltip.hidden = false;
+        });
+        host.addEventListener("pointerout", event => {
+          if (event.target.closest("[data-chart-slice]") && !event.relatedTarget?.closest("[data-chart-slice]")) {
+            const tooltip = host.querySelector("[data-chart-tooltip]");
+            if (tooltip) tooltip.hidden = true;
+          }
+        });
+        host.addEventListener("click", event => {
+          const control = event.target.closest("[data-chart-slice], [data-chart-select]");
+          if (!control) return;
+          const label = control.dataset.chartSlice || control.dataset.chartSelect;
+          const chartId = host.id;
+          chartSelections.set(chartId, chartSelections.get(chartId) === label ? "" : label);
+          render();
+        });
+        host.addEventListener("keydown", event => {
+          if ((event.key === "Enter" || event.key === " ") && event.target.matches("[data-chart-slice]")) {
+            event.preventDefault();
+            event.target.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+          }
+        });
+      });
+      $("supervisorRegionFilter").addEventListener("change", render);
+    }
+
+    function render() {
+      const users = AdminStore.listUsers();
+      const sites = AdminStore.listSites();
+      const brands = AdminStore.listBrands();
+      catalogBrands = brands;
+      const active = users.filter(user => user.active);
+      const admins = users.filter(user => user.role === "Administrador" && user.active);
+      const activeSites = sites.filter(site => site.active !== false);
+      const totalMachines = sites.reduce((sum, site) => sum + Math.max(0, Number(site.machineCount) || 0), 0);
+      $("totalUsers").textContent = users.length;
+      $("activeUsers").textContent = active.length;
+      $("adminUsers").textContent = admins.length;
+      $("activeSites").textContent = activeSites.length;
+      $("totalMachines").textContent = totalMachines.toLocaleString("es-CL");
+      renderSummaryCharts(sites);
+
+      const recentAccesses = AdminStore.listRecentAccesses(15);
+      $("recentAccessesBody").innerHTML = recentAccesses.map(access => `
+        <tr>
+          <td><span class="user-name">${escapeHtml(access.name)}</span><span class="subtext">${escapeHtml(access.username)}</span></td>
+          <td>${roleBadge(access.role)}</td>
+          <td>${escapeHtml(formatAccessDate(access.accessedAt))}</td>
+        </tr>`).join("") || '<tr><td colspan="3" class="empty-state">Todavía no hay accesos registrados.</td></tr>';
+
+      const normalizedUserQuery = searchTerm.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      const filtered = users.filter(user =>
+        `${user.name} ${user.username} ${user.role}`.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("es").includes(normalizedUserQuery)
+      );
+      $("usersBody").innerHTML = filtered.map(user => {
+        const userDeleteBlock = user.authId ? "Los accesos de Supabase se desactivan desde Editar para conservar el historial." : AdminStore.userDeletionBlock(user.id);
+        return `
+        <tr>
+          <td><span class="user-name">${escapeHtml(user.name)}</span><span class="subtext">${escapeHtml(user.username)}</span></td>
+          <td>${roleBadge(user.role)}</td>
+          <td>${(user.siteIds || []).map(id => sites.find(site => site.id === id)).filter(Boolean).map(site => escapeHtml(site.name)).join(", ") || "—"}</td>
+          <td>${statusBadge(user.active)}</td>
+          <td>${formatDate(user.updatedAt)}</td>
+          <td><div class="row-actions" ${userDeleteBlock ? `title="${escapeHtml(userDeleteBlock)}"` : ""}>
+            <button class="secondary-button" type="button" data-edit="${escapeHtml(user.id)}">Editar</button>
+            <button class="danger-button" type="button" data-delete="${escapeHtml(user.id)}" ${userDeleteBlock ? `disabled title="${escapeHtml(userDeleteBlock)}"` : ""}>Eliminar</button>
+          </div></td>
+        </tr>`;
+      }).join("") || '<tr><td colspan="6" class="empty-state">No se encontraron usuarios.</td></tr>';
+
+      const filteredSites = sites.filter(site =>
+        `${site.internalCode || ""} ${site.name} ${site.region || ""} ${site.technician || ""} ${site.supervisor || ""}`.toLocaleLowerCase("es").includes(siteSearchTerm)
+      );
+      $("sitesBody").innerHTML = filteredSites.map(site => {
+        const assignedUsers = users.filter(user => (user.siteIds || []).includes(site.id) || site.technicianUserId === user.id || site.supervisorUserId === user.id);
+        const siteDeleteBlock = AdminStore.siteDeletionBlock(site.id);
+        return `
+          <tr>
+            <td>${Number(site.internalCode) || "—"}</td>
+            <td><span class="user-name">${escapeHtml(site.name)}</span></td>
+            <td>${escapeHtml(formatRegion(site.region))}</td>
+            <td>${escapeHtml(site.technician || "—")}</td>
+            <td>${escapeHtml(site.supervisor || "—")}</td>
+            <td>${Number(site.machineCount) || 0}</td>
+            <td>${assignedUsers.length}</td>
+            <td><div class="row-actions" ${siteDeleteBlock ? `title="${escapeHtml(siteDeleteBlock)}"` : ""}>
+              <button class="secondary-button" type="button" data-edit-site="${escapeHtml(site.id)}">Editar</button>
+              <button class="danger-button" type="button" data-delete-site="${escapeHtml(site.id)}" ${siteDeleteBlock ? `disabled title="${escapeHtml(siteDeleteBlock)}"` : ""}>Eliminar</button>
+            </div></td>
+          </tr>`;
+      }).join("") || '<tr><td colspan="8" class="empty-state">No se encontraron sedes.</td></tr>';
+
+      const totalEquipment = brands.reduce((total, brand) => total + (Number(brand.equipmentCount) || 0), 0);
+      $("equipmentTotal").textContent = `${totalEquipment} ${totalEquipment === 1 ? "equipo registrado" : "equipos registrados"}`;
+      $("equipmentGrid").innerHTML = brands.map(brand => {
+        const brandDeleteBlock = AdminStore.brandDeletionBlock(brand.id);
+        return `
+        <article class="equipment-card">
+          <div>
+            <h3>${escapeHtml(brand.name)}</h3>
+            <p>${Number(brand.equipmentCount) || 0} ${Number(brand.equipmentCount) === 1 ? "equipo" : "equipos"}</p>
+          </div>
+          <div class="equipment-actions" ${brandDeleteBlock ? `title="${escapeHtml(brandDeleteBlock)}"` : ""}>
+            <button class="secondary-button" type="button" data-edit-brand="${escapeHtml(brand.id)}">Editar</button>
+            <button class="danger-button" type="button" data-delete-brand="${escapeHtml(brand.id)}" ${brandDeleteBlock ? `disabled title="${escapeHtml(brandDeleteBlock)}"` : ""}>Eliminar</button>
+          </div>
+        </article>`;
+      }).join("") || '<div class="empty-state">No hay marcas registradas todavía.</div>';
+      renderMatrixCatalog();
+    }
+
+    function renderMatrixCatalog() {
+      const query = $("matrixSearch").value.trim().toLocaleLowerCase("es");
+      const filtered = activeEquipmentCatalog.filter(item => `${item.name} ${item.model} ${item.category}`.toLocaleLowerCase("es").includes(query));
+      $("matrixGrid").innerHTML = filtered.map(item => `
+        <article class="matrix-item">
+          <span class="matrix-thumb-wrap${item.image ? "" : " is-empty"}">
+            ${item.image ? `<img class="matrix-thumb" src="${escapeHtml(item.image)}" alt="${escapeHtml(item.name)}" loading="lazy">` : ""}
+          </span>
+          <div class="matrix-info">
+            <h3>${escapeHtml(item.name)}</h3>
+            <p>Modelo: ${escapeHtml(item.model)}</p>
+            <span class="equipment-tag">${escapeHtml(item.category)}</span>
+          </div>
+        </article>`).join("") || '<div class="empty-state">No se encontraron equipos con ese nombre.</div>';
+    }
+
+    function openMatrixModal(brand) {
+      activeEquipmentCatalog = brandCatalogs[brand.id] || [];
+      $("matrixModalTitle").innerHTML = `⚒ &nbsp; Equipo de ${escapeHtml(brand.name)}`;
+      $("matrixSearch").setAttribute("aria-label", `Buscar equipo ${brand.name}`);
+      $("matrixSearch").placeholder = `⌕  Buscar equipo por nombre...`;
+      $("matrixSearch").value = "";
+      renderMatrixCatalog();
+      $("matrixModal").hidden = false;
+      $("matrixSearch").focus();
+    }
+
+    function closeMatrixModal() { $("matrixModal").hidden = true; }
+
+    function openMatrixImage(src, alt) {
+      const image = $("matrixLightboxImage");
+      image.style.width = "auto";
+      image.style.height = "auto";
+      image.alt = alt;
+      image.onload = fitMatrixLightboxImage;
+      image.src = src;
+      $("matrixImageLightbox").hidden = false;
+      if (image.complete) fitMatrixLightboxImage();
+      $("closeMatrixImage").focus();
+    }
+
+    function fitMatrixLightboxImage() {
+      const image = $("matrixLightboxImage");
+      if (!image.naturalWidth || !image.naturalHeight) return;
+      const maxWidth = Math.min(window.innerWidth * 0.9, 1200);
+      const maxHeight = window.innerHeight * 0.86;
+      const scale = Math.min(maxWidth / image.naturalWidth, maxHeight / image.naturalHeight);
+      image.style.width = `${Math.floor(image.naturalWidth * scale)}px`;
+      image.style.height = `${Math.floor(image.naturalHeight * scale)}px`;
+    }
+
+    function closeMatrixImage() {
+      $("matrixImageLightbox").hidden = true;
+      $("matrixLightboxImage").removeAttribute("src");
+    }
+
+    function showView(name) {
+      document.querySelectorAll(".view").forEach(view => { view.hidden = view.id !== `${name}View`; });
+      document.querySelectorAll(".nav-button").forEach(button => button.classList.toggle("active", button.dataset.view === name));
+      if (name === "users") $("userSearch").focus({ preventScroll: true });
+      if (name === "tickets") renderTickets();
+      if (name === "maintenanceHistory" && !$("maintenanceHistoryBlank").hidden) renderMaintenanceHistory();
+    }
+
+    function openUserModal(user) {
+      const editing = Boolean(user);
+      $("userForm").reset();
+      $("formError").classList.remove("visible");
+      $("userModalTitle").textContent = editing ? "Editar usuario" : "Nuevo usuario";
+      $("userId").value = editing ? user.id : "";
+      $("userName").value = editing ? user.name : "";
+      $("userUsername").value = editing ? user.username : "";
+      $("userEmail").value = editing ? (user.email || "") : "";
+      $("userRole").value = editing ? user.role : "Técnico";
+      $("userPassword").value = "";
+      $("userPassword").required = false;
+      $("passwordHelp").textContent = editing ? "Déjala vacía para mantener la clave. Si ingresas una temporal, se solicitará cambiarla al próximo acceso." : "Al crear el acceso, debe tener al menos 8 caracteres. El usuario tendrá que cambiarla al ingresar.";
+      $("userActive").checked = editing ? user.active : true;
+      $("userActive").disabled = editing && user.id === "admin-edu";
+      const assignedSiteIds = editing ? (user.siteIds || []) : [];
+      $("userSiteSearch").value = "";
+      $("siteAssignmentList").innerHTML = AdminStore.listSites().map(site => `
+        <label class="site-check">
+          <input type="checkbox" value="${escapeHtml(site.id)}" ${assignedSiteIds.includes(site.id) ? "checked" : ""}>
+          <span>${escapeHtml(site.name)} <span class="subtext">${Number(site.machineCount) || 0} máquinas</span></span>
+        </label>`).join("") || '<span class="form-help">Primero registra una sede.</span>';
+      filterUserAssignmentSites();
+      $("userModal").hidden = false;
+      $("userName").focus();
+    }
+
+    function filterUserAssignmentSites() {
+      const query = $("userSiteSearch").value.trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("es");
+      const siteChecks = Array.from($("siteAssignmentList").querySelectorAll(".site-check"));
+      let visibleCount = 0;
+      siteChecks.forEach(siteCheck => {
+        const text = siteCheck.textContent.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("es");
+        siteCheck.hidden = !text.includes(query);
+        if (!siteCheck.hidden) visibleCount += 1;
+      });
+      $("userSiteSearchEmpty").hidden = !query || visibleCount > 0;
+    }
+
+    function closeUserModal() { $("userModal").hidden = true; }
+
+    function populateSiteStaffSelect(selectId, role, selectedId, fallbackName) {
+      const select = $(selectId);
+      const users = AdminStore.listUsers()
+        .filter(user => user.active && user.role === role)
+        .sort((first, second) => first.name.localeCompare(second.name, "es"));
+      const fallback = users.find(user => user.name.toLocaleLowerCase("es") === String(fallbackName || "").toLocaleLowerCase("es"));
+      const value = selectedId || (fallback && fallback.id) || "";
+      select.innerHTML = `<option value="">Sin asignar</option>${users.map(user => `
+        <option value="${escapeHtml(user.id)}">${escapeHtml(user.name)}</option>`).join("")}`;
+      select.value = value;
+    }
+
+    function siteEquipmentCount(items) {
+      return (items || []).reduce((total, item) => total + (Number(item.quantity) || 0), 0);
+    }
+
+    function newMachineUnit() {
+      return { unitId: `unit-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`, activeFixed: "" };
+    }
+
+    function resizeMachineUnits(item, targetQuantity) {
+      const quantity = Math.max(0, Math.floor(Number(targetQuantity) || 0));
+      const units = Array.isArray(item.units) ? item.units.map(unit => Object.assign({}, unit)) : [];
+      while (units.length < quantity) units.push(newMachineUnit());
+      if (units.length > quantity) units.splice(quantity);
+      units.forEach(unit => {
+        if (!unit.unitId) unit.unitId = newMachineUnit().unitId;
+        if (unit.activeFixed === undefined || unit.activeFixed === null) unit.activeFixed = "";
+      });
+      item.units = units;
+      item.quantity = quantity;
+      return item;
+    }
+
+    function refreshSiteMachineCount() {
+      const count = siteEquipmentCount(selectedSiteEquipment);
+      $("siteMachineCount").value = count;
+      $("siteEquipmentSummary").textContent = `${count} ${count === 1 ? "máquina asignada" : "máquinas asignadas"} en ${selectedSiteEquipment.length} ${selectedSiteEquipment.length === 1 ? "modelo" : "modelos"}.`;
+    }
+
+    function updateSiteEquipmentSummary() {
+      const total = siteEquipmentCount(Array.from(siteEquipmentDraft.values()));
+      const kinds = siteEquipmentDraft.size;
+      $("siteEquipmentSelectionSummary").textContent = `${total} ${total === 1 ? "máquina" : "máquinas"} seleccionadas · ${kinds} ${kinds === 1 ? "modelo" : "modelos"}`;
+    }
+
+    function renderSiteEquipmentOptions() {
+      const brandId = $("siteEquipmentBrand").value;
+      const query = $("siteEquipmentSearch").value.trim().toLocaleLowerCase("es");
+      const items = catalogEquipment.filter(item => item.brandId === brandId &&
+        `${item.name} ${item.model} ${item.category}`.toLocaleLowerCase("es").includes(query));
+      $("siteEquipmentGrid").innerHTML = items.map(item => {
+        const selected = siteEquipmentDraft.get(item.catalogId);
+        return `
+          <article class="site-equipment-choice${selected ? " is-selected" : ""}">
+            <input type="checkbox" data-site-equipment-toggle="${escapeHtml(item.catalogId)}" aria-label="Seleccionar ${escapeHtml(item.name)} ${escapeHtml(item.model)}" ${selected ? "checked" : ""}>
+            <span class="matrix-thumb-wrap${item.image ? "" : " is-empty"}">
+              ${item.image ? `<img class="matrix-thumb" src="${escapeHtml(item.image)}" alt="" loading="lazy">` : ""}
+            </span>
+            <div class="matrix-info">
+              <h3>${escapeHtml(item.name)}</h3>
+              <p>Modelo: ${escapeHtml(item.model || "—")}</p>
+              <span class="equipment-tag">${escapeHtml(item.category || item.brandName)}</span>
+            </div>
+            <input class="form-control site-equipment-quantity" type="number" min="1" step="1" value="${selected ? Number(selected.quantity) || 1 : 1}" data-site-equipment-quantity="${escapeHtml(item.catalogId)}" aria-label="Unidades de ${escapeHtml(item.name)}" ${selected ? "" : "disabled"}>
+          </article>`;
+      }).join("") || '<div class="empty-state">No se encontraron equipos para esta marca.</div>';
+      updateSiteEquipmentSummary();
+    }
+
+    function openSiteEquipmentModal() {
+      const brands = catalogBrands.filter(brand => Array.isArray(brandCatalogs[brand.id]));
+      $("siteEquipmentBrand").innerHTML = brands.map(brand => `<option value="${escapeHtml(brand.id)}">${escapeHtml(brand.name)}</option>`).join("");
+      if (!brands.some(brand => brand.id === $("siteEquipmentBrand").value)) {
+        $("siteEquipmentBrand").value = brands[0] ? brands[0].id : "";
+      }
+      siteEquipmentDraft = new Map(selectedSiteEquipment.map(item => [item.catalogId, Object.assign({}, item)]));
+      $("siteEquipmentSearch").value = "";
+      renderSiteEquipmentOptions();
+      $("siteEquipmentModal").hidden = false;
+      $("siteEquipmentSearch").focus();
+    }
+
+    function closeSiteEquipmentModal() { $("siteEquipmentModal").hidden = true; }
+
+    function renderSiteInventory() {
+      const brandFilter = $("inventoryBrandFilter");
+      const sectorFilter = $("inventorySectorFilter");
+      const currentBrand = brandFilter.value || "*";
+      const currentSector = sectorFilter.value || "*";
+      const availableBrands = Array.from(new Set(selectedSiteEquipment.map(item => item.brandName || "Otras marcas")))
+        .sort((a, b) => a.localeCompare(b, "es"));
+      const availableSectors = Array.from(new Set(selectedSiteEquipment.map(item => item.category || "Sin sector")))
+        .sort((a, b) => a.localeCompare(b, "es"));
+      brandFilter.innerHTML = '<option value="*">Todas las marcas</option>' + availableBrands.map(brand => `<option value="${escapeHtml(brand)}">${escapeHtml(brand)}</option>`).join("");
+      sectorFilter.innerHTML = '<option value="*">Todos los sectores</option>' + availableSectors.map(sector => `<option value="${escapeHtml(sector)}">${escapeHtml(sector)}</option>`).join("");
+      brandFilter.value = availableBrands.includes(currentBrand) ? currentBrand : "*";
+      sectorFilter.value = availableSectors.includes(currentSector) ? currentSector : "*";
+
+      const grouped = new Map();
+      selectedSiteEquipment.forEach(item => {
+        resizeMachineUnits(item, Number(item.quantity) || 0);
+        const brand = item.brandName || "Otras marcas";
+        const sector = item.category || "Sin sector";
+        if (brandFilter.value !== "*" && brand !== brandFilter.value) return;
+        if (sectorFilter.value !== "*" && sector !== sectorFilter.value) return;
+        if (!grouped.has(brand)) grouped.set(brand, []);
+        item.units.forEach(unit => grouped.get(brand).push({ item, unit }));
+      });
+      const brands = Array.from(grouped.keys()).sort((a, b) => a.localeCompare(b, "es"));
+      let rows = "";
+      brands.forEach(brand => {
+        rows += `<tr class="inventory-brand-row"><td colspan="6">${escapeHtml(brand)}</td></tr>`;
+        grouped.get(brand).sort((a, b) => `${a.item.name} ${a.item.model}`.localeCompare(`${b.item.name} ${b.item.model}`, "es"));
+        grouped.get(brand).forEach(({ item, unit }) => {
+          const isEditing = editingFixedUnitId === unit.unitId;
+          rows += `<tr>
+            <td>${item.image ? `<img class="inventory-thumb" src="${escapeHtml(item.image)}" alt="${escapeHtml(item.name)}" data-inventory-image>` : "—"}</td>
+            <td><span class="user-name">${escapeHtml(item.name)}</span></td>
+            <td>${escapeHtml(item.model || "—")}</td>
+            <td>${escapeHtml(item.category || "—")}</td>
+            <td><input class="form-control inventory-fixed-input" type="number" min="0" step="1" value="${unit.activeFixed === "" ? "" : escapeHtml(unit.activeFixed)}" data-inventory-fixed="${escapeHtml(unit.unitId)}" aria-label="Número de activo fijo para ${escapeHtml(item.name)}" ${isEditing ? "" : "readonly"}></td>
+            <td><div class="inventory-actions">
+              <button class="secondary-button" type="button" data-edit-fixed="${escapeHtml(unit.unitId)}">${isEditing ? "Guardar" : "Editar"}</button>
+              <button class="danger-button" type="button" data-remove-unit="${escapeHtml(unit.unitId)}" data-remove-catalog="${escapeHtml(item.catalogId)}">Eliminar</button>
+            </div></td>
+          </tr>`;
+        });
+      });
+      const hasInventory = selectedSiteEquipment.some(item => Number(item.quantity) > 0);
+      $("siteInventoryBody").innerHTML = rows || `<tr><td colspan="6" class="empty-state">${hasInventory ? "No hay máquinas que coincidan con esos filtros." : "Aún no hay máquinas asignadas a esta sede."}</td></tr>`;
+      $("siteInventorySubtitle").textContent = `${$("siteName").value || "Sede nueva"} · ${siteEquipmentCount(selectedSiteEquipment)} máquinas en el inventario`;
+    }
+
+    function openSiteInventory() {
+      editingFixedUnitId = null;
+      renderSiteInventory();
+      $("siteInventoryModal").hidden = false;
+    }
+
+    function closeSiteInventory() { $("siteInventoryModal").hidden = true; }
+
+    function openSiteModal(site) {
+      const editing = Boolean(site);
+      $("siteForm").reset();
+      $("siteFormError").classList.remove("visible");
+      $("siteModalTitle").textContent = editing ? "Editar sede" : "Nueva sede";
+      $("siteId").value = editing ? site.id : "";
+      $("siteCode").value = editing ? site.internalCode : AdminStore.nextSiteCode();
+      $("siteName").value = editing ? site.name : "";
+      const regions = AdminStore.listRegions();
+      $("siteRegion").innerHTML = '<option value="">Selecciona una región</option>' + regions.map(region => `<option value="${escapeHtml(region)}">${escapeHtml(formatRegion(region))}</option>`).join("");
+      $("siteRegion").value = editing ? site.region || "" : "";
+      const users = AdminStore.listUsers();
+      const technician = editing && users.find(user => user.role === "Técnico" && (user.siteIds || []).includes(site.id));
+      const supervisor = editing && users.find(user => user.role === "Supervisor" && (user.siteIds || []).includes(site.id));
+      populateSiteStaffSelect("siteTechnician", "Técnico", technician ? technician.id : site && site.technicianUserId, editing ? site.technician : "");
+      populateSiteStaffSelect("siteSupervisor", "Supervisor", supervisor ? supervisor.id : site && site.supervisorUserId, editing ? site.supervisor : "");
+      selectedSiteEquipment = editing && Array.isArray(site.equipment)
+        ? site.equipment.map(item => resizeMachineUnits(Object.assign({}, item), Number(item.quantity) || 0))
+        : [];
+      siteEquipmentTouched = editing && Array.isArray(site.equipment);
+      $("siteMachineCount").value = editing ? site.machineCount : 0;
+      $("siteEquipmentSummary").textContent = siteEquipmentTouched
+        ? `${siteEquipmentCount(selectedSiteEquipment)} máquinas asignadas desde el catálogo.`
+        : (editing && Number(site.machineCount) > 0
+          ? "Conteo anterior conservado; al asignar equipos se calculará desde el catálogo."
+          : "La cantidad se calcula desde los equipos asignados.");
+      $("siteModal").hidden = false;
+      $("siteName").focus();
+    }
+
+    function closeSiteModal() { $("siteModal").hidden = true; }
+
+    function openBrandModal(brand) {
+      const editing = Boolean(brand);
+      $("brandForm").reset();
+      $("brandFormError").classList.remove("visible");
+      $("brandModalTitle").textContent = editing ? "Editar marca" : "Agregar marca";
+      $("brandId").value = editing ? brand.id : "";
+      $("brandName").value = editing ? brand.name : "";
+      $("brandEquipmentCount").value = editing ? brand.equipmentCount : 0;
+      $("brandModal").hidden = false;
+      $("brandName").focus();
+    }
+
+    function closeBrandModal() { $("brandModal").hidden = true; }
+
+    document.querySelectorAll(".nav-button").forEach(button => {
+      button.addEventListener("click", () => showView(button.dataset.view));
+    });
+    $("openMaintenanceHistory").addEventListener("click", () => {
+      $("maintenanceHistoryChooser").hidden = true;
+      $("mileageHistoryBlank").hidden = true;
+      $("maintenanceHistoryBlank").hidden = false;
+      renderMaintenanceHistory();
+    });
+    $("backToMaintenanceHistory").addEventListener("click", () => {
+      $("maintenanceHistoryBlank").hidden = true;
+      $("mileageHistoryBlank").hidden = true;
+      $("maintenanceHistoryChooser").hidden = false;
+    });
+    $("openMileageHistoryPage").addEventListener("click", () => {
+      $("maintenanceHistoryBlank").hidden = true;
+      $("mileageHistoryBlank").hidden = false;
+      renderMileageHistory();
+    });
+    $("backToMaintenanceFromMileage").addEventListener("click", () => {
+      $("mileageHistoryBlank").hidden = true;
+      $("maintenanceHistoryBlank").hidden = false;
+    });
+    ["historyDateFrom", "historyDateTo"].forEach(id => $(id).addEventListener("input", renderMaintenanceHistory));
+    $("historyTechnician").addEventListener("change", renderMaintenanceHistory);
+    $("historySupervisor").addEventListener("change", () => {
+      $("historyTechnician").value = "*";
+      $("historySite").value = "*";
+      renderMaintenanceHistory();
+    });
+    $("historySite").addEventListener("change", () => {
+      $("historyTechnician").value = "*";
+      renderMaintenanceHistory();
+    });
+    $("historyStatus").addEventListener("change", renderMaintenanceHistory);
+    $("clearHistoryFilters").addEventListener("click", () => {
+      ["historyDateFrom", "historyDateTo"].forEach(id => { $(id).value = ""; });
+      ["historyTechnician", "historySupervisor", "historySite", "historyStatus"].forEach(id => { $(id).value = "*"; });
+      renderMaintenanceHistory();
+    });
+    $("exportHistoryPdf").addEventListener("click", exportMaintenanceHistoryPdf);
+    ["mileageHistoryDateFrom", "mileageHistoryDateTo"].forEach(id => $(id).addEventListener("input", renderMileageHistory));
+    $("mileageHistoryTechnician").addEventListener("change", renderMileageHistory);
+    $("mileageHistorySupervisor").addEventListener("change", () => {
+      $("mileageHistoryTechnician").value = "*";
+      $("mileageHistorySite").value = "*";
+      renderMileageHistory();
+    });
+    $("mileageHistorySite").addEventListener("change", () => {
+      $("mileageHistoryTechnician").value = "*";
+      renderMileageHistory();
+    });
+    $("mileageHistoryActiveFixed").addEventListener("input", renderMileageHistory);
+    $("clearMileageHistoryFilters").addEventListener("click", () => {
+      ["mileageHistoryDateFrom", "mileageHistoryDateTo"].forEach(id => { $(id).value = ""; });
+      ["mileageHistoryTechnician", "mileageHistorySupervisor", "mileageHistorySite"].forEach(id => { $(id).value = "*"; });
+      $("mileageHistoryActiveFixed").value = "";
+      renderMileageHistory();
+    });
+    $("exportMileageHistoryPdf").addEventListener("click", exportMileageHistoryPdf);
+    ["ticketsDateFrom", "ticketsDateTo", "ticketsActiveFixed"].forEach(id => $(id).addEventListener("input", renderTickets));
+    $("ticketsTechnician").addEventListener("change", renderTickets);
+    $("ticketsSupervisor").addEventListener("change", () => {
+      $("ticketsTechnician").value = "*";
+      $("ticketsSite").value = "*";
+      renderTickets();
+    });
+    $("ticketsSite").addEventListener("change", () => {
+      $("ticketsTechnician").value = "*";
+      renderTickets();
+    });
+    $("ticketsStatus").addEventListener("change", renderTickets);
+    $("clearTicketsFilters").addEventListener("click", () => {
+      ["ticketsDateFrom", "ticketsDateTo", "ticketsActiveFixed"].forEach(id => { $(id).value = ""; });
+      ["ticketsTechnician", "ticketsSupervisor", "ticketsSite", "ticketsStatus"].forEach(id => { $(id).value = "*"; });
+      renderTickets();
+    });
+    $("exportTicketsPdf").addEventListener("click", () => exportTicketsPdf(adminFilteredTickets, "INFORME DE TICKETS"));
+    $("ticketsBody").addEventListener("click", event => {
+      const button = event.target.closest("[data-view-ticket]");
+      if (button) openTicketDetail(button.dataset.viewTicket);
+    });
+    $("closeTicketDetail").addEventListener("click", () => { $("ticketDetailModal").hidden = true; });
+    $("ticketDetailModal").addEventListener("click", event => {
+      if (event.target === $("ticketDetailModal")) $("ticketDetailModal").hidden = true;
+    });
+    window.addEventListener("storage", event => {
+      if (event.key === TICKETS_STORAGE_KEY && !$("ticketsView").hidden) renderTickets();
+      if ([TICKETS_STORAGE_KEY, MACHINE_RECORDS_KEY, "smartfit.admin.sites.v1", "smartfit.admin.users.v1"].includes(event.key) && !$("maintenanceHistoryView").hidden && !$("maintenanceHistoryBlank").hidden) renderMaintenanceHistory();
+      if ([MACHINE_RECORDS_KEY, "smartfit.admin.sites.v1", "smartfit.admin.users.v1"].includes(event.key) && !$("maintenanceHistoryView").hidden && !$("mileageHistoryBlank").hidden) renderMileageHistory();
+    });
+    document.querySelectorAll("[data-open-users]").forEach(button => {
+      button.addEventListener("click", () => showView("users"));
+    });
+    $("newUserButton").addEventListener("click", () => openUserModal(null));
+    $("userSiteSearch").addEventListener("input", filterUserAssignmentSites);
+    $("newSiteButton").addEventListener("click", () => openSiteModal(null));
+    $("newBrandButton").addEventListener("click", () => openBrandModal(null));
+    $("closeUserModal").addEventListener("click", closeUserModal);
+    $("cancelUserModal").addEventListener("click", closeUserModal);
+    $("closeSiteModal").addEventListener("click", closeSiteModal);
+    $("cancelSiteModal").addEventListener("click", closeSiteModal);
+    $("manageSiteEquipment").addEventListener("click", openSiteEquipmentModal);
+    $("viewSiteInventory").addEventListener("click", openSiteInventory);
+    $("closeSiteEquipment").addEventListener("click", closeSiteEquipmentModal);
+    $("cancelSiteEquipment").addEventListener("click", closeSiteEquipmentModal);
+    $("closeSiteInventory").addEventListener("click", closeSiteInventory);
+    $("doneSiteInventory").addEventListener("click", closeSiteInventory);
+    $("siteEquipmentBrand").addEventListener("change", renderSiteEquipmentOptions);
+    $("siteEquipmentSearch").addEventListener("input", renderSiteEquipmentOptions);
+    $("siteEquipmentModal").addEventListener("click", event => {
+      if (event.target === $("siteEquipmentModal")) closeSiteEquipmentModal();
+    });
+    $("siteInventoryModal").addEventListener("click", event => {
+      if (event.target === $("siteInventoryModal")) closeSiteInventory();
+    });
+    $("inventoryBrandFilter").addEventListener("change", renderSiteInventory);
+    $("inventorySectorFilter").addEventListener("change", renderSiteInventory);
+    $("siteInventoryBody").addEventListener("click", event => {
+      const thumbnail = event.target.closest("[data-inventory-image]");
+      if (thumbnail) {
+        openMatrixImage(thumbnail.currentSrc || thumbnail.src, thumbnail.alt);
+        return;
+      }
+      const editButton = event.target.closest("[data-edit-fixed]");
+      if (editButton) {
+        const unitId = editButton.dataset.editFixed;
+        if (editingFixedUnitId === unitId) {
+          const input = $("siteInventoryBody").querySelector(`[data-inventory-fixed="${unitId}"]`);
+          if (!input || !input.reportValidity()) return;
+          if (input.value !== "" && (!Number.isInteger(Number(input.value)) || Number(input.value) < 0)) {
+            input.setCustomValidity("Ingresa un número entero igual o mayor que cero.");
+            input.reportValidity();
+            return;
+          }
+          input.setCustomValidity("");
+          const equipment = selectedSiteEquipment.find(item => (item.units || []).some(unit => unit.unitId === unitId));
+          const unit = equipment && equipment.units.find(entry => entry.unitId === unitId);
+          if (unit) unit.activeFixed = input.value === "" ? "" : Number(input.value);
+          editingFixedUnitId = null;
+          renderSiteInventory();
+        } else {
+          editingFixedUnitId = unitId;
+          renderSiteInventory();
+          const input = $("siteInventoryBody").querySelector(`[data-inventory-fixed="${unitId}"]`);
+          if (input) input.focus();
+        }
+        return;
+      }
+      const deleteButton = event.target.closest("[data-remove-unit]");
+      if (deleteButton && !deleteButton.disabled) {
+        const unitId = deleteButton.dataset.removeUnit;
+        const catalogId = deleteButton.dataset.removeCatalog;
+        const item = selectedSiteEquipment.find(entry => entry.catalogId === catalogId);
+        const unit = item && (item.units || []).find(entry => entry.unitId === unitId);
+        if (!item || !unit || !window.confirm(`¿Quitar esta unidad de ${item.name} del inventario?`)) return;
+        item.units = item.units.filter(entry => entry.unitId !== unitId);
+        item.quantity = item.units.length;
+        selectedSiteEquipment = selectedSiteEquipment.filter(entry => entry.quantity > 0);
+        siteEquipmentTouched = true;
+        editingFixedUnitId = null;
+        refreshSiteMachineCount();
+        renderSiteInventory();
+      }
+    });
+    $("siteEquipmentGrid").addEventListener("change", event => {
+      const toggle = event.target.closest("[data-site-equipment-toggle]");
+      const quantityInput = event.target.closest("[data-site-equipment-quantity]");
+      if (toggle) {
+        const catalogId = toggle.dataset.siteEquipmentToggle;
+        const catalogItem = catalogEquipment.find(item => item.catalogId === catalogId);
+        if (toggle.checked && catalogItem) {
+          siteEquipmentDraft.set(catalogId, resizeMachineUnits(Object.assign({}, catalogItem), 1));
+        } else {
+          siteEquipmentDraft.delete(catalogId);
+        }
+        renderSiteEquipmentOptions();
+      } else if (quantityInput) {
+        const catalogId = quantityInput.dataset.siteEquipmentQuantity;
+        const item = siteEquipmentDraft.get(catalogId);
+        if (item) {
+          resizeMachineUnits(item, Math.max(1, Math.floor(Number(quantityInput.value) || 1)));
+          quantityInput.value = item.quantity;
+          updateSiteEquipmentSummary();
+        }
+      }
+    });
+    $("siteEquipmentGrid").addEventListener("click", event => {
+      const thumbnail = event.target.closest(".matrix-thumb");
+      if (thumbnail) openMatrixImage(thumbnail.currentSrc || thumbnail.src, thumbnail.alt);
+    });
+    $("applySiteEquipment").addEventListener("click", () => {
+      selectedSiteEquipment = Array.from(siteEquipmentDraft.values()).map(item => resizeMachineUnits(Object.assign({}, item), item.quantity));
+      siteEquipmentTouched = true;
+      refreshSiteMachineCount();
+      closeSiteEquipmentModal();
+    });
+    $("closeBrandModal").addEventListener("click", closeBrandModal);
+    $("cancelBrandModal").addEventListener("click", closeBrandModal);
+    $("closeMatrixModal").addEventListener("click", closeMatrixModal);
+    $("userModal").addEventListener("click", event => {
+      if (event.target === $("userModal")) closeUserModal();
+    });
+    $("siteModal").addEventListener("click", event => {
+      if (event.target === $("siteModal")) closeSiteModal();
+    });
+    $("brandModal").addEventListener("click", event => {
+      if (event.target === $("brandModal")) closeBrandModal();
+    });
+    $("matrixModal").addEventListener("click", event => {
+      if (event.target === $("matrixModal")) closeMatrixModal();
+    });
+    $("matrixGrid").addEventListener("click", event => {
+      const thumbnail = event.target.closest(".matrix-thumb");
+      if (thumbnail) openMatrixImage(thumbnail.currentSrc || thumbnail.src, thumbnail.alt);
+    });
+    $("matrixGrid").addEventListener("error", event => {
+      const image = event.target.closest(".matrix-thumb");
+      if (!image) return;
+      image.closest(".matrix-thumb-wrap").classList.add("is-empty");
+    }, true);
+    $("matrixImageLightbox").addEventListener("click", event => {
+      if (event.target === $("matrixImageLightbox")) closeMatrixImage();
+    });
+    $("closeMatrixImage").addEventListener("click", closeMatrixImage);
+    window.addEventListener("resize", () => {
+      if (!$("matrixImageLightbox").hidden) fitMatrixLightboxImage();
+    });
+    $("userSearch").addEventListener("input", event => {
+      searchTerm = event.target.value.trim().toLocaleLowerCase("es");
+      render();
+    });
+    $("siteSearch").addEventListener("input", event => {
+      siteSearchTerm = event.target.value.trim().toLocaleLowerCase("es");
+      render();
+    });
+
+    $("usersBody").addEventListener("click", event => {
+      const editButton = event.target.closest("[data-edit]");
+      const deleteButton = event.target.closest("[data-delete]");
+      if (editButton) {
+        const user = AdminStore.listUsers().find(entry => entry.id === editButton.dataset.edit);
+        if (user) openUserModal(user);
+      }
+      if (deleteButton && !deleteButton.disabled) {
+        const user = AdminStore.listUsers().find(entry => entry.id === deleteButton.dataset.delete);
+        if (!user || !window.confirm(`¿Eliminar la cuenta de ${user.name}?`)) return;
+        try {
+          AdminStore.deleteUser(user.id);
+          render();
+        } catch (error) {
+          window.alert(error.message);
+        }
+      }
+    });
+
+    $("sitesBody").addEventListener("click", event => {
+      const editButton = event.target.closest("[data-edit-site]");
+      const deleteButton = event.target.closest("[data-delete-site]");
+      if (editButton) {
+        const site = AdminStore.listSites().find(entry => entry.id === editButton.dataset.editSite);
+        if (site) openSiteModal(site);
+      }
+      if (deleteButton && !deleteButton.disabled) {
+        const site = AdminStore.listSites().find(entry => entry.id === deleteButton.dataset.deleteSite);
+        if (!site || !window.confirm(`¿Eliminar la sede ${site.name}?`)) return;
+        try {
+          AdminStore.deleteSite(site.id);
+          render();
+        } catch (error) {
+          window.alert(error.message);
+        }
+      }
+    });
+
+    $("equipmentGrid").addEventListener("click", event => {
+      const editButton = event.target.closest("[data-edit-brand]");
+      const deleteButton = event.target.closest("[data-delete-brand]");
+      if (editButton) {
+        const brand = AdminStore.listBrands().find(entry => entry.id === editButton.dataset.editBrand);
+        if (brand && brandCatalogs[brand.id]) openMatrixModal(brand);
+        else if (brand) openBrandModal(brand);
+      }
+      if (deleteButton && !deleteButton.disabled) {
+        const brand = AdminStore.listBrands().find(entry => entry.id === deleteButton.dataset.deleteBrand);
+        if (!brand || !window.confirm(`¿Eliminar la marca ${brand.name}?`)) return;
+        try {
+          AdminStore.deleteBrand(brand.id);
+          render();
+        } catch (error) {
+          window.alert(error.message);
+        }
+      }
+    });
+    $("matrixSearch").addEventListener("input", renderMatrixCatalog);
+    $("backToBrands").addEventListener("click", closeMatrixModal);
+
+    $("userForm").addEventListener("submit", async event => {
+      event.preventDefault();
+      const submitButton = event.target.querySelector('[type="submit"]');
+      const tempPassword = $("userPassword").value;
+      const legacyId = $("userId").value || `usr-${crypto.randomUUID()}`;
+      const fields = {
+        legacyId,
+        fullName: $("userName").value,
+        username: $("userUsername").value,
+        email: $("userEmail").value,
+        tempPassword,
+        role: $("userRole").value,
+        active: $("userActive").checked,
+        siteIds: Array.from($("siteAssignmentList").querySelectorAll("input:checked"), input => input.value)
+      };
+      try {
+        submitButton.disabled = true;
+        submitButton.textContent = "Guardando en Supabase…";
+        await SmartFitSupabaseData.manageUser({ operation: "save_user", ...fields });
+        closeUserModal();
+        try {
+          await SmartFitSupabaseData.hydrate();
+        } catch (refreshError) {
+          console.error("La cuenta se guardó, pero no se pudo actualizar la lista desde Supabase:", refreshError);
+          window.alert("La cuenta se guardó en Supabase, pero la lista no pudo actualizarse. Recarga el panel para verla.");
+        }
+        render();
+        if (tempPassword) window.alert(`Acceso actualizado. Entrega esta clave temporal al usuario: ${tempPassword}\nDeberá cambiarla al iniciar sesión.`);
+      } catch (error) {
+        $("formError").textContent = error.message;
+        $("formError").classList.add("visible");
+      } finally {
+        submitButton.disabled = false;
+        submitButton.textContent = "Guardar usuario";
+      }
+    });
+
+    $("siteForm").addEventListener("submit", event => {
+      event.preventDefault();
+      const fields = {
+        name: $("siteName").value,
+        region: $("siteRegion").value,
+        machineCount: $("siteMachineCount").value,
+        technicianUserId: $("siteTechnician").value,
+        supervisorUserId: $("siteSupervisor").value,
+        equipment: siteEquipmentTouched || !$("siteId").value ? selectedSiteEquipment : undefined
+      };
+      try {
+        if ($("siteId").value) AdminStore.updateSite($("siteId").value, fields);
+        else AdminStore.createSite(fields);
+        closeSiteModal();
+        render();
+      } catch (error) {
+        $("siteFormError").textContent = error.message;
+        $("siteFormError").classList.add("visible");
+      }
+    });
+
+    $("brandForm").addEventListener("submit", event => {
+      event.preventDefault();
+      const fields = {
+        name: $("brandName").value,
+        equipmentCount: $("brandEquipmentCount").value
+      };
+      try {
+        if ($("brandId").value) AdminStore.updateBrand($("brandId").value, fields);
+        else AdminStore.createBrand(fields);
+        closeBrandModal();
+        render();
+      } catch (error) {
+        $("brandFormError").textContent = error.message;
+        $("brandFormError").classList.add("visible");
+      }
+    });
+
+    $("logoutButton").addEventListener("click", () => {
+      sessionStorage.removeItem("smartfit.admin.session");
+      sessionStorage.removeItem("smartfit.supabase.auth");
+      window.location.href = "index.html";
+    });
+    document.addEventListener("keydown", event => {
+      if (event.key === "Escape") {
+        if (!$('matrixImageLightbox').hidden) closeMatrixImage();
+        $("ticketDetailModal").hidden = true;
+        closeSiteInventory();
+        closeSiteEquipmentModal();
+        closeUserModal();
+        closeSiteModal();
+        closeBrandModal();
+        closeMatrixModal();
+      }
+    });
+
+    setupChartInteractions();
+    render();
+    window.addEventListener("smartfit:supabase-data-hydrated", () => {
+      if (!$('usersView').hidden) render();
+      if (!$('ticketsView').hidden) renderTickets();
+      if (!$('maintenanceHistoryView').hidden && !$('maintenanceHistoryBlank').hidden) renderMaintenanceHistory();
+      if (!$('maintenanceHistoryView').hidden && !$('mileageHistoryBlank').hidden) renderMileageHistory();
+    });
+    SmartFitSupabaseData.hydrate().then(result => {
+      if (!result.skipped) window.dispatchEvent(new Event("smartfit:supabase-data-hydrated"));
+    }).catch(error => console.error("No se pudieron cargar los datos de Supabase:", error));
+  </script>
+</body>
+</html>

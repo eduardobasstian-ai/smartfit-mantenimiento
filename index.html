@@ -1,0 +1,1243 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#101116">
+  <link rel="icon" type="image/x-icon" href="IMG/favicon.ico">
+  <link rel="icon" type="image/png" href="IMG/favicon.png">
+  <title>Acceso | Mantenimiento de Equipos</title>
+
+  <style>
+    :root {
+      --bg: #101116;
+      --panel: #191b22;
+      --panel-2: #22252e;
+      --border: #343743;
+      --yellow: #ffb51b;
+      --yellow-hover: #ffc443;
+      --text: #f5f5f7;
+      --muted: #a3a6b2;
+      --danger: #ff5b63;
+      --green: #35c987;
+      --radius: 18px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        radial-gradient(ellipse at 50% 0%, #25232a 0%, transparent 55%),
+        var(--bg);
+      color: var(--text);
+      font-family: Inter, "Segoe UI", Arial, sans-serif;
+      display: flex;
+      flex-direction: column;
+    }
+
+    button, input {
+      font: inherit;
+    }
+
+    button {
+      cursor: pointer;
+    }
+
+    button:focus-visible,
+    input:focus-visible,
+    .option:focus-visible {
+      outline: 2px solid var(--yellow);
+      outline-offset: 3px;
+    }
+
+    .topbar {
+      width: 100%;
+      min-height: 76px;
+      padding: 16px clamp(18px, 5vw, 64px);
+      border-bottom: 1px solid #292b33;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 13px;
+    }
+
+    .brand-mark {
+      display: block;
+      width: auto;
+      height: 42px;
+      max-width: 120px;
+      object-fit: contain;
+      flex-shrink: 0;
+    }
+
+    .brand-title {
+      margin: 0;
+      font-size: 15px;
+      font-weight: 800;
+      letter-spacing: .5px;
+    }
+
+    .brand-subtitle {
+      margin: 5px 0 0;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .environment {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .environment-dot {
+      width: 8px;
+      height: 8px;
+      background: var(--yellow);
+      border-radius: 50%;
+    }
+
+    .admin-button {
+      padding: 8px 12px;
+      border: 1px solid #4b4028;
+      border-radius: 9px;
+      background: #2c261b;
+      color: var(--yellow);
+      font-size: 12px;
+      font-weight: 800;
+      transition: background .15s, border-color .15s;
+    }
+
+    .admin-button:hover {
+      background: #3a301f;
+      border-color: var(--yellow);
+    }
+
+    .leader-button {
+      padding: 8px 12px;
+      border: 1px solid #383b47;
+      border-radius: 9px;
+      background: #20222a;
+      color: #e7e7eb;
+      font-size: 12px;
+      font-weight: 800;
+      transition: background .15s, border-color .15s;
+    }
+
+    .leader-button:hover { background: #2a2d36; border-color: #656979; }
+
+    .access-button {
+      padding: 8px 12px;
+      border: 1px solid #383b47;
+      border-radius: 9px;
+      background: #20222a;
+      color: #e7e7eb;
+      font-size: 12px;
+      font-weight: 800;
+      transition: background .15s, border-color .15s;
+    }
+
+    .access-button:hover {
+      background: #2b2e38;
+      border-color: #626573;
+    }
+
+    main {
+      width: 100%;
+      max-width: 1050px;
+      padding: 52px 20px 36px;
+      margin: 0 auto;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .intro {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+
+    .eyebrow {
+      color: var(--yellow);
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      font-size: 11px;
+      font-weight: 800;
+      margin-bottom: 13px;
+    }
+
+    h1 {
+      font-size: clamp(27px, 4vw, 38px);
+      line-height: 1.15;
+      margin: 0;
+      letter-spacing: -.8px;
+    }
+
+    .intro p {
+      max-width: 470px;
+      margin: 13px auto 0;
+      color: var(--muted);
+      line-height: 1.6;
+      font-size: 14px;
+    }
+
+    .login-card {
+      width: 100%;
+      max-width: 500px;
+      padding: clamp(22px, 4vw, 34px);
+      background: linear-gradient(145deg, #1d1f27, #17191f);
+      border: 1px solid #353743;
+      border-radius: 23px;
+      box-shadow: 0 24px 70px #0005;
+    }
+
+    .card-heading {
+      margin-bottom: 26px;
+    }
+
+    .card-heading h2 {
+      margin: 0;
+      font-size: 19px;
+    }
+
+    .card-heading p {
+      margin: 8px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .field {
+      margin-bottom: 21px;
+    }
+
+    .field-label {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 9px;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .required {
+      color: var(--yellow);
+    }
+
+    .control {
+      width: 100%;
+      min-height: 49px;
+      background: #111319;
+      color: var(--text);
+      border: 1px solid #383b47;
+      border-radius: 12px;
+      transition: border-color .18s, box-shadow .18s;
+    }
+
+    .control:focus-within,
+    .control:focus {
+      border-color: var(--yellow);
+      box-shadow: 0 0 0 3px #ffb51b18;
+      outline: none;
+    }
+
+    .picker {
+      position: relative;
+    }
+
+    .picker-trigger {
+      width: 100%;
+      min-height: 49px;
+      padding: 0 13px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      text-align: left;
+      border: 1px solid #383b47;
+      border-radius: 12px;
+      background: #111319;
+      color: var(--text);
+    }
+
+    .picker-trigger:hover {
+      border-color: #656978;
+    }
+
+    .picker-trigger[aria-expanded="true"] {
+      border-color: var(--yellow);
+      border-radius: 12px 12px 0 0;
+    }
+
+    .field-icon {
+      display: grid;
+      place-items: center;
+      flex-shrink: 0;
+      color: var(--muted);
+    }
+
+    .field-icon svg {
+      display: block;
+      width: 17px;
+      height: 17px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 1.8;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .picker-trigger .picker-value {
+      flex: 1;
+    }
+
+    .picker-value {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 13px;
+    }
+
+    .placeholder {
+      color: #858895;
+    }
+
+    .picker-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-shrink: 0;
+      color: var(--muted);
+    }
+
+    .clear-btn {
+      width: 23px;
+      height: 23px;
+      border: 0;
+      border-radius: 6px;
+      background: #30323c;
+      color: #e4e4e7;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+    }
+
+    .clear-btn.visible {
+      display: flex;
+    }
+
+    .picker-menu {
+      position: absolute;
+      z-index: 20;
+      top: calc(100% - 1px);
+      left: 0;
+      right: 0;
+      background: #191b22;
+      border: 1px solid var(--yellow);
+      border-radius: 0 0 12px 12px;
+      padding: 10px;
+      box-shadow: 0 18px 30px #0006;
+    }
+
+    .picker-menu[hidden] {
+      display: none;
+    }
+
+    .picker-search {
+      width: 100%;
+      height: 40px;
+      padding: 0 11px;
+      margin-bottom: 7px;
+      background: #101116;
+      border: 1px solid #393c47;
+      border-radius: 8px;
+      color: var(--text);
+      outline: none;
+      font-size: 13px;
+    }
+
+    .picker-search:focus {
+      border-color: var(--yellow);
+    }
+
+    .options-list {
+      max-height: 190px;
+      overflow-y: auto;
+    }
+
+    .option {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      width: 100%;
+      padding: 11px 10px;
+      border: 0;
+      border-radius: 8px;
+      color: var(--text);
+      background: transparent;
+      text-align: left;
+      font-size: 13px;
+    }
+
+    .option:hover,
+    .option[aria-selected="true"] {
+      background: #2b2d36;
+    }
+
+    .option[aria-selected="true"]::after {
+      content: "✓";
+      color: var(--yellow);
+      font-weight: 800;
+    }
+
+    .option small {
+      display: block;
+      color: var(--muted);
+      font-size: 11px;
+      margin-top: 4px;
+    }
+
+    .empty-options {
+      padding: 17px 10px;
+      color: var(--muted);
+      font-size: 12px;
+      text-align: center;
+    }
+
+    .password-wrap {
+      display: flex;
+      align-items: center;
+      padding-right: 6px;
+    }
+
+    .password-wrap > .field-icon {
+      margin-left: 11px;
+    }
+
+    .password-wrap input {
+      flex: 1;
+      min-width: 0;
+      height: 47px;
+      padding: 0 13px;
+      color: var(--text);
+      background: transparent;
+      border: 0;
+      outline: none;
+      font-size: 14px;
+    }
+
+    .password-wrap input:focus-visible {
+      outline: none;
+    }
+
+    .show-password {
+      flex-shrink: 0;
+      padding: 8px 9px;
+      color: var(--yellow);
+      background: transparent;
+      border: 0;
+      border-radius: 7px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .show-password:hover {
+      background: #ffb51b14;
+    }
+
+    .helper {
+      margin-top: 7px;
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.5;
+    }
+
+    .message {
+      display: none;
+      padding: 12px 13px;
+      margin: 0 0 17px;
+      border-radius: 10px;
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    .message.visible {
+      display: block;
+    }
+
+    .message.error {
+      color: #ffb5b9;
+      background: #4b2028;
+      border: 1px solid #75333b;
+    }
+
+    .message.success {
+      color: #a7f3d0;
+      background: #153b2d;
+      border: 1px solid #24654c;
+    }
+
+    .continue-btn {
+      width: 100%;
+      min-height: 50px;
+      margin-top: 2px;
+      border: 0;
+      border-radius: 12px;
+      background: var(--yellow);
+      color: #171717;
+      font-weight: 900;
+      font-size: 14px;
+      transition: transform .15s, background .15s;
+    }
+
+    .continue-btn:hover {
+      background: var(--yellow-hover);
+      transform: translateY(-1px);
+    }
+
+    .continue-btn:active {
+      transform: translateY(0);
+    }
+
+    .secondary-actions {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    .secondary-btn {
+      position: relative;
+      min-height: 46px;
+      padding: 9px;
+      border: 1px solid #383b47;
+      border-radius: 11px;
+      background: #20222a;
+      color: #e7e7eb;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .secondary-btn:hover {
+      background: #2b2e38;
+      border-color: #626573;
+    }
+
+    .notification-count {
+      display: inline-grid;
+      place-items: center;
+      min-width: 19px;
+      height: 19px;
+      margin-left: 5px;
+      padding: 0 5px;
+      background: var(--yellow);
+      color: #191919;
+      border-radius: 20px;
+      font-size: 10px;
+      font-weight: 900;
+    }
+
+    .prototype-note {
+      display: flex;
+      gap: 10px;
+      margin-top: 23px;
+      padding: 12px;
+      border: 1px solid #4b4028;
+      background: #2c261b;
+      border-radius: 11px;
+      color: #e8d5ae;
+      font-size: 11px;
+      line-height: 1.6;
+    }
+
+    .prototype-note strong {
+      color: var(--yellow);
+    }
+
+    footer {
+      padding: 20px;
+      text-align: center;
+      color: #777b87;
+      font-size: 11px;
+    }
+
+    .modal-backdrop {
+      position: fixed;
+      z-index: 100;
+      inset: 0;
+      padding: 20px;
+      display: grid;
+      place-items: center;
+      background: #000a;
+      backdrop-filter: blur(5px);
+    }
+
+    .modal-backdrop[hidden] {
+      display: none;
+    }
+
+    .modal {
+      width: 100%;
+      max-width: 490px;
+      max-height: min(80vh, 620px);
+      overflow: auto;
+      background: #191b22;
+      border: 1px solid #3a3d48;
+      border-radius: 19px;
+      box-shadow: 0 24px 80px #0008;
+    }
+
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 15px;
+      padding: 21px 22px;
+      border-bottom: 1px solid #343743;
+    }
+
+    .modal-title-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .modal-header h2 {
+      margin: 0;
+      font-size: 18px;
+    }
+
+    .modal-icon {
+      width: 44px;
+      height: 44px;
+      flex-shrink: 0;
+      display: grid;
+      place-items: center;
+      border-radius: 12px;
+      background: var(--yellow);
+    }
+
+    .modal-icon[hidden] {
+      display: none;
+    }
+
+    .modal-icon svg {
+      width: 22px;
+      height: 22px;
+      fill: none;
+      stroke: #171717;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .admin-login-form .field-label {
+      display: block;
+      margin-bottom: 7px;
+    }
+
+    .admin-login-form .admin-control-wrap {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      padding: 0 11px;
+    }
+
+    .admin-field-icon {
+      display: grid;
+      place-items: center;
+      flex-shrink: 0;
+      color: var(--muted);
+    }
+
+    .admin-field-icon svg {
+      width: 17px;
+      height: 17px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 1.8;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .admin-input {
+      width: 100%;
+      min-width: 0;
+      height: 47px;
+      padding: 0 2px;
+      border: 0;
+      outline: none;
+      background: transparent;
+      color: var(--text);
+      font: inherit;
+      font-size: 14px;
+    }
+
+    .admin-input::placeholder {
+      color: var(--yellow);
+    }
+
+    .admin-input:focus-visible {
+      outline: none;
+    }
+
+    .admin-login-form .continue-btn {
+      margin-top: 0;
+      background: var(--yellow);
+      color: #171717;
+    }
+
+    .admin-login-form .continue-btn:hover {
+      background: var(--yellow-hover);
+    }
+
+    .modal-close {
+      width: 34px;
+      height: 34px;
+      border: 1px solid #3d404b;
+      background: #252731;
+      color: white;
+      border-radius: 9px;
+      font-size: 20px;
+    }
+
+    .modal-body {
+      padding: 20px 22px 24px;
+    }
+
+    .modal-item {
+      padding: 15px 0;
+      border-bottom: 1px solid #30323c;
+    }
+
+    .modal-item:last-child {
+      border-bottom: 0;
+    }
+
+    .modal-item strong {
+      display: block;
+      font-size: 13px;
+      margin-bottom: 6px;
+    }
+
+    .modal-item p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.6;
+    }
+
+    .tag {
+      display: inline-block;
+      margin-top: 8px;
+      padding: 4px 8px;
+      border-radius: 5px;
+      background: #302a1c;
+      color: var(--yellow);
+      font-size: 10px;
+    }
+
+    .modal-empty {
+      color: var(--muted);
+      text-align: center;
+      padding: 25px 10px;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    @media (max-width: 540px) {
+      .topbar {
+        min-height: 68px;
+        padding: 12px 16px;
+      }
+
+      .brand-mark {
+        height: 36px;
+        max-width: 102px;
+      }
+
+      .brand-title {
+        font-size: 12px;
+      }
+
+      .brand-subtitle {
+        font-size: 10px;
+      }
+
+      .environment {
+        margin-left: auto;
+        font-size: 10px;
+      }
+
+      .topbar {
+        flex-wrap: wrap;
+      }
+
+      .access-button,
+      .admin-button,
+      .leader-button {
+        padding: 7px 9px;
+        font-size: 10px;
+      }
+
+      main {
+        padding: 37px 14px 25px;
+      }
+
+      .intro {
+        margin-bottom: 23px;
+      }
+
+      .login-card {
+        padding: 23px 18px;
+        border-radius: 18px;
+      }
+
+      .secondary-actions {
+        gap: 8px;
+      }
+
+      .secondary-btn {
+        font-size: 11px;
+      }
+
+      .modal-backdrop { padding: 10px; }
+      .modal { max-height: 92dvh; border-radius: 15px; }
+      .modal-header { padding: 16px; }
+      .modal-header h2 { font-size: 16px; }
+      .modal-body { padding: 16px; }
+      .picker-menu { max-height: min(48dvh, 320px); }
+      .options-list { max-height: min(38dvh, 250px); }
+    }
+
+    @media (max-width: 380px) {
+      .topbar { gap: 10px; padding-right: 11px; padding-left: 11px; }
+      .brand { gap: 8px; }
+      .brand-mark { height: 32px; max-width: 86px; }
+      .environment { width: 100%; justify-content: flex-start; flex-wrap: wrap; gap: 7px; }
+      .environment > span:nth-child(2) { margin-right: auto; }
+      .access-button, .admin-button, .leader-button { padding: 7px 8px; font-size: 9px; }
+      main { padding-right: 10px; padding-left: 10px; }
+      .login-card { padding: 20px 14px; }
+      .card-heading h2 { font-size: 17px; }
+      .secondary-actions { flex-wrap: wrap; }
+      .secondary-btn { flex: 1 1 120px; }
+      .admin-login-form .admin-control-wrap { min-width: 0; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *,
+      *::before,
+      *::after {
+        scroll-behavior: auto !important;
+        transition: none !important;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <img class="brand-mark" src="IMG/logo-header.png" alt="Smart Fit">
+      <div>
+        <p class="brand-title">MANTENIMIENTO</p>
+        <p class="brand-subtitle">Gestión de equipos y sedes</p>
+      </div>
+    </div>
+
+    <div class="environment">
+      <span class="environment-dot" aria-hidden="true"></span>
+      <span>Portal de acceso</span>
+      <button type="button" class="access-button" id="accessButton">Acceso</button>
+      <button type="button" class="leader-button" id="leaderButton" aria-haspopup="dialog">Acceso Líder</button>
+      <button type="button" class="admin-button" id="adminButton">Administrador</button>
+    </div>
+  </header>
+
+  <main>
+    <section class="intro">
+      <div class="eyebrow">Sistema de mantenimiento</div>
+      <h1>Bienvenido</h1>
+      <p>
+        Selecciona tu usuario para continuar al sistema.
+      </p>
+    </section>
+
+    <section class="login-card" aria-labelledby="login-title">
+      <div class="card-heading">
+        <h2 id="login-title">Tus datos de acceso</h2>
+        <p>Completa los campos obligatorios para continuar.</p>
+      </div>
+
+      <form id="loginForm" novalidate>
+        <div class="field">
+          <label class="field-label" id="technicianLabel" for="technicianUsername">
+            <span>RUT o nombre de usuario
+              <span class="required">*</span>
+            </span>
+          </label>
+
+          <div class="control">
+            <span class="field-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.5"></circle><path d="M5 20c.8-3.2 3.2-5 7-5s6.2 1.8 7 5"></path></svg></span>
+            <input id="technicianUsername" name="username" type="text" placeholder="Ingresa tu RUT o usuario" autocomplete="username" required>
+          </div>
+        </div>
+
+        <div class="field">
+          <label class="field-label" for="password">
+            <span>Clave <span class="required">*</span></span>
+          </label>
+
+          <div class="control password-wrap">
+            <span class="field-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="11" rx="2"></rect><path d="M8 10V7a4 4 0 0 1 8 0v3"></path></svg></span>
+            <input
+              id="password"
+              type="password"
+              placeholder="Ingresa tu contraseña"
+              autocomplete="current-password"
+              required
+            >
+            <button
+              class="show-password"
+              type="button"
+              id="togglePassword"
+              aria-pressed="false"
+            >Mostrar</button>
+          </div>
+          <div class="helper">
+            Usa la contraseña configurada para esta cuenta en Supabase Auth.
+          </div>
+        </div>
+
+        <div class="message" id="formMessage"
+             role="status" aria-live="polite"></div>
+
+        <button type="submit" class="continue-btn">
+          Continuar <span aria-hidden="true">→</span>
+        </button>
+      </form>
+
+      <div class="secondary-actions">
+        <button type="button" class="secondary-btn" id="notificationsButton">
+          ♧ &nbsp; Notificaciones
+          <span class="notification-count" id="notificationCount">2</span>
+        </button>
+      </div>
+
+      <div class="prototype-note">
+        <span aria-hidden="true">ⓘ</span>
+        <div>
+          <strong>Versión de prueba.</strong>
+          Los usuarios y las notificaciones son datos de demostración.
+          No ingreses contraseñas reales.
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    Sistema de gestión de mantenimiento · Prototipo independiente
+  </footer>
+
+  <div class="modal-backdrop" id="modalBackdrop" hidden>
+    <section
+      class="modal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="modalTitle"
+    >
+      <header class="modal-header">
+        <div class="modal-title-group">
+          <span class="modal-icon" id="modalIcon" hidden aria-hidden="true">
+            <svg viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="11" rx="2"></rect><path d="M8 10V7a4 4 0 0 1 8 0v3"></path></svg>
+          </span>
+          <h2 id="modalTitle">Información</h2>
+        </div>
+        <button class="modal-close" type="button"
+                id="modalClose" aria-label="Cerrar ventana">×</button>
+      </header>
+      <div class="modal-body" id="modalBody"></div>
+    </section>
+  </div>
+
+  <script src="admin-store.js"></script>
+  <script src="supabase-auth.js"></script>
+  <script>
+    "use strict";
+
+    const $ = (id) => document.getElementById(id);
+    const notificationItems = [
+      {
+        title: "Panel de notificaciones",
+        description:
+          "Este espacio mostrará avisos de mantenimiento, tareas " +
+          "pendientes y comunicaciones de la sede."
+      },
+      {
+        title: "Conexión pendiente",
+        description:
+          "Las notificaciones reales estarán disponibles al integrar " +
+          "el sistema con el servidor."
+      }
+    ];
+
+    function showMessage(type, message) {
+      const element = $("formMessage");
+      element.className = "message";
+
+      if (!message) {
+        element.textContent = "";
+        return;
+      }
+
+      element.classList.add("visible", type);
+      element.textContent = message;
+    }
+
+    $("togglePassword").addEventListener("click", () => {
+      const input = $("password");
+      const button = $("togglePassword");
+      const showing = input.type === "text";
+
+      input.type = showing ? "password" : "text";
+      button.textContent = showing ? "Mostrar" : "Ocultar";
+      button.setAttribute("aria-pressed", String(!showing));
+    });
+
+    $("loginForm").addEventListener("submit", async event => {
+      event.preventDefault();
+      const username = $("technicianUsername").value.trim();
+      if (!username) {
+        showMessage("error", "Ingresa tu RUT o nombre de usuario.");
+        $("technicianUsername").focus();
+        return;
+      }
+      if (!$("password").value.trim()) {
+        showMessage("error", "Ingresa tu contraseña.");
+        $("password").focus();
+        return;
+      }
+      let authenticatedUser;
+      try {
+        authenticatedUser = await SmartFitSupabaseAuth.login(username, $("password").value);
+      } catch (error) {
+        showMessage("error", error.message || "La clave no coincide o el usuario no está activo.");
+        $("password").focus();
+        return;
+      }
+      if (!["Técnico", "Supervisor"].includes(authenticatedUser.role)) {
+        showMessage("error", "Esta cuenta no tiene un perfil habilitado para este acceso.");
+        SmartFitSupabaseAuth.clearSession();
+        return;
+      }
+      AdminStore.recordAccess(authenticatedUser);
+      sessionStorage.setItem("smartfit.site.session", JSON.stringify(authenticatedUser));
+      window.location.href = authenticatedUser.mustChangePassword ? "change-password.html" : "cpsedes.html";
+    });
+    function openModal(title, items) {
+      $("modalTitle").textContent = title;
+      $("modalIcon").hidden = true;
+      $("modalBackdrop").querySelector(".modal").classList.remove("admin-mode");
+      const body = $("modalBody");
+      body.replaceChildren();
+
+      if (!items.length) {
+        const empty = document.createElement("div");
+        empty.className = "modal-empty";
+        empty.textContent = "No hay elementos para mostrar.";
+        body.appendChild(empty);
+      } else {
+        items.forEach(item => {
+          const row = document.createElement("div");
+          row.className = "modal-item";
+
+          const heading = document.createElement("strong");
+          heading.textContent = item.title;
+
+          const description = document.createElement("p");
+          description.textContent = item.description;
+
+          row.append(heading, description);
+
+          const tag = document.createElement("span");
+          tag.className = "tag";
+          tag.textContent = "DATOS DE DEMOSTRACIÓN";
+          row.appendChild(tag);
+
+          body.appendChild(row);
+        });
+      }
+
+      $("modalBackdrop").hidden = false;
+      $("modalClose").focus();
+    }
+
+    function openAdminModal() {
+      const modal = $("modalBackdrop").querySelector(".modal");
+      const body = $("modalBody");
+      modal.classList.add("admin-mode");
+      $("modalTitle").textContent = "Acceso a Administrador";
+      $("modalIcon").hidden = false;
+      body.innerHTML = `
+        <form class="admin-login-form" id="adminLoginForm">
+          <div class="field">
+            <label class="field-label" for="adminRut">RUT (sin puntos ni guión)</label>
+            <div class="control admin-control-wrap">
+              <span class="admin-field-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.5"></circle><path d="M5 20c.8-3.2 3.2-5 7-5s6.2 1.8 7 5"></path></svg></span>
+              <input class="admin-input" id="adminRut" name="rut" type="text" placeholder="RUT" autocomplete="username" required>
+            </div>
+          </div>
+          <div class="field">
+            <label class="field-label" for="adminPassword">Clave</label>
+            <div class="control admin-control-wrap">
+              <span class="admin-field-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="11" rx="2"></rect><path d="M8 10V7a4 4 0 0 1 8 0v3"></path></svg></span>
+              <input class="admin-input" id="adminPassword" name="password" type="password" autocomplete="current-password" required>
+              <button class="show-password" type="button" id="toggleAdminPassword" aria-pressed="false">Mostrar</button>
+            </div>
+          </div>
+          <div class="message" id="adminMessage" role="status" aria-live="polite"></div>
+          <button type="submit" class="continue-btn">Ingresar</button>
+        </form>`;
+      $("modalBackdrop").hidden = false;
+      $("adminRut").focus();
+      $("toggleAdminPassword").addEventListener("click", () => {
+        const input = $("adminPassword");
+        const button = $("toggleAdminPassword");
+        const showing = input.type === "text";
+        input.type = showing ? "password" : "text";
+        button.textContent = showing ? "Mostrar" : "Ocultar";
+        button.setAttribute("aria-pressed", String(!showing));
+      });
+      $("adminLoginForm").addEventListener("submit", async event => {
+        event.preventDefault();
+        const message = $("adminMessage");
+        let admin;
+        try {
+          admin = await SmartFitSupabaseAuth.login($("adminRut").value, $("adminPassword").value);
+        } catch (error) {
+          message.className = "message visible error";
+          message.textContent = error.message || "RUT o clave incorrectos, o la cuenta está inactiva.";
+          return;
+        }
+        if (admin.role !== "Administrador") {
+          SmartFitSupabaseAuth.clearSession();
+          message.className = "message visible error";
+          message.textContent = "Esta cuenta no tiene el perfil Administrador.";
+          return;
+        }
+        AdminStore.recordAccess(admin);
+        sessionStorage.setItem("smartfit.admin.session", JSON.stringify(admin));
+        window.location.href = admin.mustChangePassword ? "change-password.html" : "cpadmin.html";
+      });
+    }
+
+    function openLeaderModal() {
+      const modal = $("modalBackdrop").querySelector(".modal");
+      modal.classList.add("admin-mode");
+      $("modalTitle").textContent = "Acceso a Líder";
+      $("modalIcon").hidden = false;
+      $("modalBody").innerHTML = `
+        <form class="admin-login-form" id="leaderLoginForm">
+          <div class="field">
+            <label class="field-label" for="leaderRut">RUT (sin puntos ni guión)</label>
+            <div class="control admin-control-wrap">
+              <span class="admin-field-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.5"></circle><path d="M5 20c.8-3.2 3.2-5 7-5s6.2 1.8 7 5"></path></svg></span>
+              <input class="admin-input" id="leaderRut" name="username" type="text" placeholder="RUT" autocomplete="username" required>
+            </div>
+          </div>
+          <div class="field">
+            <label class="field-label" for="leaderPassword">Clave</label>
+            <div class="control admin-control-wrap">
+              <span class="admin-field-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="11" rx="2"></rect><path d="M8 10V7a4 4 0 0 1 8 0v3"></path></svg></span>
+              <input class="admin-input" id="leaderPassword" name="password" type="password" autocomplete="current-password" required>
+              <button class="show-password" type="button" id="toggleLeaderPassword" aria-pressed="false">Mostrar</button>
+            </div>
+          </div>
+          <div class="message" id="leaderMessage" role="status" aria-live="polite"></div>
+          <button type="submit" class="continue-btn">Ingresar</button>
+        </form>`;
+      $("modalBackdrop").hidden = false;
+      $("leaderRut").focus();
+      $("toggleLeaderPassword").addEventListener("click", () => {
+        const input = $("leaderPassword");
+        const button = $("toggleLeaderPassword");
+        const showing = input.type === "text";
+        input.type = showing ? "password" : "text";
+        button.textContent = showing ? "Mostrar" : "Ocultar";
+        button.setAttribute("aria-pressed", String(!showing));
+      });
+      $("leaderLoginForm").addEventListener("submit", async event => {
+        event.preventDefault();
+        let leader;
+        try {
+          leader = await SmartFitSupabaseAuth.login($("leaderRut").value, $("leaderPassword").value);
+        } catch (error) {
+          $("leaderMessage").className = "message visible error";
+          $("leaderMessage").textContent = error.message || "RUT o clave incorrectos, o la cuenta no está activa con el rol Líder.";
+          return;
+        }
+        if (leader.role !== "Líder") {
+          SmartFitSupabaseAuth.clearSession();
+          $("leaderMessage").className = "message visible error";
+          $("leaderMessage").textContent = "Esta cuenta no tiene el perfil Líder.";
+          return;
+        }
+        AdminStore.recordAccess(leader);
+        sessionStorage.setItem("smartfit.leader.session", JSON.stringify(leader));
+        window.location.href = leader.mustChangePassword ? "change-password.html" : "cplider.html";
+      });
+    }
+
+    function closeModal() {
+      $("modalBackdrop").hidden = true;
+      $("modalIcon").hidden = true;
+      $("modalBackdrop").querySelector(".modal").classList.remove("admin-mode");
+    }
+
+    $("accessButton").addEventListener("click", () => {
+      $("loginForm").scrollIntoView({ behavior: "smooth", block: "center" });
+      $("technicianUsername").focus({ preventScroll: true });
+    });
+
+    $("adminButton").addEventListener("click", openAdminModal);
+    $("leaderButton").addEventListener("click", openLeaderModal);
+
+    $("notificationsButton").addEventListener("click", () => {
+      openModal("Notificaciones", notificationItems);
+    });
+
+    $("modalClose").addEventListener("click", closeModal);
+
+    $("modalBackdrop").addEventListener("click", event => {
+      if (event.target === $("modalBackdrop")) {
+        closeModal();
+      }
+    });
+
+    document.addEventListener("keydown", event => {
+      if (event.key === "Escape") {
+        closeModal();
+      }
+    });
+
+  </script>
+</body>
+</html>

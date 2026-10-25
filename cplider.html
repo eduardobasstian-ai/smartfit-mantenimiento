@@ -1,0 +1,2012 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#101116">
+  <title>Mis sedes | Mantenimiento de Equipos</title>
+  <link rel="icon" type="image/x-icon" href="IMG/favicon.ico">
+  <link rel="icon" type="image/png" href="IMG/favicon.png">
+  <style>
+    :root {
+      --bg: #101116;
+      --panel: #191b22;
+      --panel-2: #22252e;
+      --border: #343743;
+      --yellow: #ffb51b;
+      --yellow-hover: #ffc443;
+      --text: #f5f5f7;
+      --muted: #a3a6b2;
+    }
+    * { box-sizing: border-box; }
+    body {
+      min-height: 100vh;
+      margin: 0;
+      background: radial-gradient(ellipse at 50% 0%, #25232a 0%, transparent 55%), var(--bg);
+      color: var(--text);
+      font-family: Inter, "Segoe UI", Arial, sans-serif;
+    }
+    button { font: inherit; cursor: pointer; }
+    button:focus-visible { outline: 2px solid var(--yellow); outline-offset: 3px; }
+    .topbar {
+      width: 100%;
+      min-height: 76px;
+      padding: 14px clamp(18px, 5vw, 64px);
+      border-bottom: 1px solid #292b33;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+    }
+    .brand { display: flex; align-items: center; gap: 13px; }
+    .brand-mark { display: block; width: auto; height: 42px; max-width: 120px; object-fit: contain; }
+    .brand-title { margin: 0; font-size: 14px; font-weight: 800; letter-spacing: .5px; }
+    .brand-subtitle { margin: 5px 0 0; color: var(--muted); font-size: 12px; }
+    .top-actions { display: flex; align-items: center; gap: 12px; }
+    .admin-identity { color: var(--muted); font-size: 13px; }
+    .admin-identity strong { color: var(--text); }
+    .page { width: min(710px, 100%); margin: 0 auto; padding: 36px 18px 50px; }
+    .page-heading { margin: 0 0 27px; text-align: center; }
+    .page-heading h1 { margin: 0; font-size: clamp(25px, 4vw, 32px); letter-spacing: -.6px; }
+    .page-heading p { margin: 7px 0 0; color: var(--muted); font-size: 13px; }
+    .identity-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 13px;
+      margin-bottom: 13px;
+      padding: 14px 16px;
+      border: 1px solid #343743;
+      border-radius: 13px;
+      background: #191b22;
+    }
+    .identity-user { display: flex; flex-wrap: wrap; align-items: center; gap: 15px; font-size: 12px; }
+    .identity-item { display: inline-flex; align-items: center; gap: 7px; }
+    .identity-icon { color: var(--yellow); font-size: 15px; }
+    .identity-summary {
+      flex-shrink: 0;
+      padding: 6px 10px;
+      border-radius: 20px;
+      background: #111319;
+      color: var(--yellow);
+      font-size: 10px;
+      font-weight: 800;
+    }
+    .sites-panel {
+      padding: 24px 26px 27px;
+      border: 1px solid #343743;
+      border-radius: 15px;
+      background: linear-gradient(145deg, #1d1f27, #17191f);
+      box-shadow: 0 24px 70px #0005;
+    }
+    .panel-heading { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 16px; }
+    .panel-heading h2 { margin: 0; font-size: 17px; }
+    .panel-heading p { margin: 6px 0 0; color: var(--muted); font-size: 11px; }
+    .leader-ticket-history-wrap { width: 100%; min-width: 0; overflow-x: visible; border: 1px solid #343743; border-radius: 10px; }
+    .leader-ticket-history-table { width: 100%; min-width: 0; border-collapse: collapse; table-layout: fixed; }
+    .leader-ticket-history-table th, .leader-ticket-history-table td { padding: 11px 10px; border-bottom: 1px solid #30323c; text-align: left; font-size: 11px; overflow-wrap: anywhere; }
+    .leader-ticket-history-table th { color: var(--muted); font-weight: 750; }
+    .leader-ticket-history-table tr:last-child td { border-bottom: 0; }
+    .leader-ticket-history-table th:first-child, .leader-ticket-history-table td:first-child { width: 28%; }
+    .leader-ticket-history-table th:nth-child(2), .leader-ticket-history-table td:nth-child(2) { width: 17%; }
+    .leader-ticket-history-table th:nth-child(3), .leader-ticket-history-table td:nth-child(3) { width: 22%; white-space: nowrap; }
+    .leader-ticket-history-table th:nth-child(4), .leader-ticket-history-table td:nth-child(4) { width: 16%; }
+    .leader-ticket-history-table th:nth-child(5), .leader-ticket-history-table td:nth-child(5) { width: 17%; }
+    .leader-ticket-history-table .ticket-history-status { display: inline-flex; padding: 5px 8px; border-radius: 18px; background: #3b321d; color: #f7d98a; font-weight: 800; white-space: nowrap; }
+    .leader-ticket-history-table .ticket-history-status.progress { background: #1d3042; color: #a9d7ff; }
+    .leader-ticket-history-table .ticket-history-status.done { background: #153b2d; color: #a7f3d0; }
+    .ticket-history-modal-backdrop { position: fixed; z-index: 150; inset: 0; display: grid; place-items: center; padding: 18px; background: #000b; backdrop-filter: blur(5px); }
+    .ticket-history-modal-backdrop[hidden] { display: none; }
+    .ticket-history-modal { width: min(720px, 100%); max-height: 90vh; overflow: auto; border: 1px solid #3a3d48; border-radius: 16px; background: #191b22; box-shadow: 0 24px 80px #0008; }
+    .ticket-history-modal-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 16px 19px; border-bottom: 1px solid #343743; }
+    .ticket-history-modal-header h2 { margin: 0; font-size: 16px; }
+    .ticket-history-modal-close { flex: 0 0 38px; width: 38px; height: 38px; border: 1px solid #393c47; border-radius: 9px; background: #252832; color: var(--text); font-size: 23px; line-height: 1; }
+    .ticket-history-modal-close:hover { border-color: var(--yellow); color: var(--yellow); }
+    .ticket-history-modal-body { padding: 18px; }
+    .ticket-history-detail-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    .ticket-history-detail-item { min-width: 0; padding: 11px; border: 1px solid #343743; border-radius: 9px; background: #22252e; overflow-wrap: anywhere; }
+    .ticket-history-detail-item.full { grid-column: 1 / -1; }
+    .ticket-history-detail-label { display: block; margin-bottom: 5px; color: var(--muted); font-size: 10px; }
+    .ticket-history-detail-photos { display: flex; flex-wrap: wrap; gap: 9px; }
+    .ticket-history-detail-photos img { width: 110px; height: 90px; object-fit: cover; border-radius: 8px; border: 1px solid #343743; }
+    .ticket-history-detail-photos img { cursor: zoom-in; }
+    .image-lightbox { z-index: 170; }
+    .panel-tools { display: flex; align-items: center; gap: 9px; }
+    .site-search { width: min(230px, 36vw); min-height: 36px; padding: 0 10px; border: 1px solid #383b47; border-radius: 9px; background: #111319; color: var(--text); font: inherit; font-size: 11px; }
+    .site-search:focus-visible { outline: 2px solid var(--yellow); outline-offset: 2px; }
+    .site-grid, .brand-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    .site-card {
+      display: block;
+      width: 100%;
+      min-height: 76px;
+      padding: 15px 16px;
+      border: 1px solid #343743;
+      border-radius: 12px;
+      background: #22252e;
+      color: inherit;
+      text-align: left;
+      transition: border-color .15s, background .15s, transform .15s;
+    }
+    .site-card:hover, .site-card:focus-visible { border-color: var(--yellow); background: #292a30; transform: translateY(-1px); }
+    .site-name { display: block; color: var(--text); font-size: 13px; font-weight: 800; line-height: 1.45; }
+    .site-count { display: block; margin-top: 5px; color: var(--muted); font-size: 11px; }
+    .supervisor-summary[hidden], #sitesPanel[hidden], #leaderTicketsPanel[hidden], #ticketHistoryPanel[hidden] { display: none !important; }
+    .leader-ticket-card { cursor: default; }
+    .leader-ticket-card:hover { border-color: #343743; background: #22252e; transform: none; }
+    .leader-ticket-card[data-open-leader-ticket] { cursor: pointer; font: inherit; text-align: left; }
+    .leader-ticket-card[data-open-leader-ticket]:hover, .leader-ticket-card[data-open-leader-ticket]:focus-visible { border-color: var(--yellow); background: #292a30; transform: translateY(-1px); }
+    .leader-ticket-card:disabled { cursor: not-allowed; opacity: .55; transform: none; }
+    .leader-ticket-card:disabled:hover, .leader-ticket-card:disabled:focus-visible { border-color: #343743; background: #22252e; transform: none; }
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+    .supervisor-summary { display: grid; gap: 18px; }
+    .supervisor-summary-heading { margin: 0; }
+    .supervisor-summary-eyebrow { margin: 0 0 8px; color: var(--yellow); font-size: 10px; font-weight: 800; letter-spacing: 1.8px; text-transform: uppercase; }
+    .supervisor-summary-heading h1 { margin: 0; font-size: clamp(24px, 3vw, 32px); letter-spacing: -.5px; }
+    .supervisor-summary-heading p { margin: 8px 0 0; color: var(--muted); font-size: 13px; line-height: 1.55; }
+    .supervisor-charts-section { padding: 20px; border: 1px solid #343743; border-radius: 17px; background: #191b22cc; }
+    .supervisor-charts-heading { margin-bottom: 14px; }
+    .supervisor-charts-heading h2 { margin: 0; font-size: 17px; }
+    .supervisor-charts-heading p { margin: 6px 0 0; color: var(--muted); font-size: 12px; }
+    .supervisor-charts-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 350px), 1fr)); gap: 14px; }
+    .supervisor-chart-card { min-width: 0; padding: 16px; border: 1px solid #353743; border-radius: 14px; background: #17191f; }
+    .supervisor-chart-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+    .supervisor-chart-card h3 { margin: 0; font-size: 14px; }
+    .supervisor-chart-card p { margin: 5px 0 0; color: var(--muted); font-size: 11px; }
+    .supervisor-chart-filter { width: auto; min-width: 145px; min-height: 34px; padding: 0 9px; border: 1px solid #383b47; border-radius: 8px; background: #111319; color: var(--text); font: inherit; font-size: 11px; }
+    .supervisor-chart-filter:focus-visible { outline: 2px solid var(--yellow); outline-offset: 2px; }
+    .supervisor-chart-content { display: grid; grid-template-columns: minmax(150px, 205px) minmax(120px, 1fr); align-items: center; gap: 12px; margin-top: 10px; }
+    .supervisor-pie-wrap { position: relative; width: 100%; max-width: 205px; aspect-ratio: 1; margin: auto; }
+    .supervisor-pie-svg { display: block; width: 100%; height: 100%; overflow: visible; }
+    .supervisor-pie-slice { stroke: #17191f; stroke-width: 1.2; cursor: pointer; transition: opacity .15s, filter .15s; }
+    .supervisor-pie-slice:hover, .supervisor-pie-slice.selected { filter: brightness(1.22); stroke: #fff; stroke-width: 2.2; }
+    .supervisor-pie-slice.dimmed { opacity: .32; }
+    .supervisor-pie-tooltip { position: absolute; z-index: 2; top: 50%; left: 50%; min-width: 105px; max-width: 180px; padding: 8px 10px; transform: translate(-50%, -50%); border: 1px solid #555866; border-radius: 9px; background: #101116ed; color: var(--text); text-align: center; font-size: 11px; line-height: 1.45; pointer-events: none; box-shadow: 0 8px 24px #0008; }
+    .supervisor-pie-tooltip[hidden] { display: none; }
+    .supervisor-chart-legend { display: grid; gap: 5px; max-height: 210px; overflow: auto; padding-right: 3px; }
+    .supervisor-legend-item { display: flex; align-items: center; gap: 7px; width: 100%; padding: 5px 6px; border: 1px solid transparent; border-radius: 7px; background: transparent; color: #d9dae0; text-align: left; font-size: 10px; cursor: pointer; }
+    .supervisor-legend-item:hover, .supervisor-legend-item.selected { border-color: #4b4028; background: #2c261b; }
+    .supervisor-legend-dot { flex: 0 0 9px; width: 9px; height: 9px; border-radius: 50%; }
+    .supervisor-legend-name { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .supervisor-legend-value { color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .supervisor-chart-empty { grid-column: 1 / -1; padding: 16px; color: var(--muted); text-align: center; font-size: 12px; }
+    .brand-card { min-height: 78px; padding: 16px; border: 1px solid #343743; border-radius: 12px; background: #22252e; }
+    button.brand-card { width: 100%; color: inherit; text-align: left; cursor: pointer; transition: border-color .15s, background .15s, transform .15s; }
+    button.brand-card:hover, button.brand-card:focus-visible { border-color: var(--yellow); background: #292a30; transform: translateY(-1px); }
+    .brand-name { display: block; color: var(--text); font-size: 14px; font-weight: 800; }
+    .brand-count { display: block; margin-top: 6px; color: var(--muted); font-size: 11px; }
+    .back-button { min-height: 36px; padding: 0 11px; border: 1px solid #383b47; border-radius: 9px; background: #20222a; color: var(--text); font-size: 11px; font-weight: 750; }
+    .back-button:hover { border-color: var(--yellow); color: var(--yellow); }
+    .machine-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    .machine-card { min-width: 0; min-height: 104px; display: flex; align-items: center; gap: 13px; padding: 13px; border: 1px solid #343743; border-radius: 12px; background: #22252e; cursor: pointer; transition: border-color .15s, background .15s; }
+    .machine-card:hover, .machine-card:focus-visible { border-color: var(--yellow); background: #262832; outline: none; }
+    .machine-image-button { position: relative; display: grid; place-items: center; flex: 0 0 58px; width: 58px; height: 58px; padding: 0; overflow: hidden; border: 1px solid #e6e7eb; border-radius: 11px; background: #f5f5f7; cursor: zoom-in; }
+    .machine-image-button img { display: block; width: 100%; height: 100%; object-fit: contain; padding: 2px; }
+    .machine-image-button .zoom-indicator { position: absolute; right: 3px; bottom: 3px; display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: #101116df; color: var(--yellow); font-size: 16px; line-height: 1; opacity: 0; transition: opacity .15s; }
+    .machine-image-button:hover .zoom-indicator, .machine-image-button:focus-visible .zoom-indicator { opacity: 1; }
+    .machine-info { min-width: 0; }
+    .machine-title-row { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+    .machine-info h3 { min-width: 0; margin: 0; font-size: 13px; line-height: 1.4; }
+    .machine-active-fixed { flex: 0 0 auto; color: var(--yellow); font-size: 10px; font-weight: 800; white-space: nowrap; }
+    .machine-info p { margin: 5px 0; color: var(--muted); font-size: 11px; }
+    .machine-sector { display: inline-block; padding: 4px 8px; border-radius: 20px; background: #30333d; color: #dedfe4; font-size: 9px; font-weight: 800; }
+    .machine-card:hover h3, .machine-card:focus-visible h3 { color: var(--yellow); }
+    .machine-detail { display: grid; gap: 14px; }
+    .machine-tabs { display: flex; flex-wrap: wrap; gap: 6px; border-bottom: 1px solid #343743; }
+    .machine-tab { min-height: 40px; padding: 0 13px; border: 0; border-radius: 9px 9px 0 0; background: #22252e; color: #c9cad0; font-size: 11px; font-weight: 700; }
+    .machine-tab.active { background: var(--yellow); color: #171717; }
+    .machine-tab-panel[hidden] { display: none; }
+    .machine-detail-card { padding: 16px; border: 1px solid #343743; border-radius: 12px; background: #191b22; }
+    .machine-detail-card h3 { margin: 0 0 12px; font-size: 15px; }
+    .machine-detail-card > p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.6; }
+    .machine-data-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    .machine-data-item { padding: 12px; border: 1px solid #30323c; border-radius: 9px; background: #22252e; }
+    .machine-data-label { display: block; margin-bottom: 5px; color: var(--muted); font-size: 10px; }
+    .machine-data-value { color: var(--text); font-size: 12px; font-weight: 750; }
+    .machine-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+    .machine-form-field { display: grid; gap: 6px; }
+    .machine-form-field.full { grid-column: 1 / -1; }
+    .machine-form-field label { color: #dedfe4; font-size: 11px; font-weight: 750; }
+    .machine-detail input, .machine-detail select, .machine-detail textarea { width: 100%; min-height: 40px; padding: 9px 11px; border: 1px solid #383b47; border-radius: 9px; background: #111319; color: var(--text); font: inherit; font-size: 12px; }
+    .machine-detail input[readonly] { cursor: not-allowed; color: #c9cad0; }
+    .machine-detail textarea { min-height: 84px; resize: vertical; }
+    .machine-detail input:focus-visible, .machine-detail select:focus-visible, .machine-detail textarea:focus-visible { outline: 2px solid var(--yellow); outline-offset: 2px; }
+    .machine-record-notice { margin: 0 0 13px; padding: 11px 12px; border: 1px solid #285b3b; border-left: 4px solid #35c987; border-radius: 8px; background: #17271d; color: #c6e7d0; font-size: 11px; line-height: 1.5; }
+    .machine-record-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+    .maintenance-image-picker { display: grid; gap: 10px; margin-top: 12px; }
+    .maintenance-image-menu { display: flex; flex-wrap: wrap; gap: 8px; }
+    .maintenance-image-menu[hidden] { display: none; }
+    .maintenance-image-input { display: none; }
+    .maintenance-image-list { display: flex; flex-wrap: wrap; gap: 9px; }
+    .maintenance-image-thumb-wrap { position: relative; flex: 0 0 82px; width: 82px; height: 82px; }
+    .maintenance-image-thumb { position: relative; width: 82px; height: 82px; padding: 0; overflow: visible; border: 1px solid #454854; border-radius: 10px; background: #111319; cursor: zoom-in; }
+    .maintenance-image-thumb img { display: block; width: 100%; height: 100%; border-radius: 9px; object-fit: cover; }
+    .maintenance-image-remove { position: absolute; top: -7px; right: -7px; display: grid; place-items: center; width: 23px; height: 23px; padding: 0; border: 1px solid #702d35; border-radius: 50%; background: #401e24; color: #fff; font-size: 16px; font-weight: 800; line-height: 1; cursor: pointer; }
+    .maintenance-image-remove:hover { border-color: #ff737b; background: #652630; }
+    .maintenance-image-caption { margin: 0; color: var(--muted); font-size: 10px; }
+    .machine-log-photos { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 9px; }
+    .machine-log-photos .maintenance-image-thumb { width: 58px; height: 58px; }
+    .machine-record-actions [data-delete-machine-record] { border-color: #63363b; background: #3a2025; color: #ffb5b9; }
+    .machine-record-actions [data-delete-machine-record]:hover { border-color: #ff737b; background: #4b2028; }
+    .machine-save-button { min-height: 40px; padding: 0 14px; border: 0; border-radius: 9px; background: var(--yellow); color: #171717; font-size: 12px; font-weight: 800; }
+    .machine-save-button:hover { background: var(--yellow-hover); }
+    .machine-save-button:disabled { opacity: .52; cursor: not-allowed; filter: saturate(.45); }
+    .parts-request-view { display: grid; gap: 12px; }
+    .parts-request-frame { display: block; width: 100%; height: min(76vh, 820px); min-height: 520px; border: 1px solid #343743; border-radius: 12px; background: #fff; }
+    .parts-request-note { margin: 0; color: var(--muted); font-size: 11px; line-height: 1.5; }
+    .parts-request-note a { color: var(--yellow); }
+    .machine-log-list { display: grid; gap: 8px; margin-top: 14px; }
+    .machine-log-entry { padding: 12px; border: 1px solid #30323c; border-radius: 9px; background: #22252e; }
+    .machine-log-entry strong { color: var(--text); font-size: 12px; }
+    .machine-log-entry p { margin: 6px 0 0; color: #c2c4cc; font-size: 11px; line-height: 1.55; white-space: pre-wrap; }
+    .machine-history-table { width: 100%; margin-top: 13px; border-collapse: collapse; }
+    .machine-table-wrap { overflow-x: auto; }
+    .machine-history-table th, .machine-history-table td { padding: 9px 8px; border-bottom: 1px solid #30323c; text-align: left; font-size: 10px; }
+    .machine-history-table th { color: var(--muted); }
+    .mileage-date-filter { display: block; width: 132px; min-width: 112px; margin-top: 6px; padding: 5px 7px; border: 1px solid #3c404b; border-radius: 6px; background: #111319; color: var(--text); font: inherit; font-weight: 500; }
+    .machine-history-table td { color: #e7e7eb; }
+    .image-placeholder { flex: 0 0 58px; width: 58px; height: 58px; display: grid; place-items: center; border: 1px solid #454854; border-radius: 11px; color: var(--muted); font-size: 10px; }
+    .image-lightbox { position: fixed; z-index: 100; inset: 0; display: grid; place-items: center; padding: 18px; background: #000e; }
+    .image-lightbox[hidden] { display: none; }
+    .image-lightbox-frame { position: relative; display: grid; place-items: center; width: fit-content; height: fit-content; max-width: 96vw; max-height: 94vh; overflow: hidden; border: 1px solid #555966; border-radius: 13px; background: #f5f5f7; box-shadow: 0 24px 90px #000b; }
+    .image-lightbox-frame img { display: block; width: auto; height: auto; max-width: 94vw; max-height: 92vh; object-fit: contain; }
+    .image-lightbox-close { position: absolute; z-index: 1; top: 10px; right: 10px; width: 38px; height: 38px; border: 1px solid #d1d3d8; border-radius: 50%; background: #fff; color: #17191f; font-size: 23px; line-height: 1; box-shadow: 0 2px 12px #0003; }
+    .image-lightbox-close:hover { border-color: var(--yellow); color: #8a5a00; }
+    .empty-state {
+      grid-column: 1 / -1;
+      padding: 28px 15px;
+      border: 1px dashed #454854;
+      border-radius: 11px;
+      color: var(--muted);
+      text-align: center;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+    .logout-button {
+      min-height: 40px;
+      padding: 0 13px;
+      border: 1px solid #4b4028;
+      border-radius: 9px;
+      background: #2c261b;
+      color: var(--yellow);
+      font-size: 12px;
+      font-weight: 800;
+    }
+    .logout-button:hover { border-color: var(--yellow); background: #3a301f; }
+    .notice { margin-top: 14px; color: #777b87; text-align: center; font-size: 10px; line-height: 1.5; }
+    .supervisor-mobile-bar { display: none; }
+    .supervisor-mobile-bar[hidden], .supervisor-menu[hidden] { display: none !important; }
+    .supervisor-shell { position: relative; width: min(1320px, 100%); margin: 0 auto; padding: 30px 22px 50px; display: grid; grid-template-columns: 220px minmax(0, 1fr); align-items: start; gap: 24px; }
+    .supervisor-shell.supervisor-mode .page { width: min(100%, 1100px); margin: 0; padding: 4px 0 20px; }
+    .supervisor-menu { align-self: start; padding: 14px; border: 1px solid var(--border); border-radius: 17px; background: #191b22cc; }
+    .supervisor-menu-label { margin: 4px 10px 12px; color: #777b87; font-size: 10px; font-weight: 800; letter-spacing: 1.4px; text-transform: uppercase; }
+    .supervisor-nav-item { width: 100%; min-height: 44px; margin: 3px 0; padding: 0 11px; border: 1px solid transparent; border-radius: 10px; background: transparent; color: #c9cad0; text-align: left; font-size: 13px; font-weight: 700; }
+    .supervisor-nav-item.active, .supervisor-nav-item:not(:disabled):hover { border-color: #4b4028; background: #2c261b; color: var(--yellow); }
+    .supervisor-nav-item:disabled { cursor: not-allowed; opacity: .55; }
+    .supervisor-menu-toggle { display: grid; place-items: center; width: 42px; height: 40px; border: 1px solid #383b47; border-radius: 9px; background: #20222a; color: var(--text); font-size: 22px; line-height: 1; }
+    .supervisor-menu-toggle:hover { border-color: var(--yellow); color: var(--yellow); }
+    .supervisor-mobile-bar span { font-size: 12px; font-weight: 800; }
+    .supervisor-shell:not(.supervisor-mode) { display: block; padding: 0; }
+    .supervisor-shell:not(.supervisor-mode) .supervisor-menu { display: none; }
+    @media (max-width: 850px) {
+      .supervisor-shell.supervisor-mode { display: block; padding: 12px 14px 36px; }
+      .supervisor-shell.supervisor-mode .page { width: 100%; padding: 22px 0 20px; }
+      .supervisor-mobile-bar:not([hidden]) { display: flex; align-items: center; gap: 11px; min-height: 58px; padding: 8px 18px; border-bottom: 1px solid #292b33; }
+      .supervisor-menu:not([hidden]) { position: absolute; z-index: 20; top: 0; left: 14px; width: min(300px, calc(100vw - 28px)); padding: 14px; box-shadow: 0 16px 40px #0009; }
+      .supervisor-menu.open { display: grid; }
+      .supervisor-menu:not(.open) { display: none; }
+    }
+    @media (max-width: 700px) {
+      .page { padding: 24px 14px 36px; }
+      .sites-panel { padding: 18px; }
+      .panel-heading { align-items: flex-start; flex-wrap: wrap; }
+      .panel-tools { display: grid; width: 100%; grid-template-columns: minmax(0, 1fr) auto; }
+      .site-search { width: 100%; min-width: 0; }
+      .machine-tabs { flex-wrap: wrap; overflow: visible; }
+      .machine-tab { flex: 1 1 180px; min-width: 0; min-height: 42px; height: auto; padding: 8px 10px; line-height: 1.3; }
+    }
+    @media (max-width: 600px) {
+      .topbar { min-height: 68px; padding: 11px 15px; flex-wrap: wrap; }
+      .brand-mark { height: 36px; max-width: 100px; }
+      .brand-title { font-size: 11px; }
+      .brand-subtitle { font-size: 9px; }
+      .admin-identity { display: none; }
+      .top-actions { margin-left: auto; }
+      .page { padding: 27px 13px 35px; }
+      .identity-bar { align-items: flex-start; flex-direction: column; }
+      .identity-summary { align-self: flex-end; }
+      .sites-panel { padding: 18px 15px 20px; }
+      .site-grid { grid-template-columns: 1fr; }
+      .brand-grid { grid-template-columns: 1fr; }
+      .machine-grid { grid-template-columns: 1fr; }
+      .machine-form-grid, .machine-data-grid { grid-template-columns: 1fr; }
+      .leader-ticket-history-table th, .leader-ticket-history-table td { padding: 8px 5px; font-size: 9px; }
+      .leader-ticket-history-table th:first-child, .leader-ticket-history-table td:first-child { width: 25%; }
+      .leader-ticket-history-table th:nth-child(2), .leader-ticket-history-table td:nth-child(2) { width: 17%; }
+      .leader-ticket-history-table th:nth-child(3), .leader-ticket-history-table td:nth-child(3) { width: 23%; font-size: 8px; }
+      .leader-ticket-history-table th:nth-child(4), .leader-ticket-history-table td:nth-child(4) { width: 17%; }
+      .leader-ticket-history-table th:nth-child(5), .leader-ticket-history-table td:nth-child(5) { width: 18%; }
+      .leader-ticket-history-table .back-button { padding: 0 4px; font-size: 8px; white-space: normal; }
+      .ticket-history-detail-grid { grid-template-columns: 1fr; }
+      .ticket-history-detail-item.full { grid-column: auto; }
+      .machine-form-field.full { grid-column: auto; }
+      .machine-tabs { overflow: visible; flex-wrap: wrap; }
+      .machine-tab { flex: 1 1 145px; min-height: 42px; height: auto; white-space: normal; }
+      .machine-history-table { min-width: 0; table-layout: fixed; }
+      .machine-table-wrap { overflow: visible; }
+      .machine-history-table thead { display: none; }
+      .machine-history-table tbody { display: grid; gap: 8px; }
+      .machine-history-table tbody tr { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); overflow: hidden; border: 1px solid #30323c; border-radius: 9px; background: #22252e; }
+      .machine-history-table td { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; min-width: 0; padding: 9px; border-bottom: 1px solid #30323c; font-size: 10px; text-align: right; overflow-wrap: anywhere; }
+      .machine-history-table td::before { flex: 0 0 auto; color: var(--muted); font-size: 9px; font-weight: 700; text-align: left; }
+      .machine-history-table td:nth-child(1)::before { content: "Fecha"; }
+      .machine-history-table td:nth-child(2)::before { content: "Km"; }
+      .machine-history-table td:nth-child(3), .machine-history-table td:nth-child(4), .machine-history-table td:nth-child(5), .machine-history-table td:nth-child(6), .machine-history-table td[colspan] { grid-column: 1 / -1; }
+      .machine-history-table td:nth-child(3)::before { content: "Observación"; }
+      .machine-history-table td:nth-child(4)::before { content: "Registrado por"; }
+      .machine-history-table td:nth-child(5)::before { content: "Lubricación"; }
+      .machine-history-table td:nth-child(6)::before { content: "Acciones"; }
+      .machine-history-table td[colspan] { text-align: center; }
+      .machine-history-table td[colspan]::before { content: none; }
+      .machine-history-table td:last-child { border-bottom: 0; }
+      .machine-history-table td .machine-record-actions { margin-top: 0; }
+      .panel-heading { align-items: flex-start; flex-wrap: wrap; }
+      .panel-tools { width: 100%; flex-direction: row; justify-content: space-between; }
+      .site-search { width: 100%; }
+    }
+    @media (max-width: 380px) {
+      .topbar { gap: 9px; }
+      .brand { gap: 8px; }
+      .top-actions { width: 100%; justify-content: flex-end; }
+      .logout-button { min-height: 36px; }
+      .page { padding-right: 10px; padding-left: 10px; }
+      .sites-panel { padding-right: 11px; padding-left: 11px; }
+      .panel-tools { grid-template-columns: minmax(0, 1fr); }
+      #backToSites { justify-self: end; }
+      .identity-bar { padding: 12px; }
+      .machine-card { gap: 9px; padding: 10px; }
+      .machine-image-button, .image-placeholder { flex-basis: 48px; width: 48px; height: 48px; }
+      .machine-title-row { align-items: flex-start; flex-direction: column; gap: 2px; }
+      .machine-detail-card { padding: 12px; }
+      .machine-form-grid { grid-template-columns: minmax(0, 1fr); }
+      .machine-tabs { margin-right: 0; }
+      .machine-tab { flex-basis: 100%; padding: 8px; font-size: 10px; }
+      .image-lightbox { padding: 8px; }
+      .image-lightbox-frame { max-width: 98vw; max-height: 94dvh; }
+      .image-lightbox-frame img { max-width: 96vw; max-height: 92dvh; }
+      .parts-request-frame { height: 72dvh; min-height: 420px; }
+    }
+    @media (max-width: 600px) {
+      .supervisor-shell.supervisor-mode .supervisor-menu { border-radius: 17px; }
+      .supervisor-shell.supervisor-mode .page { padding: 18px 0 20px; }
+      .supervisor-shell.supervisor-mode .sites-panel { padding: 16px 13px 18px; }
+      .supervisor-shell.supervisor-mode .panel-heading { align-items: center; flex-wrap: nowrap; gap: 8px; }
+      .supervisor-shell.supervisor-mode .panel-heading h2 { font-size: 15px; }
+      .supervisor-shell.supervisor-mode .panel-heading p { max-width: 165px; line-height: 1.4; }
+      .supervisor-shell.supervisor-mode .panel-tools { display: flex; flex: 0 1 190px; width: auto; min-width: 0; }
+      .supervisor-shell.supervisor-mode .site-search { width: 100%; min-height: 36px; font-size: 10px; }
+      .supervisor-shell.supervisor-mode .site-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+      .supervisor-shell.supervisor-mode .site-card { min-height: 68px; padding: 11px 10px; }
+      .supervisor-shell.supervisor-mode .site-name { font-size: 11px; }
+      .supervisor-shell.supervisor-mode .site-count { font-size: 9px; }
+      .supervisor-charts-section { padding: 15px; }
+      .supervisor-chart-content { grid-template-columns: minmax(125px, 165px) minmax(100px, 1fr); gap: 8px; }
+      .supervisor-pie-wrap { max-width: 165px; }
+      .supervisor-chart-legend { max-height: 180px; }
+    }
+    @media (max-width: 380px) {
+      .supervisor-shell.supervisor-mode .panel-heading { align-items: stretch; flex-wrap: wrap; }
+      .supervisor-shell.supervisor-mode .panel-heading > div:first-child { width: 100%; }
+      .supervisor-shell.supervisor-mode .panel-heading p { max-width: none; }
+      .supervisor-shell.supervisor-mode .panel-tools { flex-basis: 100%; }
+      .supervisor-shell.supervisor-mode .site-grid { grid-template-columns: 1fr; }
+      .supervisor-chart-header { flex-wrap: wrap; }
+      .supervisor-chart-header > div:first-child { width: 100%; }
+      .supervisor-chart-filter { width: 100%; }
+      .supervisor-chart-content { grid-template-columns: minmax(0, 1fr); }
+      .supervisor-pie-wrap { max-width: 190px; }
+      .supervisor-chart-legend { grid-template-columns: repeat(2, minmax(0, 1fr)); max-height: 150px; }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <img class="brand-mark" src="IMG/logo-header.png" alt="Smart Fit">
+      <div>
+        <p class="brand-title" id="brandTitle">MANTENIMIENTO</p>
+        <p class="brand-subtitle" id="brandSubtitle">Gestión de equipos y sedes</p>
+      </div>
+    </div>
+    <div class="top-actions">
+      <div class="admin-identity">Sesión: <strong id="userName">Usuario</strong></div>
+      <button class="logout-button" id="logoutButton" type="button">Cerrar sesión</button>
+    </div>
+  </header>
+
+  <div class="supervisor-mobile-bar" id="supervisorMobileBar" hidden>
+    <button class="supervisor-menu-toggle" id="supervisorMenuToggle" type="button" aria-expanded="false" aria-controls="supervisorMenu" aria-label="Abrir menú">☰</button>
+    <span>Panel de líder</span>
+  </div>
+
+  <div class="supervisor-shell" id="supervisorShell">
+    <aside class="supervisor-menu" id="supervisorMenu" aria-label="Menú de administración" hidden>
+      <div class="supervisor-menu-label">Administración</div>
+      <button class="supervisor-nav-item" type="button" data-supervisor-view="summary">◈ &nbsp; Resumen</button>
+      <button class="supervisor-nav-item" type="button" data-supervisor-view="tickets">♙ &nbsp; Elevar Ticket</button>
+      <button class="supervisor-nav-item" type="button" data-supervisor-view="ticket-history">⌖ &nbsp; Historial tickets</button>
+      <button class="supervisor-nav-item" type="button" disabled aria-disabled="true">⚙ &nbsp; Configuración</button>
+    </aside>
+
+  <main class="page">
+    <section class="supervisor-summary" id="supervisorSummary" hidden>
+      <header class="supervisor-summary-heading">
+        <div class="supervisor-summary-eyebrow">Control del sistema</div>
+        <h1>Resumen</h1>
+        <p>Actividad de mantenimiento y distribución de equipos de tus sedes asignadas.</p>
+      </header>
+      <section class="identity-bar leader-summary-identity" id="leaderSummaryIdentity" aria-label="Líder, sedes y cantidad de equipos" hidden>
+        <div class="identity-user">
+          <span class="identity-item"><span class="identity-icon" aria-hidden="true">✦</span><span id="leaderSummaryLabel"></span></span>
+        </div>
+        <span class="identity-summary" id="leaderSummaryEquipment">0 equipos</span>
+      </section>
+      <section class="supervisor-charts-section" aria-labelledby="supervisorChartsTitle">
+        <div class="supervisor-charts-heading">
+          <h2 id="supervisorChartsTitle">Distribución de mantenimiento y equipos</h2>
+          <p id="supervisorChartsDescription">Pasa el cursor por un segmento para ver su porcentaje y selecciona una categoría para resaltarla.</p>
+        </div>
+        <div class="supervisor-charts-grid">
+          <article class="supervisor-chart-card">
+            <div class="supervisor-chart-header"><div><h3>Estado de mantenimiento</h3><p>Último estado por equipo en todas tus sedes</p></div></div>
+            <div class="supervisor-chart-content" id="maintenanceStatusChart"></div>
+          </article>
+          <article class="supervisor-chart-card">
+            <div class="supervisor-chart-header"><div><h3>Eventos por técnico</h3><p>Registros realizados en tus sedes asignadas</p></div></div>
+            <div class="supervisor-chart-content" id="maintenanceTechnicianChart"></div>
+          </article>
+          <article class="supervisor-chart-card supervisor-only-chart">
+            <div class="supervisor-chart-header">
+              <div><h3>Equipos por sede</h3><p>Porcentaje del total de equipos</p></div>
+              <label class="sr-only" for="siteEquipmentRegionFilter">Filtrar equipos por región</label>
+              <select class="supervisor-chart-filter" id="siteEquipmentRegionFilter" aria-label="Filtrar equipos por región"></select>
+            </div>
+            <div class="supervisor-chart-content" id="siteEquipmentChart"></div>
+          </article>
+          <article class="supervisor-chart-card supervisor-only-chart">
+            <div class="supervisor-chart-header">
+              <div><h3>Equipos por técnico</h3><p>Según las sedes asignadas</p></div>
+              <label class="sr-only" for="technicianEquipmentRegionFilter">Filtrar equipos por técnico y región</label>
+              <select class="supervisor-chart-filter" id="technicianEquipmentRegionFilter" aria-label="Filtrar equipos por técnico y región"></select>
+            </div>
+            <div class="supervisor-chart-content" id="technicianEquipmentChart"></div>
+          </article>
+          <article class="supervisor-chart-card leader-only-chart" hidden>
+            <div class="supervisor-chart-header"><div><h3>Tickets en sede</h3><p>Porcentaje por estado en tus sedes asignadas</p></div></div>
+            <div class="supervisor-chart-content" id="leaderTicketsStatusChart"></div>
+          </article>
+          <article class="supervisor-chart-card leader-only-chart" hidden>
+            <div class="supervisor-chart-header"><div><h3>Equipos por sede</h3><p>Porcentaje de equipos por marca</p></div></div>
+            <div class="supervisor-chart-content" id="leaderEquipmentBrandChart"></div>
+          </article>
+        </div>
+      </section>
+    </section>
+
+    <header class="page-heading" id="pageHeading">
+      <h1 id="pageTitle">Selecciona tu Sede</h1>
+      <p id="technicianHeading">Técnico o supervisor</p>
+    </header>
+
+    <section class="identity-bar" id="siteIdentityBar" aria-label="Usuario y resumen de sedes">
+      <div class="identity-user">
+        <span class="identity-item"><span class="identity-icon" aria-hidden="true">⌖</span><span id="siteSummary">Mis sedes</span></span>
+      </div>
+      <span class="identity-summary" id="equipmentSummary">0 equipos</span>
+    </section>
+
+    <section class="sites-panel" id="leaderTicketsPanel" aria-labelledby="leaderTicketsTitle" hidden>
+      <div class="panel-heading">
+        <div>
+          <h2 id="leaderTicketsTitle">Elevar Ticket</h2>
+          <p>Selecciona el tipo de ticket que necesitas ingresar.</p>
+        </div>
+      </div>
+      <div class="site-grid" aria-label="Tipos de ticket">
+        <button class="site-card leader-ticket-card" type="button" data-open-leader-ticket="Infraestructura" disabled aria-disabled="true" title="Disponible cuando exista vinculación con equipos">
+          <span class="site-name">Ticket Infraestructura</span>
+          <span class="site-count">Solicitudes relacionadas con infraestructura</span>
+        </button>
+        <button class="site-card leader-ticket-card" type="button" data-open-leader-ticket="Mantenimiento">
+          <span class="site-name">Ticket Mantenimiento</span>
+          <span class="site-count">Solicitudes relacionadas con mantenimiento</span>
+        </button>
+      </div>
+    </section>
+
+    <section class="sites-panel" id="ticketHistoryPanel" aria-labelledby="ticketHistoryTitle" hidden>
+      <div class="panel-heading">
+        <div><h2 id="ticketHistoryTitle">Tickets</h2><p id="ticketHistoryDescription">Tickets registrados en tus sedes asignadas.</p></div>
+      </div>
+      <div class="leader-ticket-history-wrap"><table class="leader-ticket-history-table">
+        <thead><tr><th>Número de ticket</th><th>Fecha</th><th>Tipo</th><th>Estado</th><th></th></tr></thead>
+        <tbody id="ticketHistoryBody"></tbody>
+      </table></div>
+    </section>
+
+    <section class="sites-panel" id="sitesPanel" aria-labelledby="sitesTitle">
+      <div class="panel-heading">
+        <div>
+          <h2 id="panelHeading">Mis sedes</h2>
+          <p id="panelDescription">Sedes asignadas por el administrador</p>
+        </div>
+        <div class="panel-tools">
+          <input class="site-search" id="siteFilter" type="search" placeholder="Buscar sede..." aria-label="Buscar sede por nombre">
+          <button class="back-button" id="backToSites" type="button" hidden>← Volver a sedes</button>
+        </div>
+      </div>
+      <div class="site-grid" id="siteGrid" aria-live="polite"></div>
+    </section>
+
+    <p class="notice" id="notice">Las sedes y cantidades se actualizan desde el panel de administración.</p>
+  </main>
+  </div>
+
+  <div class="image-lightbox" id="equipmentImageLightbox" hidden>
+    <div class="image-lightbox-frame" role="dialog" aria-modal="true" aria-label="Imagen ampliada del equipo">
+      <button class="image-lightbox-close" id="closeEquipmentImage" type="button" aria-label="Cerrar imagen">×</button>
+      <img id="equipmentLightboxImage" alt="">
+    </div>
+  </div>
+
+  <div class="ticket-history-modal-backdrop" id="ticketHistoryModal" hidden>
+    <section class="ticket-history-modal" role="dialog" aria-modal="true" aria-labelledby="ticketHistoryModalTitle">
+      <header class="ticket-history-modal-header">
+        <h2 id="ticketHistoryModalTitle">Detalle del ticket</h2>
+        <button class="ticket-history-modal-close" id="closeTicketHistoryModal" type="button" aria-label="Cerrar ticket">×</button>
+      </header>
+      <div class="ticket-history-modal-body" id="ticketHistoryModalBody"></div>
+    </section>
+  </div>
+  <script src="admin-store.js"></script>
+  <script src="supabase-data.js"></script>
+  <script>
+    "use strict";
+    const $ = id => document.getElementById(id);
+    let session = null;
+    let adminMode = false;
+    let leaderMode = false;
+    try {
+      session = JSON.parse(sessionStorage.getItem("smartfit.leader.session") || "null");
+      leaderMode = Boolean(session && session.role === "Líder");
+      if (!session) session = JSON.parse(sessionStorage.getItem("smartfit.site.session") || "null");
+      if (!session) {
+        session = JSON.parse(sessionStorage.getItem("smartfit.admin.session") || "null");
+        adminMode = Boolean(session && session.role === "Administrador");
+      }
+    } catch (error) {
+      session = null;
+    }
+
+    let user = session && AdminStore.listUsers().find(entry =>
+      entry.id === session.id && entry.active && (adminMode ? entry.role === "Administrador" : entry.role !== "Administrador")
+    );
+    if (!user && session?.authId && session.active &&
+        (adminMode ? session.role === "Administrador" : ["Técnico", "Supervisor", "Líder"].includes(session.role))) {
+      user = Object.assign({}, session);
+    }
+    const supervisorMode = Boolean(user && !adminMode && (user.role === "Supervisor" || leaderMode && user.role === "Líder"));
+    const canManageMachineRecords = Boolean(user && (adminMode || user.role === "Supervisor"));
+    const canSetMileageDate = Boolean(user && user.role === "Supervisor");
+    let assignedSites = [];
+    let currentSite = null;
+    let currentBrandId = "";
+    let currentMachine = null;
+    let currentMachineTab = "maintenance";
+    let mileageMonthFilter = "";
+    let leaderMaintenanceMode = false;
+    let leaderTicketType = "Mantenimiento";
+    let leaderTicketBrandId = "";
+    let leaderAllEquipment = [];
+    let currentBrandEquipment = [];
+    let editingMachineRecord = null;
+    let maintenanceImages = [];
+    let maintenanceImageContext = "";
+    let leaderTicketDraft = { recordKey: "", title: "", description: "" };
+    let requestReturnTo = null;
+    const supervisorChartColors = ["#ffb51b", "#f47721", "#ec5b68", "#ba78e5", "#7389ff", "#45b8d1", "#45c99a", "#a7c957", "#ff8fba", "#d4a373", "#7eccc1", "#a6a9b6"];
+    const supervisorChartSelections = new Map();
+    const PARTS_REQUEST_URL = "https://solicitudrepuestos.lovable.app/";
+    const MACHINE_RECORDS_KEY = "smartfit.machine-records.v1";
+    const TICKETS_STORAGE_KEY = "smartfit.leader-tickets.v1";
+    const brandDirectory = AdminStore.listBrands();
+
+    if (supervisorMode) {
+      document.title = leaderMode ? "Panel líder | Mantenimiento" : "Panel supervisor | Mantenimiento";
+      $("supervisorShell").classList.add("supervisor-mode");
+      $("supervisorMenu").hidden = false;
+      $("supervisorMobileBar").hidden = false;
+      $("brandTitle").textContent = leaderMode ? "PANEL DE LÍDER" : "PANEL DE SUPERVISOR";
+      $("brandSubtitle").textContent = "Gestión del sistema de mantenimiento";
+    }
+
+    if (!user) {
+      window.location.replace("index.html");
+    } else {
+      $("userName").textContent = user.name;
+      $("technicianHeading").textContent = user.name;
+      assignedSites = AdminStore.listSites().filter(site => adminMode || (user.siteIds || []).includes(site.id));
+      if (leaderMode) updateLeaderIdentity(`Líder ${user.name} — ${assignedSites.length} ${assignedSites.length === 1 ? "sede" : "sedes"}`, assignedSites.reduce((total, site) => total + (Number(site.machineCount) || 0), 0));
+      if (supervisorMode) renderSupervisorSummary();
+      else renderSiteList();
+    }
+
+    function escapeHtml(value) {
+      return String(value).replace(/[&<>"']/g, character => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;"
+      }[character]));
+    }
+
+    function renderSiteList() {
+      if (leaderMode) return;
+      currentSite = null;
+      currentBrandId = "";
+      currentMachine = null;
+      if (supervisorMode) {
+        $("supervisorSummary").hidden = true;
+        $("sitesPanel").hidden = false;
+        $("leaderTicketsPanel").hidden = true;
+        $("ticketHistoryPanel").hidden = true;
+        $("notice").hidden = true;
+        setSupervisorActiveView("sites");
+      }
+      const totalEquipment = assignedSites.reduce((sum, site) => sum + (Number(site.machineCount) || 0), 0);
+      $("pageHeading").hidden = true;
+      $("pageTitle").textContent = "Selecciona tu Sede";
+      $("technicianHeading").hidden = false;
+      $("panelHeading").textContent = "Mis sedes";
+      $("panelDescription").textContent = "Sedes asignadas por el administrador";
+      const siteCountLabel = `${assignedSites.length} ${assignedSites.length === 1 ? "sede" : "sedes"}`;
+      $("siteSummary").textContent = `${user.role} ${user.name} — ${siteCountLabel}`;
+      $("equipmentSummary").textContent = `${totalEquipment} ${totalEquipment === 1 ? "equipo" : "equipos"}`;
+      $("siteFilter").hidden = false;
+      $("siteFilter").placeholder = "Buscar sede...";
+      $("siteFilter").setAttribute("aria-label", "Buscar sede por nombre");
+      $("backToSites").hidden = true;
+      $("siteGrid").className = "site-grid";
+      const normalize = value => String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("es");
+      const query = normalize($("siteFilter").value.trim());
+      const filteredSites = assignedSites.filter(site => normalize(site.name).includes(query));
+      $("siteGrid").innerHTML = filteredSites.map(site => {
+        const count = Number(site.machineCount) || 0;
+        return `<button class="site-card" type="button" data-open-site="${escapeHtml(site.id)}">
+          <span class="site-name">${escapeHtml(site.name)}</span>
+          <span class="site-count">${count} ${count === 1 ? "equipo" : "equipos"} · Ver marcas →</span>
+        </button>`;
+      }).join("") || (assignedSites.length
+        ? '<div class="empty-state">No se encontraron sedes con ese nombre.</div>'
+        : '<div class="empty-state">No tienes sedes asignadas todavía.<br>Solicita al administrador que te asigne una sede.</div>');
+    }
+
+    function setSupervisorActiveView(view) {
+      document.querySelectorAll("[data-supervisor-view]").forEach(button => {
+        const active = button.dataset.supervisorView === view;
+        button.classList.toggle("active", active);
+        if (active) button.setAttribute("aria-current", "page");
+        else button.removeAttribute("aria-current");
+      });
+      if (leaderMode) {
+        const isSummary = view === "summary";
+        $("leaderSummaryIdentity").hidden = !isSummary;
+        $("siteIdentityBar").hidden = isSummary;
+      }
+    }
+
+    function normalizeChartLabel(value) {
+      return String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLocaleLowerCase("es");
+    }
+
+    function formatSupervisorRegion(value) {
+      return ({
+        Tarapaca: "Tarapacá", Valparaiso: "Valparaíso", Nuble: "Ñuble", Biobio: "Biobío",
+        "La Araucania": "La Araucanía", "Los Rios": "Los Ríos", Aysen: "Aysén",
+        "Magallanes y la Antartica Chilena": "Magallanes y la Antártica Chilena"
+      })[value] || value || "—";
+    }
+
+    function supervisorEquipmentUnits(site) {
+      const units = [];
+      (Array.isArray(site.equipment) ? site.equipment : []).forEach(item => {
+        const brand = brandDirectory.find(entry => entry.id === item.brandId) ||
+          brandDirectory.find(entry => entry.name.toLocaleLowerCase("es") === String(item.brandName || "").toLocaleLowerCase("es"));
+        const brandId = item.brandId || brand?.id || "";
+        const itemUnits = Array.isArray(item.units) && item.units.length
+          ? item.units
+          : Array.from({ length: Math.max(0, Number(item.quantity) || 0) }, () => ({}));
+        itemUnits.forEach((unit, index) => {
+          const unitKey = unit.unitId || `${item.catalogId || brandId || brand?.id || "equipo"}:${index}`;
+          units.push({ recordKey: `${site.id}::${unitKey}` });
+        });
+      });
+      return units;
+    }
+
+    function maintenanceStatusLabel(value) {
+      const normalized = normalizeChartLabel(value);
+      if (normalized.includes("preventivo")) return "Mantenimiento preventivo";
+      if (normalized.includes("correctivo")) return "Mantenimiento correctivo";
+      if (normalized.includes("inspeccion") || normalized.includes("revision")) return "Revisión";
+      if (normalized.includes("fuera de servicio")) return "Fuera de servicio";
+      return "";
+    }
+
+    function aggregateChartEntries(values) {
+      const totals = new Map();
+      values.forEach(({ label, value }) => {
+        const safeLabel = String(label || "Sin asignar").trim() || "Sin asignar";
+        totals.set(safeLabel, (totals.get(safeLabel) || 0) + Math.max(0, Number(value) || 0));
+      });
+      return Array.from(totals, ([label, value]) => ({ label, value }))
+        .filter(entry => entry.value > 0)
+        .sort((a, b) => b.value - a.value || a.label.localeCompare(b.label, "es"));
+    }
+
+    function renderSupervisorPieChart(containerId, entries) {
+      const host = $(containerId);
+      const positiveEntries = entries.filter(entry => entry.value > 0);
+      const total = positiveEntries.reduce((sum, entry) => sum + entry.value, 0);
+      if (!total) {
+        host.innerHTML = '<div class="supervisor-chart-empty">Aún no hay datos para mostrar.</div>';
+        return;
+      }
+      const selected = supervisorChartSelections.get(containerId) || "";
+      let angle = -90;
+      const paths = positiveEntries.map((entry, index) => {
+        const fraction = entry.value / total;
+        const color = supervisorChartColors[index % supervisorChartColors.length];
+        const startAngle = angle;
+        angle += fraction * 360;
+        let shape;
+        if (fraction >= .999999) {
+          shape = '<circle cx="100" cy="100" r="78"';
+        } else {
+          const startRadians = startAngle * Math.PI / 180;
+          const endRadians = angle * Math.PI / 180;
+          const x1 = 100 + 78 * Math.cos(startRadians);
+          const y1 = 100 + 78 * Math.sin(startRadians);
+          const x2 = 100 + 78 * Math.cos(endRadians);
+          const y2 = 100 + 78 * Math.sin(endRadians);
+          shape = `<path d="M 100 100 L ${x1.toFixed(3)} ${y1.toFixed(3)} A 78 78 0 ${fraction > .5 ? 1 : 0} 1 ${x2.toFixed(3)} ${y2.toFixed(3)} Z"`;
+        }
+        const active = selected === entry.label;
+        const dimmed = selected && !active ? " dimmed" : "";
+        return `${shape} fill="${color}" class="supervisor-pie-slice${active ? " selected" : ""}${dimmed}" data-chart-slice="${escapeHtml(entry.label)}" tabindex="0" role="button" aria-label="${escapeHtml(entry.label)}: ${(fraction * 100).toFixed(1)} por ciento, ${entry.value}"></${shape.startsWith("<circle") ? "circle" : "path"}>`;
+      }).join("");
+      const legend = positiveEntries.map((entry, index) => {
+        const percentage = entry.value / total * 100;
+        const active = selected === entry.label;
+        return `<button class="supervisor-legend-item${active ? " selected" : ""}" type="button" data-chart-select="${escapeHtml(entry.label)}"><span class="supervisor-legend-dot" style="background:${supervisorChartColors[index % supervisorChartColors.length]}"></span><span class="supervisor-legend-name" title="${escapeHtml(entry.label)}">${escapeHtml(entry.label)}</span><span class="supervisor-legend-value">${percentage.toFixed(1)}% · ${entry.value}</span></button>`;
+      }).join("");
+      host.innerHTML = `<div class="supervisor-pie-wrap"><svg class="supervisor-pie-svg" viewBox="0 0 200 200" role="img" aria-label="Gráfico circular con ${positiveEntries.length} categorías">${paths}</svg><div class="supervisor-pie-tooltip" data-chart-tooltip hidden></div></div><div class="supervisor-chart-legend">${legend}</div>`;
+    }
+
+    function setSupervisorRegionOptions(select, sites) {
+      const regionNames = Array.from(new Set(sites.map(site => String(site.region || "").trim()).filter(Boolean)))
+        .sort((a, b) => a.localeCompare(b, "es"));
+      const current = select.value;
+      select.innerHTML = '<option value="*">Todas las regiones</option>' + regionNames.map(region => `<option value="${escapeHtml(region)}">${escapeHtml(formatSupervisorRegion(region))}</option>`).join("");
+      select.value = regionNames.includes(current) ? current : "*";
+      return select.value === "*" ? sites : sites.filter(site => String(site.region || "").trim() === select.value);
+    }
+
+    function leaderTicketStatusEntries() {
+      const counts = new Map([["Pendientes", 0], ["En ejecución", 0], ["Ejecutados", 0], ["Otros estados", 0]]);
+      visibleHistoryTickets().forEach(ticket => {
+        const status = normalizeChartLabel(ticket.status || "Pendiente");
+        const label = status.includes("pendiente")
+          ? "Pendientes"
+          : status.includes("ejecucion") || status.includes("progreso") || status.includes("en curso")
+            ? "En ejecución"
+            : status.includes("ejecutado") || status.includes("resuelto") || status.includes("cerrado") || status.includes("completado")
+              ? "Ejecutados"
+              : "Otros estados";
+        counts.set(label, counts.get(label) + 1);
+      });
+      return Array.from(counts, ([label, value]) => ({ label, value }));
+    }
+
+    function leaderEquipmentByBrandEntries() {
+      const counts = new Map();
+      assignedSites.forEach(site => {
+        let detailedCount = 0;
+        (Array.isArray(site.equipment) ? site.equipment : []).forEach(item => {
+          const units = Array.isArray(item.units) ? item.units.length : 0;
+          const quantity = Number(item.quantity) > 0 ? Number(item.quantity) : units;
+          if (quantity <= 0) return;
+          detailedCount += quantity;
+          const brand = brandDirectory.find(candidate => candidate.id === item.brandId) ||
+            brandDirectory.find(candidate => normalizeChartLabel(candidate.name) === normalizeChartLabel(item.brandName));
+          const label = String(item.brandName || brand?.name || "Sin marca asignada").trim() || "Sin marca asignada";
+          counts.set(label, (counts.get(label) || 0) + quantity);
+        });
+        const siteTotal = Math.max(0, Number(site.machineCount) || 0);
+        const unclassified = Math.max(0, siteTotal - detailedCount);
+        if (unclassified) counts.set("Sin marca asignada", (counts.get("Sin marca asignada") || 0) + unclassified);
+      });
+      return aggregateChartEntries(Array.from(counts, ([label, value]) => ({ label, value })));
+    }
+
+    function renderSupervisorSummary() {
+      if (!supervisorMode) return;
+      currentSite = null;
+      currentBrandId = "";
+      currentMachine = null;
+      $("supervisorSummary").hidden = false;
+      $("leaderSummaryIdentity").hidden = !leaderMode;
+      $("siteIdentityBar").hidden = leaderMode;
+      $("sitesPanel").hidden = true;
+      $("leaderTicketsPanel").hidden = true;
+      $("ticketHistoryPanel").hidden = true;
+      $("pageHeading").hidden = true;
+      $("notice").hidden = true;
+      setSupervisorActiveView("summary");
+      updateLeaderIdentity(`${user.role} ${user.name} — ${assignedSites.length} ${assignedSites.length === 1 ? "sede" : "sedes"}`, assignedSites.reduce((total, site) => total + (Number(site.machineCount) || 0), 0));
+      $("supervisorChartsTitle").textContent = leaderMode ? "Resumen de mantenimiento, tickets y equipos" : "Distribución de mantenimiento y equipos";
+      $("supervisorChartsDescription").textContent = leaderMode
+        ? "Incluye actividad de mantenimiento, tickets por estado y equipos por marca en tus sedes asignadas."
+        : "Pasa el cursor por un segmento para ver su porcentaje y selecciona una categoría para resaltarla.";
+      document.querySelectorAll(".supervisor-only-chart").forEach(card => { card.hidden = leaderMode; });
+      document.querySelectorAll(".leader-only-chart").forEach(card => { card.hidden = !leaderMode; });
+
+      const machineRecords = (() => {
+        try {
+          const stored = JSON.parse(localStorage.getItem(MACHINE_RECORDS_KEY) || "{}");
+          return stored && typeof stored === "object" && !Array.isArray(stored) ? stored : {};
+        } catch (error) {
+          return {};
+        }
+      })();
+      const statusCounts = new Map([
+        ["Mantenimiento preventivo", 0], ["Mantenimiento correctivo", 0], ["Revisión", 0], ["Fuera de servicio", 0], ["Sin registro", 0]
+      ]);
+      const technicianEventEntries = [];
+      assignedSites.forEach(site => {
+        const machines = supervisorEquipmentUnits(site);
+        machines.forEach(machine => {
+          const machineRecord = machineRecords[machine.recordKey] || {};
+          const maintenance = Array.isArray(machineRecord.maintenance) ? machineRecord.maintenance : [];
+          const chronological = maintenance.slice().sort((a, b) => {
+            const dateA = Date.parse(a.date || "") || Date.parse(a.recordedAt || "") || 0;
+            const dateB = Date.parse(b.date || "") || Date.parse(b.recordedAt || "") || 0;
+            return dateB - dateA;
+          });
+          const latestStatus = maintenanceStatusLabel(chronological[0]?.type);
+          const statusLabel = latestStatus || "Sin registro";
+          statusCounts.set(statusLabel, (statusCounts.get(statusLabel) || 0) + 1);
+          maintenance.forEach(entry => {
+            technicianEventEntries.push({ label: entry.technician || "Sin técnico registrado", value: 1 });
+          });
+        });
+        const unclassifiedMachines = Math.max(0, (Number(site.machineCount) || 0) - machines.length);
+        statusCounts.set("Sin registro", statusCounts.get("Sin registro") + unclassifiedMachines);
+      });
+      const statusOrder = ["Mantenimiento preventivo", "Mantenimiento correctivo", "Revisión", "Fuera de servicio", "Sin registro"];
+      renderSupervisorPieChart("maintenanceStatusChart", statusOrder.map(label => ({ label, value: statusCounts.get(label) || 0 })));
+      renderSupervisorPieChart("maintenanceTechnicianChart", aggregateChartEntries(technicianEventEntries));
+
+      const sitesByRegion = setSupervisorRegionOptions($("siteEquipmentRegionFilter"), assignedSites);
+      renderSupervisorPieChart("siteEquipmentChart", aggregateChartEntries(sitesByRegion.map(site => ({ label: site.name, value: Number(site.machineCount) || 0 }))));
+      const technicianSitesByRegion = setSupervisorRegionOptions($("technicianEquipmentRegionFilter"), assignedSites);
+      const users = AdminStore.listUsers();
+      const technicianEquipmentEntries = technicianSitesByRegion.map(site => {
+        const assignedTechnician = users.find(candidate => candidate.id === site.technicianUserId && candidate.role === "Técnico")?.name || site.technician || "Sin técnico asignado";
+        return { label: assignedTechnician, value: Number(site.machineCount) || 0 };
+      });
+      renderSupervisorPieChart("technicianEquipmentChart", aggregateChartEntries(technicianEquipmentEntries));
+      if (leaderMode) {
+        renderSupervisorPieChart("leaderTicketsStatusChart", leaderTicketStatusEntries());
+        renderSupervisorPieChart("leaderEquipmentBrandChart", leaderEquipmentByBrandEntries());
+      }
+    }
+
+    function renderLeaderTickets() {
+      if (!leaderMode) return;
+      leaderMaintenanceMode = false;
+      leaderTicketBrandId = "";
+      leaderAllEquipment = [];
+      currentSite = null;
+      currentBrandId = "";
+      currentMachine = null;
+      $("supervisorSummary").hidden = true;
+      $("sitesPanel").hidden = true;
+      $("ticketHistoryPanel").hidden = true;
+      $("leaderTicketsPanel").hidden = false;
+      $("pageHeading").hidden = true;
+      $("notice").hidden = true;
+      updateLeaderIdentity(`Líder ${user.name} — ${assignedSites.length} ${assignedSites.length === 1 ? "sede" : "sedes"}`, assignedSites.reduce((total, site) => total + (Number(site.machineCount) || 0), 0));
+      $("siteFilter").hidden = true;
+      setSupervisorActiveView("tickets");
+    }
+
+    function readLeaderTickets() {
+      try {
+        const tickets = JSON.parse(localStorage.getItem(TICKETS_STORAGE_KEY) || "[]");
+        return Array.isArray(tickets) ? tickets.filter(ticket => ticket && typeof ticket === "object") : [];
+      } catch (error) {
+        return [];
+      }
+    }
+
+    function formatTicketDate(value) {
+      const match = String(value || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      if (match) return `${match[3]}-${match[2]}-${match[1]}`;
+      if (!value || Number.isNaN(new Date(value).getTime())) return "—";
+      return new Intl.DateTimeFormat("es-CL", { dateStyle: "medium" }).format(new Date(value));
+    }
+
+    function ticketHistoryStatus(ticket) {
+      const status = String(ticket.status || "Pendiente");
+      const normalized = status.toLocaleLowerCase("es").replace("ó", "o");
+      const className = normalized === "ejecutado" || normalized === "ejecutada" ? "done" : normalized === "en ejecucion" ? "progress" : "";
+      return `<span class="ticket-history-status ${className}">${escapeHtml(status)}</span>`;
+    }
+
+    function visibleHistoryTickets() {
+      const siteIds = new Set(assignedSites.map(site => site.id));
+      return readLeaderTickets()
+        .filter(ticket => siteIds.has(ticket.siteId) && (!leaderMode || ticket.leaderId === user.id))
+        .sort((first, second) => String(second.createdAt || second.date || "").localeCompare(String(first.createdAt || first.date || "")));
+    }
+
+    function renderTicketHistory() {
+      currentSite = null;
+      currentBrandId = "";
+      currentMachine = null;
+      leaderMaintenanceMode = false;
+      leaderTicketBrandId = "";
+      leaderAllEquipment = [];
+      $("supervisorSummary").hidden = true;
+      $("sitesPanel").hidden = true;
+      $("leaderTicketsPanel").hidden = true;
+      $("ticketHistoryPanel").hidden = false;
+      $("pageHeading").hidden = true;
+      $("notice").hidden = true;
+      $("siteFilter").hidden = true;
+      $("backToSites").hidden = true;
+      setSupervisorActiveView("ticket-history");
+      $("ticketHistoryDescription").textContent = leaderMode
+        ? "Tickets registrados por ti en tus sedes asignadas."
+        : "Tickets registrados en tus sedes asignadas.";
+      const tickets = visibleHistoryTickets();
+      $("ticketHistoryBody").innerHTML = tickets.map(ticket => `
+        <tr>
+          <td><strong>${escapeHtml(ticket.ticketNumber || "—")}</strong></td>
+          <td>${escapeHtml(formatTicketDate(ticket.date))}</td>
+          <td>${escapeHtml(ticket.type || "—")}</td>
+          <td>${ticketHistoryStatus(ticket)}</td>
+          <td><button class="back-button" type="button" data-view-history-ticket="${escapeHtml(ticket.id || "")}">Ver ticket</button></td>
+        </tr>`).join("") || '<tr><td colspan="5" class="empty-state">Todavía no hay tickets registrados.</td></tr>';
+    }
+
+    function openTicketHistoryDetail(ticketId) {
+      const siteIds = new Set(assignedSites.map(site => site.id));
+      const ticket = visibleHistoryTickets().find(entry => entry.id === ticketId && siteIds.has(entry.siteId) && (!leaderMode || entry.leaderId === user.id));
+      if (!ticket) return;
+      const photos = Array.isArray(ticket.images) ? ticket.images.slice(0, 2) : [];
+      $("ticketHistoryModalTitle").textContent = `Ticket ${ticket.ticketNumber || ""}`;
+      $("ticketHistoryModalBody").innerHTML = `
+        <div class="ticket-history-detail-grid">
+          <div class="ticket-history-detail-item"><span class="ticket-history-detail-label">Fecha</span>${escapeHtml(formatTicketDate(ticket.date))}</div>
+          <div class="ticket-history-detail-item"><span class="ticket-history-detail-label">Tipo</span>${escapeHtml(ticket.type || "—")}</div>
+          <div class="ticket-history-detail-item"><span class="ticket-history-detail-label">Estado</span>${ticketHistoryStatus(ticket)}</div>
+          <div class="ticket-history-detail-item"><span class="ticket-history-detail-label">Sede</span>${escapeHtml(ticket.siteName || "—")}</div>
+          <div class="ticket-history-detail-item"><span class="ticket-history-detail-label">Líder</span>${escapeHtml(ticket.leaderName || "—")}</div>
+          <div class="ticket-history-detail-item"><span class="ticket-history-detail-label">Supervisor</span>${escapeHtml(ticket.supervisor || "—")}</div>
+          <div class="ticket-history-detail-item"><span class="ticket-history-detail-label">Técnico asignado</span>${escapeHtml(ticket.technician || "—")}</div>
+          <div class="ticket-history-detail-item"><span class="ticket-history-detail-label">Activo fijo</span>${escapeHtml(ticket.activeFixed || "N/A")}</div>
+          <div class="ticket-history-detail-item full"><span class="ticket-history-detail-label">Equipo</span>${escapeHtml(ticket.machineName || "—")}${ticket.machineModel ? ` · ${escapeHtml(ticket.machineModel)}` : ""}</div>
+          <div class="ticket-history-detail-item full"><span class="ticket-history-detail-label">Título</span>${escapeHtml(ticket.title || "—")}</div>
+          <div class="ticket-history-detail-item full"><span class="ticket-history-detail-label">Descripción</span>${escapeHtml(ticket.description || "—")}</div>
+          <div class="ticket-history-detail-item full"><span class="ticket-history-detail-label">Imágenes adjuntas (${photos.length}/2)</span><div class="ticket-history-detail-photos">${photos.map((image, index) => `<img src="${escapeHtml(image)}" alt="Imagen ${index + 1} del ticket" data-history-image="${escapeHtml(image)}" loading="lazy">`).join("") || "Sin imágenes adjuntas"}</div></div>
+        </div>`;
+      $("ticketHistoryModal").hidden = false;
+      $("closeTicketHistoryModal").focus();
+    }
+
+    function updateLeaderIdentity(label, equipmentCount) {
+      $("siteSummary").textContent = label;
+      $("equipmentSummary").textContent = `${equipmentCount} ${equipmentCount === 1 ? "equipo" : "equipos"}`;
+      $("leaderSummaryLabel").textContent = label;
+      $("leaderSummaryEquipment").textContent = `${equipmentCount} ${equipmentCount === 1 ? "equipo" : "equipos"}`;
+    }
+
+    function renderLeaderMaintenanceEquipment({ resetFilter = true } = {}) {
+      if (!leaderMode) return;
+      leaderMaintenanceMode = true;
+      currentSite = null;
+      currentBrandId = "";
+      currentMachine = null;
+      currentMachineTab = "maintenance";
+      editingMachineRecord = null;
+      currentBrandEquipment = [];
+
+      assignedSites.forEach(site => {
+        (Array.isArray(site.equipment) ? site.equipment : []).forEach(item => {
+          const brand = brandDirectory.find(entry => entry.id === item.brandId) ||
+            brandDirectory.find(entry => entry.name.toLocaleLowerCase("es") === String(item.brandName || "").toLocaleLowerCase("es"));
+          const brandId = item.brandId || brand?.id || "";
+          const units = Array.isArray(item.units) && item.units.length
+            ? item.units
+            : Array.from({ length: Math.max(0, Number(item.quantity) || 0) }, () => ({}));
+          units.forEach((unit, index) => {
+            const unitKey = unit.unitId || `${item.catalogId || brandId || "equipo"}:${index}`;
+            currentBrandEquipment.push({
+              item: Object.assign({}, item, {
+                brandId: item.brandId || brand?.id || "",
+                brandName: item.brandName || brand?.name || "Sin marca"
+              }),
+              unit,
+              index,
+              total: units.length,
+              recordKey: `${site.id}::${unitKey}`,
+              siteId: site.id,
+              siteName: site.name,
+              leaderBrandKey: brand?.id || item.brandId || String(item.brandName || "Sin marca").toLocaleLowerCase("es")
+            });
+          });
+        });
+      });
+
+      currentBrandEquipment.sort((first, second) =>
+        first.siteName.localeCompare(second.siteName, "es") ||
+        String(first.item.brandName || "").localeCompare(String(second.item.brandName || ""), "es") ||
+        String(first.item.name || "").localeCompare(String(second.item.name || ""), "es")
+      );
+      leaderAllEquipment = currentBrandEquipment;
+      leaderTicketBrandId = "";
+      $("supervisorSummary").hidden = true;
+      $("leaderTicketsPanel").hidden = true;
+      $("ticketHistoryPanel").hidden = true;
+      $("sitesPanel").hidden = false;
+      $("pageHeading").hidden = true;
+      $("notice").hidden = true;
+      $("panelHeading").textContent = "Marcas de equipos";
+      $("panelDescription").textContent = `Equipos para ticket de ${leaderTicketType.toLocaleLowerCase("es")} · ${assignedSites.length} ${assignedSites.length === 1 ? "sede habilitada" : "sedes habilitadas"}`;
+      updateLeaderIdentity(`Líder ${user.name} — ${assignedSites.length} ${assignedSites.length === 1 ? "sede" : "sedes"}`, leaderAllEquipment.length);
+      $("siteFilter").hidden = false;
+      $("siteFilter").placeholder = "Buscar activo fijo...";
+      $("siteFilter").setAttribute("aria-label", "Buscar activo fijo en todas las marcas");
+      if (resetFilter) $("siteFilter").value = "";
+      $("backToSites").hidden = false;
+      $("backToSites").textContent = "← Volver a tickets";
+      $("siteGrid").className = "brand-grid";
+      renderLeaderBrandCards($("siteFilter").value);
+    }
+
+    function renderLeaderBrandCards(query = "") {
+      const normalize = value => String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("es");
+      const search = normalize(query.trim());
+      const brands = new Map();
+      leaderAllEquipment.forEach(machine => {
+        const key = machine.leaderBrandKey;
+        const current = brands.get(key) || { id: key, name: machine.item.brandName || "Sin marca", machines: [] };
+        current.machines.push(machine);
+        brands.set(key, current);
+      });
+      const brandOrder = ["Matrix", "Booty Builder", "Shua", "Lifefitness", "Hammer Strength", "Technogym", "Water Rower", "Movement", "Octane", "Relan", "Illus", "Insumos"];
+      const visibleBrands = Array.from(brands.values()).map(brand => ({
+        ...brand,
+        matches: brand.machines.filter(machine => {
+          const fixedNumber = machine.unit.activeFixed === "" || machine.unit.activeFixed === undefined || machine.unit.activeFixed === null
+            ? "N/A"
+            : machine.unit.activeFixed;
+          return !search || normalize(fixedNumber).includes(search);
+        })
+      })).filter(brand => !search || brand.matches.length > 0)
+        .sort((first, second) => {
+          const firstIndex = brandOrder.findIndex(name => normalize(name) === normalize(first.name));
+          const secondIndex = brandOrder.findIndex(name => normalize(name) === normalize(second.name));
+          return (firstIndex < 0 ? brandOrder.length : firstIndex) - (secondIndex < 0 ? brandOrder.length : secondIndex) || first.name.localeCompare(second.name, "es");
+        });
+      $("siteGrid").innerHTML = visibleBrands
+        .map(brand => `<button class="brand-card" type="button" data-leader-brand="${escapeHtml(brand.id)}"><span class="brand-name">${escapeHtml(brand.name)}</span><span class="brand-count">${search ? `${brand.matches.length} coincidencias` : `${brand.machines.length} ${brand.machines.length === 1 ? "equipo" : "equipos"}`} · Ver equipos →</span></button>`)
+        .join("") || `<div class="empty-state">${search ? "No hay equipos con ese activo fijo." : "No hay equipos detallados en las sedes habilitadas para este Líder."}</div>`;
+    }
+
+    function renderLeaderBrandEquipment({ resetFilter = true } = {}) {
+      if (!leaderMode || !leaderTicketBrandId) return;
+      const brand = leaderAllEquipment.find(machine => machine.leaderBrandKey === leaderTicketBrandId);
+      if (!brand) return;
+      currentBrandEquipment = leaderAllEquipment.filter(machine => machine.leaderBrandKey === leaderTicketBrandId);
+      currentMachine = null;
+      currentMachineTab = "maintenance";
+      editingMachineRecord = null;
+      $("panelHeading").textContent = `Equipos ${brand.item.brandName || ""}`;
+      $("panelDescription").textContent = `${currentBrandEquipment.length} ${currentBrandEquipment.length === 1 ? "equipo" : "equipos"} · Busca por activo fijo`;
+      updateLeaderIdentity(`Líder ${user.name} — ${assignedSites.length} ${assignedSites.length === 1 ? "sede" : "sedes"}`, assignedSites.reduce((total, site) => total + (Number(site.machineCount) || 0), 0));
+      $("siteFilter").hidden = false;
+      $("siteFilter").placeholder = "Buscar activo fijo...";
+      $("siteFilter").setAttribute("aria-label", "Buscar equipo por número de activo fijo");
+      if (resetFilter) $("siteFilter").value = "";
+      $("backToSites").hidden = false;
+      $("backToSites").textContent = "← Cambiar de marca";
+      $("siteGrid").className = "machine-grid";
+      renderMachineCards($("siteFilter").value);
+    }
+
+    function renderSiteBrands(site) {
+      if (!site) return;
+      currentMachine = null;
+      currentBrandId = "";
+      const inventory = Array.isArray(site.equipment) ? site.equipment : [];
+      const equipmentByBrand = new Map();
+      inventory.forEach(item => {
+        const brand = brandDirectory.find(entry => entry.id === item.brandId) ||
+          brandDirectory.find(entry => entry.name.toLocaleLowerCase("es") === String(item.brandName || "").toLocaleLowerCase("es"));
+        const key = brand ? brand.id : String(item.brandName || "");
+        equipmentByBrand.set(key, (equipmentByBrand.get(key) || 0) + (Number(item.quantity) || 0));
+      });
+      const recordedMachines = inventory.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0);
+      const hasUnclassifiedInventory = !recordedMachines && Number(site.machineCount) > 0;
+      $("pageHeading").hidden = true;
+      $("pageTitle").textContent = `${site.name} — ${user.role} ${user.name}`;
+      $("technicianHeading").hidden = true;
+      $("panelHeading").textContent = "Marcas de equipos";
+      $("panelDescription").textContent = "Marcas disponibles y equipos asignados en esta sede";
+      $("siteSummary").textContent = `${site.name} — ${user.role} ${user.name}`;
+      $("equipmentSummary").textContent = `${Number(site.machineCount) || 0} ${Number(site.machineCount) === 1 ? "equipo" : "equipos"}`;
+      $("siteFilter").hidden = true;
+      $("siteFilter").value = "";
+      $("backToSites").hidden = false;
+      $("backToSites").textContent = "← Volver a sedes";
+      $("siteGrid").className = "brand-grid";
+      const cards = brandDirectory.map(brand => {
+        const count = equipmentByBrand.get(brand.id) || 0;
+        const countText = hasUnclassifiedInventory ? "Detalle pendiente" : `${count} ${count === 1 ? "equipo" : "equipos"}`;
+        return `<button class="brand-card" type="button" data-open-brand="${escapeHtml(brand.id)}"><span class="brand-name">${escapeHtml(brand.name)}</span><span class="brand-count">${countText} · Ver equipos →</span></button>`;
+      }).join("");
+      const notice = hasUnclassifiedInventory
+        ? `<div class="empty-state">Esta sede tiene ${Number(site.machineCount)} máquinas registradas, pero aún falta asignar su detalle por marca desde el inventario de administración.</div>`
+        : "";
+      $("siteGrid").innerHTML = cards + notice || '<div class="empty-state">No hay marcas registradas.</div>';
+    }
+
+    function renderMachineCards(query = $("siteFilter").value) {
+      const normalize = value => String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("es");
+      const search = normalize(query.trim());
+      const filteredMachines = currentBrandEquipment
+        .map((machine, index) => ({ machine, index }))
+        .filter(({ machine }) => {
+          const fixedNumber = machine.unit.activeFixed === "" || machine.unit.activeFixed === undefined || machine.unit.activeFixed === null
+            ? "N/A"
+            : machine.unit.activeFixed;
+          return normalize(fixedNumber).includes(search);
+        });
+      $("siteGrid").innerHTML = filteredMachines.map(({ machine: { item, unit, siteName, brandName }, index }) => `
+        <article class="machine-card" data-open-machine="${index}" role="button" tabindex="0" aria-label="Abrir ficha de ${escapeHtml(item.name || "Equipo")}">
+          ${item.image
+            ? `<button class="machine-image-button" type="button" data-enlarge-image="${escapeHtml(item.image)}" data-image-alt="${escapeHtml(item.name)} ${escapeHtml(item.model || "")}" aria-label="Ampliar imagen de ${escapeHtml(item.name)}"><img src="${escapeHtml(item.image)}" alt="${escapeHtml(item.name)}" loading="lazy"><span class="zoom-indicator" aria-hidden="true">⌕</span></button>`
+            : '<span class="image-placeholder">Sin imagen</span>'}
+          <div class="machine-info">
+            <div class="machine-title-row"><h3>${escapeHtml(item.name || "Equipo")}</h3><span class="machine-active-fixed">AF: ${unit.activeFixed === "" || unit.activeFixed === undefined || unit.activeFixed === null ? "N/A" : escapeHtml(unit.activeFixed)}</span></div>
+            <p>Modelo: ${escapeHtml(item.model || "—")}</p>
+            <span class="machine-sector">${escapeHtml(item.category || "Sin sector")}</span>
+            ${leaderMaintenanceMode ? `<p>${escapeHtml(siteName || "Sede sin nombre")} · ${escapeHtml(brandName || "Sin marca")}</p>` : ""}
+          </div>
+        </article>`).join("") || `<div class="empty-state">${search ? "No se encontraron equipos con ese activo fijo." : leaderMaintenanceMode ? "No hay equipos detallados en las sedes habilitadas para este Líder." : "No hay equipos de esta marca registrados para la sede seleccionada."}</div>`;
+    }
+
+    function renderBrandEquipment(brandId, { resetFilter = true } = {}) {
+      if (!currentSite) return;
+      const brand = brandDirectory.find(entry => entry.id === brandId);
+      if (!brand) return;
+      currentBrandId = brandId;
+      const brandItems = (Array.isArray(currentSite.equipment) ? currentSite.equipment : []).filter(item => {
+        if (item.brandId) return item.brandId === brandId;
+        return String(item.brandName || "").toLocaleLowerCase("es") === brand.name.toLocaleLowerCase("es");
+      });
+      const machines = [];
+      brandItems.forEach(item => {
+        const units = Array.isArray(item.units) && item.units.length
+          ? item.units
+          : Array.from({ length: Math.max(0, Number(item.quantity) || 0) }, () => ({}));
+        units.forEach((unit, index) => {
+          const key = unit.unitId || `${item.catalogId || item.brandId || brandId}:${index}`;
+          machines.push({ item, unit, index, total: units.length, recordKey: `${currentSite.id}::${key}` });
+        });
+      });
+      currentMachine = null;
+      currentMachineTab = "maintenance";
+      editingMachineRecord = null;
+
+      $("panelHeading").textContent = `Equipos ${brand.name}`;
+      $("panelDescription").textContent = `${currentSite.name} · ${machines.length} ${machines.length === 1 ? "equipo" : "equipos"}`;
+      $("backToSites").textContent = "← Cambiar de marca";
+      $("siteFilter").hidden = false;
+      $("siteFilter").placeholder = "Buscar activo fijo...";
+      $("siteFilter").setAttribute("aria-label", "Buscar equipo por número de activo fijo");
+      if (resetFilter) $("siteFilter").value = "";
+      $("siteGrid").className = "machine-grid";
+      currentBrandEquipment = machines;
+      renderMachineCards();
+    }
+
+    function openPartsRequest(returnTo) {
+      if (!currentSite) return;
+      requestReturnTo = returnTo;
+      const requestUrl = new URL(PARTS_REQUEST_URL);
+      requestUrl.searchParams.set("sede", currentSite.name || "");
+      requestUrl.searchParams.set("sedeId", currentSite.id || "");
+      requestUrl.searchParams.set("tecnico", user.name || "");
+      requestUrl.searchParams.set("usuario", user.name || "");
+      requestUrl.searchParams.set("rol", user.role || "");
+      requestUrl.searchParams.set("tecnicoId", user.id || "");
+      if (currentMachine) {
+        const item = currentMachine.item;
+        const rawFixedNumber = currentMachine.unit.activeFixed;
+        const fixedNumber = rawFixedNumber === "" || rawFixedNumber === undefined || rawFixedNumber === null ? "N/A" : rawFixedNumber;
+        const brand = brandDirectory.find(entry => entry.id === item.brandId);
+        requestUrl.searchParams.set("marca", brand?.name || item.brandName || "");
+        requestUrl.searchParams.set("equipo", item.name || "");
+        requestUrl.searchParams.set("modelo", item.model || "");
+        requestUrl.searchParams.set("activoFijo", String(fixedNumber));
+      }
+
+      $("panelHeading").textContent = "Solicitud de repuestos";
+      $("panelDescription").textContent = returnTo === "machine"
+        ? `${currentSite.name} · ${currentMachine.item.name || "Equipo"} · AF: ${currentMachine.unit.activeFixed === "" || currentMachine.unit.activeFixed === undefined || currentMachine.unit.activeFixed === null ? "N/A" : currentMachine.unit.activeFixed} · ${user.name}`
+        : `${currentSite.name} · ${user.role} ${user.name}`;
+      $("siteFilter").hidden = true;
+      $("backToSites").hidden = false;
+      $("backToSites").textContent = returnTo === "machine" ? "← Volver a ficha" : "← Volver a marcas";
+      $("siteGrid").className = "parts-request-view";
+      $("siteGrid").innerHTML = `
+        <iframe class="parts-request-frame" id="partsRequestFrame" title="Solicitud de repuestos" src="${escapeHtml(requestUrl.href)}" referrerpolicy="no-referrer" loading="eager"></iframe>
+        <p class="parts-request-note">Si la solicitud no carga dentro de esta ventana o no reconoce la sede y el técnico, <a href="${escapeHtml(requestUrl.href)}" target="_blank" rel="noopener noreferrer">ábrela en una pestaña nueva</a>. El sitio externo debe permitir la vista integrada y leer estos datos desde la URL.</p>
+        <div><button class="back-button" type="button" data-close-parts-request>${returnTo === "machine" ? "← Volver a ficha" : "← Volver a marcas"}</button></div>`;
+    }
+
+    function closePartsRequest() {
+      const returnTo = requestReturnTo;
+      requestReturnTo = null;
+      if (returnTo === "machine" && currentMachine) {
+        renderMachineDetail(currentMachine);
+      } else if (currentSite) {
+        renderSiteBrands(currentSite);
+      }
+    }
+
+    function readMachineRecord(recordKey) {
+      try {
+        const records = JSON.parse(localStorage.getItem(MACHINE_RECORDS_KEY) || "{}");
+        const record = records[recordKey] || {};
+        return {
+          maintenance: Array.isArray(record.maintenance) ? record.maintenance : [],
+          mileage: Array.isArray(record.mileage) ? record.mileage : []
+        };
+      } catch (error) {
+        return { maintenance: [], mileage: [] };
+      }
+    }
+
+    function writeMachineRecord(recordKey, record) {
+      let records = {};
+      try {
+        records = JSON.parse(localStorage.getItem(MACHINE_RECORDS_KEY) || "{}");
+        if (!records || Array.isArray(records) || typeof records !== "object") records = {};
+      } catch (error) {
+        records = {};
+      }
+      records[recordKey] = record;
+      localStorage.setItem(MACHINE_RECORDS_KEY, JSON.stringify(records));
+    }
+
+    function makeRecordId() {
+      return `record-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+    }
+
+    function compressMaintenanceImage(file) {
+      return new Promise((resolve, reject) => {
+        const source = URL.createObjectURL(file);
+        const image = new Image();
+        image.onload = () => {
+          URL.revokeObjectURL(source);
+          const scale = Math.min(1, 1280 / Math.max(image.naturalWidth, image.naturalHeight));
+          const canvas = document.createElement("canvas");
+          canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+          canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+          const context = canvas.getContext("2d");
+          if (!context) {
+            reject(new Error("No se pudo procesar la imagen."));
+            return;
+          }
+          context.fillStyle = "#ffffff";
+          context.fillRect(0, 0, canvas.width, canvas.height);
+          context.drawImage(image, 0, 0, canvas.width, canvas.height);
+          resolve(canvas.toDataURL("image/jpeg", 0.78));
+        };
+        image.onerror = () => {
+          URL.revokeObjectURL(source);
+          reject(new Error("No se pudo abrir la imagen seleccionada."));
+        };
+        image.src = source;
+      });
+    }
+
+    function currentLocalDate() {
+      const date = new Date();
+      const pad = value => String(value).padStart(2, "0");
+      return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+    }
+
+    function makeTicketNumber(activeFixed, dateValue) {
+      const match = String(dateValue || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      const safeDate = match ? dateValue : currentLocalDate();
+      const [, year, month, day] = safeDate.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      return `${String(activeFixed).trim()}${day}${month}${year.slice(-2)}`;
+    }
+
+    function mileageDateValue(entry) {
+      if (entry?.date && /^\d{4}-\d{2}-\d{2}$/.test(entry.date)) return entry.date;
+      if (!entry?.recordedAt) return currentLocalDate();
+      const date = new Date(entry.recordedAt);
+      if (Number.isNaN(date.getTime())) return currentLocalDate();
+      const pad = value => String(value).padStart(2, "0");
+      return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+    }
+
+    function sortMileageRecords(entries) {
+      return entries
+        .map((entry, index) => ({ entry, index, date: mileageDateValue(entry) }))
+        .sort((a, b) => a.date.localeCompare(b.date) || a.index - b.index)
+        .map(item => item.entry);
+    }
+
+    function formatMileageDate(entry) {
+      const value = mileageDateValue(entry);
+      const [year, month, day] = value.split("-");
+      return `${day}-${month}-${year}`;
+    }
+
+    function formatMachineDate(value, withTime) {
+      if (!value) return "—";
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return String(value);
+      return new Intl.DateTimeFormat("es-CL", withTime
+        ? { dateStyle: "short", timeStyle: "short" }
+        : { dateStyle: "medium" }).format(date);
+    }
+
+    function isTreadmill(machine) {
+      const name = String(machine.item.name || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("es");
+      return name.includes("trotadora") || name.includes("treadmill");
+    }
+
+    function renderMachineDetail(machine) {
+      if (!machine) return;
+      currentMachine = machine;
+      const item = machine.item;
+      const leaderTicketMode = leaderMode && leaderMaintenanceMode;
+      const record = readMachineRecord(machine.recordKey);
+      const treadmill = isTreadmill(machine);
+      if (!treadmill && currentMachineTab === "mileage") currentMachineTab = "maintenance";
+      const editingMaintenance = editingMachineRecord?.type === "maintenance"
+        ? record.maintenance.find(entry => entry.id === editingMachineRecord.id)
+        : null;
+      const imageContext = leaderTicketMode
+        ? `${machine.recordKey}:leader-ticket`
+        : `${machine.recordKey}:${editingMaintenance?.id || "new"}`;
+      if (maintenanceImageContext !== imageContext) {
+        maintenanceImageContext = imageContext;
+        maintenanceImages = leaderTicketMode
+          ? []
+          : Array.isArray(editingMaintenance?.images) ? editingMaintenance.images.slice(0, 2) : [];
+      }
+      const maintenanceImageMarkup = maintenanceImages.map((image, index) => `
+        <div class="maintenance-image-thumb-wrap">
+          <button class="maintenance-image-thumb" type="button" data-enlarge-image="${escapeHtml(image)}" data-image-alt="Imagen adjunta al mantenimiento" aria-label="Ampliar imagen adjunta">
+            <img src="${escapeHtml(image)}" alt="Imagen adjunta ${index + 1}" loading="lazy">
+          </button>
+          <button class="maintenance-image-remove" type="button" data-remove-maintenance-image="${index}" aria-label="Eliminar imagen ${index + 1}">×</button>
+        </div>`).join("");
+      const maintenanceLogPhotos = entry => Array.isArray(entry.images) && entry.images.length
+        ? `<div class="machine-log-photos">${entry.images.slice(0, 2).map((image, index) => `<button class="maintenance-image-thumb" type="button" data-enlarge-image="${escapeHtml(image)}" data-image-alt="Imagen adjunta al mantenimiento" aria-label="Ampliar imagen adjunta"><img src="${escapeHtml(image)}" alt="Imagen adjunta ${index + 1}" loading="lazy"></button>`).join("")}</div>`
+        : "";
+      const editingMileage = editingMachineRecord?.type === "mileage"
+        ? record.mileage.find(entry => entry.id === editingMachineRecord.id)
+        : null;
+      const activeFixed = machine.unit.activeFixed === "" || machine.unit.activeFixed === undefined || machine.unit.activeFixed === null
+        ? "N/A"
+        : machine.unit.activeFixed;
+      if (leaderTicketMode) {
+        renderLeaderMaintenanceTicket(machine, activeFixed);
+        return;
+      }
+      const maintenanceRows = record.maintenance.map(entry => `
+        <article class="machine-log-entry">
+          <strong>${escapeHtml(formatMachineDate(entry.date, false))} · ${escapeHtml(entry.type || "Mantenimiento")}</strong>
+          <p>${escapeHtml(entry.work || "")}${entry.replacement ? `\nRepuesto/material: ${escapeHtml(entry.replacement)}` : ""}${entry.technician ? `\nResponsable: ${escapeHtml(entry.technician)}` : ""}${entry.observations ? `\nObservaciones: ${escapeHtml(entry.observations)}` : ""}</p>
+          ${maintenanceLogPhotos(entry)}
+          ${canManageMachineRecords ? `<div class="machine-record-actions"><button class="back-button" type="button" data-edit-machine-record="maintenance" data-record-id="${escapeHtml(entry.id)}">Editar</button><button class="back-button" type="button" data-delete-machine-record="maintenance" data-record-id="${escapeHtml(entry.id)}">Eliminar</button></div>` : ""}
+        </article>`).join("") || '<div class="empty-state">Aún no hay actualizaciones de mantenimiento para esta máquina.</div>';
+      const visibleMileage = sortMileageRecords(record.mileage).filter(entry => !mileageMonthFilter || mileageDateValue(entry).slice(0, 7) === mileageMonthFilter);
+      const mileageRows = visibleMileage.map(entry => `
+        <tr><td>${escapeHtml(formatMileageDate(entry))}</td><td>${escapeHtml(entry.km)}</td><td>${escapeHtml(entry.observation || "—")}</td><td>${escapeHtml(entry.technician || "—")}</td><td>${escapeHtml(entry.lubrication || "Sin registro")}</td><td><div class="machine-record-actions">${canManageMachineRecords ? `<button class="back-button" type="button" data-edit-machine-record="mileage" data-record-id="${escapeHtml(entry.id)}">Editar</button><button class="back-button" type="button" data-delete-machine-record="mileage" data-record-id="${escapeHtml(entry.id)}">Eliminar</button>` : `<button class="back-button" type="button" data-request-mileage-edit>Modificar</button>`}</div></td></tr>`).join("") || '<tr><td colspan="6">No hay registros de kilometraje.</td></tr>';
+
+      $("panelHeading").textContent = item.name || "Ficha de máquina";
+      $("panelDescription").textContent = `${currentSite.name} · ${item.model || "Sin modelo"} · AF: ${activeFixed}`;
+      if (leaderMode && leaderMaintenanceMode) updateLeaderIdentity(`${currentSite.name} — Líder ${user.name}`, Number(currentSite.machineCount) || 0);
+      $("backToSites").textContent = "← Volver a equipos";
+      $("siteFilter").hidden = true;
+      $("siteGrid").className = "machine-detail";
+      $("siteGrid").innerHTML = `
+        <div class="machine-tabs" role="tablist" aria-label="Información de la máquina">
+          <button class="machine-tab${currentMachineTab === "maintenance" ? " active" : ""}" type="button" role="tab" aria-selected="${currentMachineTab === "maintenance"}" data-machine-tab="maintenance">Mantenimiento y observaciones</button>
+          ${treadmill ? `<button class="machine-tab${currentMachineTab === "mileage" ? " active" : ""}" type="button" role="tab" aria-selected="${currentMachineTab === "mileage"}" data-machine-tab="mileage">Historial de kilometraje (Km)</button>` : ""}
+        </div>
+        <section class="machine-tab-panel" data-machine-panel="maintenance" ${currentMachineTab === "maintenance" ? "" : "hidden"}>
+          <article class="machine-detail-card">
+            <h3>Agregar actualización de mantenimiento</h3>
+            <form id="machineMaintenanceForm">
+              <div class="machine-form-grid">
+              <div class="machine-form-field"><label for="maintenanceDate">Fecha</label><input id="maintenanceDate" type="date" value="${escapeHtml(editingMaintenance?.date || currentLocalDate())}" required></div>
+                <div class="machine-form-field"><label for="maintenanceType">Tipo / estado</label><select id="maintenanceType">${["Mantenimiento preventivo", "Mantenimiento correctivo", "Inspección", "Fuera de servicio"].map(type => `<option${(editingMaintenance?.type || "Mantenimiento preventivo") === type ? " selected" : ""}>${type}</option>`).join("")}</select></div>
+                <div class="machine-form-field full"><label for="maintenanceWork">Trabajo realizado / actualización</label><textarea id="maintenanceWork" placeholder="Ej.: lubricación, ajuste, cambio de perno, revisión..." required>${escapeHtml(editingMaintenance?.work || "")}</textarea></div>
+                <div class="machine-form-field"><label for="maintenanceReplacement">Repuesto / material</label><input id="maintenanceReplacement" value="${escapeHtml(editingMaintenance?.replacement || "")}" placeholder="Opcional"></div>
+                <div class="machine-form-field"><label for="maintenanceTechnician">Técnico / responsable</label><input id="maintenanceTechnician" value="${escapeHtml(editingMaintenance ? (editingMaintenance.technician || "Sin responsable registrado") : user.name)}" readonly aria-readonly="true"></div>
+                <div class="machine-form-field full"><label for="maintenanceObservations">Observaciones</label><textarea id="maintenanceObservations" placeholder="Detalle adicional">${escapeHtml(editingMaintenance?.observations || "")}</textarea></div>
+              </div>
+              <div class="machine-record-actions"><button class="machine-save-button" type="submit">${editingMaintenance ? "Guardar cambios" : "Guardar"}</button><button class="back-button" type="button" data-toggle-maintenance-image-menu aria-expanded="false">Agregar imágenes (${maintenanceImages.length}/2)</button>${editingMaintenance ? '<button class="back-button" type="button" data-cancel-machine-edit>Cancelar edición</button>' : ""}</div>
+              <div class="maintenance-image-picker">
+                <div class="maintenance-image-menu" data-maintenance-image-menu hidden>
+                  <button class="back-button" type="button" data-select-maintenance-images="gallery">Desde almacenamiento</button>
+                  <button class="back-button" type="button" data-select-maintenance-images="camera">Usar cámara</button>
+                </div>
+                <input class="maintenance-image-input" id="maintenanceGalleryInput" type="file" accept="image/*" multiple>
+                <input class="maintenance-image-input" id="maintenanceCameraInput" type="file" accept="image/*" capture="environment">
+                <div class="maintenance-image-list">${maintenanceImageMarkup}</div>
+                <p class="maintenance-image-caption">Puedes adjuntar hasta 2 imágenes desde tu dispositivo o tomar una foto con la cámara.</p>
+              </div>
+            </form>
+          </article>
+          <article class="machine-detail-card"><h3>Actualizaciones registradas</h3><div class="machine-log-list">${maintenanceRows}</div></article>
+        </section>
+        ${treadmill ? `<section class="machine-tab-panel" data-machine-panel="mileage" ${currentMachineTab === "mileage" ? "" : "hidden"}>
+          <article class="machine-detail-card">
+            <h3>Historial de kilometraje (Km)</h3>
+            <form id="machineMileageForm">
+              <div class="machine-form-grid">
+                <div class="machine-form-field"><label for="mileageDate">Fecha</label><input id="mileageDate" type="date" value="${escapeHtml(editingMileage ? mileageDateValue(editingMileage) : currentLocalDate())}"${canSetMileageDate ? "" : " readonly aria-readonly=\"true\""} required></div>
+                <div class="machine-form-field"><label for="mileageKm">Kilometraje (Km)</label><input id="mileageKm" type="number" min="0" step="0.1" value="${escapeHtml(editingMileage?.km ?? "")}" placeholder="Ej.: 12543.7" required></div>
+                <div class="machine-form-field"><label for="mileageLubrication">Lubricación</label><select id="mileageLubrication" required><option value="" disabled${editingMileage?.lubrication ? "" : " selected"}>Selecciona una opción</option><option value="Con lubricación"${editingMileage?.lubrication === "Con lubricación" ? " selected" : ""}>Con lubricación</option><option value="Sin lubricación"${editingMileage?.lubrication === "Sin lubricación" ? " selected" : ""}>Sin lubricación</option></select></div>
+                <div class="machine-form-field"><label for="mileageTechnician">Técnico / responsable</label><input id="mileageTechnician" value="${escapeHtml(editingMileage ? (editingMileage.technician || "Sin responsable registrado") : user.name)}" readonly aria-readonly="true" required></div>
+                <div class="machine-form-field full"><label for="mileageObservation">Observación del registro</label><textarea id="mileageObservation" placeholder="Opcional: lectura de tablero, control, mantenimiento, etc.">${escapeHtml(editingMileage?.observation || "")}</textarea></div>
+              </div>
+              <div class="machine-record-actions"><button class="machine-save-button" type="submit">${editingMileage ? "Guardar cambios" : "+ Registrar Km"}</button>${editingMileage ? '<button class="back-button" type="button" data-cancel-machine-edit>Cancelar edición</button>' : ""}</div>
+            </form>
+            <div class="machine-table-wrap"><table class="machine-history-table"><thead><tr><th>Fecha<input class="mileage-date-filter" id="mileageMonthFilter" type="month" aria-label="Filtrar registros por mes" title="Filtrar por mes" value="${escapeHtml(mileageMonthFilter)}"></th><th>Km</th><th>Observación</th><th>Registrado por</th><th>Lubricación</th><th>Acciones</th></tr></thead><tbody>${mileageRows}</tbody></table></div>
+          </article>
+        </section>` : ""}`;
+      $("mileageMonthFilter")?.addEventListener("change", event => {
+        mileageMonthFilter = event.target.value;
+        renderMachineDetail(currentMachine);
+      });
+    }
+
+    function renderLeaderMaintenanceTicket(machine, activeFixed) {
+      const site = currentSite || assignedSites.find(entry => entry.id === machine.siteId);
+      if (leaderTicketDraft.recordKey !== machine.recordKey) {
+        leaderTicketDraft = { recordKey: machine.recordKey, title: "", description: "" };
+      }
+      const imageMarkup = maintenanceImages.map((image, index) => `
+        <div class="maintenance-image-thumb-wrap">
+          <button class="maintenance-image-thumb" type="button" data-enlarge-image="${escapeHtml(image)}" data-image-alt="Imagen adjunta al ticket" aria-label="Ampliar imagen adjunta">
+            <img src="${escapeHtml(image)}" alt="Imagen ${index + 1} del ticket" loading="lazy">
+          </button>
+          <button class="maintenance-image-remove" type="button" data-remove-maintenance-image="${index}" aria-label="Eliminar imagen ${index + 1}">×</button>
+        </div>`).join("");
+      const siteName = site?.name || machine.siteName || "Sede sin nombre";
+
+      $("panelHeading").textContent = machine.item.name || `Ticket de ${leaderTicketType.toLocaleLowerCase("es")}`;
+      $("panelDescription").textContent = `${siteName} · ${machine.item.model || "Sin modelo"} · AF: ${activeFixed}`;
+      if (site) updateLeaderIdentity(`${siteName} — Líder ${user.name}`, Number(site.machineCount) || 0);
+      $("backToSites").textContent = "← Volver a equipos";
+      $("siteFilter").hidden = true;
+      $("siteGrid").className = "machine-detail";
+      $("siteGrid").innerHTML = `
+        <article class="machine-detail-card">
+          <h3>Ticket de ${escapeHtml(leaderTicketType.toLocaleLowerCase("es"))}</h3>
+          <form id="leaderMaintenanceTicketForm">
+            <div class="machine-form-grid">
+              <div class="machine-form-field"><label for="ticketSupervisor">Supervisor asignado</label><input id="ticketSupervisor" value="${escapeHtml(site?.supervisor || "Sin supervisor asignado")}" readonly aria-readonly="true"></div>
+              <div class="machine-form-field"><label for="ticketTechnician">Técnico asignado</label><input id="ticketTechnician" value="${escapeHtml(site?.technician || "Sin técnico asignado")}" readonly aria-readonly="true"></div>
+              <div class="machine-form-field"><label for="ticketDate">Fecha</label><input id="ticketDate" type="date" value="${escapeHtml(currentLocalDate())}" readonly aria-readonly="true"></div>
+              <div class="machine-form-field"><label for="ticketTitle">Título</label><input id="ticketTitle" type="text" value="${escapeHtml(leaderTicketDraft.title)}" placeholder="Escribe el título del ticket" required></div>
+              <div class="machine-form-field full"><label for="ticketDescription">Descripción</label><textarea id="ticketDescription" placeholder="Describe el problema o mantenimiento requerido" required>${escapeHtml(leaderTicketDraft.description)}</textarea></div>
+            </div>
+            <div class="machine-record-actions">
+              <button class="machine-save-button" type="submit">Enviar ticket</button>
+              <button class="back-button" type="button" data-toggle-maintenance-image-menu aria-expanded="false">Agregar imágenes (${maintenanceImages.length}/2)</button>
+            </div>
+            <div class="maintenance-image-picker">
+              <div class="maintenance-image-menu" data-maintenance-image-menu hidden>
+                <button class="back-button" type="button" data-select-maintenance-images="gallery">Desde almacenamiento</button>
+                <button class="back-button" type="button" data-select-maintenance-images="camera">Usar cámara</button>
+              </div>
+              <input class="maintenance-image-input" id="maintenanceGalleryInput" type="file" accept="image/*" multiple>
+              <input class="maintenance-image-input" id="maintenanceCameraInput" type="file" accept="image/*" capture="environment">
+              <div class="maintenance-image-list">${imageMarkup}</div>
+              <p class="maintenance-image-caption">Puedes adjuntar hasta 2 imágenes desde tu dispositivo o tomar una foto con la cámara.</p>
+            </div>
+          </form>
+        </article>`;
+    }
+
+    function openEquipmentImage(src, alt) {
+      const image = $("equipmentLightboxImage");
+      image.style.width = "auto";
+      image.style.height = "auto";
+      image.alt = alt || "Imagen del equipo";
+      image.onload = fitEquipmentImage;
+      image.src = src;
+      $("equipmentImageLightbox").hidden = false;
+      if (image.complete) fitEquipmentImage();
+      $("closeEquipmentImage").focus();
+    }
+
+    function fitEquipmentImage() {
+      const image = $("equipmentLightboxImage");
+      if (!image.naturalWidth || !image.naturalHeight) return;
+      const maxWidth = Math.min(window.innerWidth * .94, 1400);
+      const maxHeight = window.innerHeight * .92;
+      const scale = Math.min(maxWidth / image.naturalWidth, maxHeight / image.naturalHeight);
+      image.style.width = `${Math.floor(image.naturalWidth * scale)}px`;
+      image.style.height = `${Math.floor(image.naturalHeight * scale)}px`;
+    }
+
+    function closeEquipmentImage() {
+      $("equipmentImageLightbox").hidden = true;
+      $("equipmentLightboxImage").removeAttribute("src");
+    }
+
+    $("siteGrid").addEventListener("click", event => {
+      if (event.target.closest("[data-close-parts-request]")) {
+        closePartsRequest();
+        return;
+      }
+      const siteCard = event.target.closest("[data-open-site]");
+      if (siteCard) {
+        currentSite = assignedSites.find(entry => entry.id === siteCard.dataset.openSite) || null;
+        renderSiteBrands(currentSite);
+        return;
+      }
+      const brandCard = event.target.closest("[data-open-brand]");
+      if (brandCard) {
+        renderBrandEquipment(brandCard.dataset.openBrand);
+        return;
+      }
+      const machineCard = event.target.closest("[data-open-machine]");
+      if (machineCard && !event.target.closest("[data-enlarge-image]")) {
+        const machine = currentBrandEquipment[Number(machineCard.dataset.openMachine)];
+        if (leaderMaintenanceMode && machine) currentSite = assignedSites.find(site => site.id === machine.siteId) || null;
+        renderMachineDetail(machine);
+      }
+    });
+    $("siteGrid").addEventListener("keydown", event => {
+      const machineCard = event.target.closest("[data-open-machine]");
+      if (machineCard && event.target === machineCard && (event.key === "Enter" || event.key === " ")) {
+        event.preventDefault();
+        const machine = currentBrandEquipment[Number(machineCard.dataset.openMachine)];
+        if (leaderMaintenanceMode && machine) currentSite = assignedSites.find(site => site.id === machine.siteId) || null;
+        renderMachineDetail(machine);
+      }
+    });
+
+    $("leaderTicketsPanel").addEventListener("click", event => {
+      const ticketButton = event.target.closest("[data-open-leader-ticket]");
+      if (ticketButton && !ticketButton.disabled) {
+        leaderTicketType = ticketButton.dataset.openLeaderTicket || "Mantenimiento";
+        renderLeaderMaintenanceEquipment();
+      }
+    });
+
+    $("supervisorMenuToggle").addEventListener("click", () => {
+      const menu = $("supervisorMenu");
+      const isOpen = menu.classList.toggle("open");
+      $("supervisorMenuToggle").setAttribute("aria-expanded", String(isOpen));
+      $("supervisorMenuToggle").setAttribute("aria-label", isOpen ? "Cerrar menú" : "Abrir menú");
+    });
+    $("supervisorMenu").addEventListener("click", event => {
+      const navButton = event.target.closest("[data-supervisor-view]");
+      if (!navButton || !supervisorMode || navButton.disabled) return;
+      if (navButton.dataset.supervisorView === "summary") renderSupervisorSummary();
+      else if (navButton.dataset.supervisorView === "sites") renderSiteList();
+      else if (navButton.dataset.supervisorView === "tickets") renderLeaderTickets();
+      else if (navButton.dataset.supervisorView === "ticket-history") renderTicketHistory();
+      $("supervisorMenu").classList.remove("open");
+      $("supervisorMenuToggle").setAttribute("aria-expanded", "false");
+      $("supervisorMenuToggle").setAttribute("aria-label", "Abrir menú");
+    });
+    $("siteEquipmentRegionFilter").addEventListener("change", renderSupervisorSummary);
+    $("technicianEquipmentRegionFilter").addEventListener("change", renderSupervisorSummary);
+    $("supervisorSummary").addEventListener("pointerover", event => {
+      const slice = event.target.closest("[data-chart-slice]");
+      if (!slice) return;
+      const chart = slice.closest(".supervisor-chart-content");
+      const tooltip = chart?.querySelector("[data-chart-tooltip]");
+      if (!tooltip) return;
+      const legend = Array.from(chart.querySelectorAll("[data-chart-select]"))
+        .find(button => button.dataset.chartSelect === slice.dataset.chartSlice);
+      tooltip.innerHTML = `<strong>${escapeHtml(slice.dataset.chartSlice)}</strong><br>${escapeHtml(legend?.querySelector(".supervisor-legend-value")?.textContent || "")}`;
+      tooltip.hidden = false;
+    });
+    $("supervisorSummary").addEventListener("pointerout", event => {
+      if (!event.target.closest("[data-chart-slice]") || event.relatedTarget?.closest("[data-chart-slice]")) return;
+      const tooltip = event.target.closest(".supervisor-chart-content")?.querySelector("[data-chart-tooltip]");
+      if (tooltip) tooltip.hidden = true;
+    });
+    $("supervisorSummary").addEventListener("click", event => {
+      const control = event.target.closest("[data-chart-slice], [data-chart-select]");
+      if (!control) return;
+      const chart = control.closest(".supervisor-chart-content");
+      if (!chart) return;
+      const label = control.dataset.chartSlice || control.dataset.chartSelect;
+      supervisorChartSelections.set(chart.id, supervisorChartSelections.get(chart.id) === label ? "" : label);
+      renderSupervisorSummary();
+    });
+    $("supervisorSummary").addEventListener("keydown", event => {
+      if ((event.key === "Enter" || event.key === " ") && event.target.matches("[data-chart-slice]")) {
+        event.preventDefault();
+        event.target.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      }
+    });
+    window.addEventListener("storage", event => {
+      if (event.key === TICKETS_STORAGE_KEY) {
+        if (!$("ticketHistoryPanel").hidden) renderTicketHistory();
+        if (leaderMode && !$("supervisorSummary").hidden) renderSupervisorSummary();
+        return;
+      }
+      if (!supervisorMode || ![MACHINE_RECORDS_KEY, "smartfit.admin.sites.v1", "smartfit.admin.users.v1"].includes(event.key)) return;
+      const openBrand = leaderMode && leaderMaintenanceMode ? leaderTicketBrandId : "";
+      user = AdminStore.listUsers().find(entry => entry.id === session.id && entry.active && entry.role === (leaderMode ? "Líder" : "Supervisor"));
+      if (!user) {
+        window.location.replace("index.html");
+        return;
+      }
+      assignedSites = AdminStore.listSites().filter(site => (user.siteIds || []).includes(site.id));
+      if (!$("supervisorSummary").hidden) renderSupervisorSummary();
+      else if (leaderMode && leaderMaintenanceMode) {
+        renderLeaderMaintenanceEquipment({ resetFilter: false });
+        if (openBrand && leaderAllEquipment.some(machine => machine.leaderBrandKey === openBrand)) {
+          leaderTicketBrandId = openBrand;
+          renderLeaderBrandEquipment({ resetFilter: false });
+        }
+      }
+      else if (leaderMode) renderLeaderTickets();
+      else renderSiteList();
+    });
+    document.addEventListener("click", event => {
+      if (!supervisorMode || !window.matchMedia("(max-width: 850px)").matches) return;
+      if ($("supervisorMenu").contains(event.target) || $("supervisorMobileBar").contains(event.target)) return;
+      $("supervisorMenu").classList.remove("open");
+      $("supervisorMenuToggle").setAttribute("aria-expanded", "false");
+      $("supervisorMenuToggle").setAttribute("aria-label", "Abrir menú");
+    });
+    window.addEventListener("resize", () => {
+      if (!supervisorMode || window.matchMedia("(max-width: 850px)").matches) return;
+      $("supervisorMenu").classList.remove("open");
+      $("supervisorMenuToggle").setAttribute("aria-expanded", "false");
+      $("supervisorMenuToggle").setAttribute("aria-label", "Abrir menú");
+    });
+    $("backToSites").addEventListener("click", () => {
+      if (requestReturnTo) {
+        closePartsRequest();
+      } else if (currentMachine) {
+        currentMachine = null;
+        if (leaderMaintenanceMode && leaderTicketBrandId) renderLeaderBrandEquipment({ resetFilter: false });
+        else if (leaderMaintenanceMode) renderLeaderMaintenanceEquipment({ resetFilter: false });
+        else renderBrandEquipment(currentBrandId, { resetFilter: false });
+      } else if (currentBrandId) {
+        currentBrandId = "";
+        renderSiteBrands(currentSite);
+      } else if (leaderMaintenanceMode && leaderTicketBrandId) {
+        renderLeaderMaintenanceEquipment({ resetFilter: false });
+      } else if (leaderMaintenanceMode) {
+        renderLeaderTickets();
+      } else {
+        renderSiteList();
+      }
+    });
+    $("siteGrid").addEventListener("click", event => {
+      const leaderBrandCard = event.target.closest("[data-leader-brand]");
+      if (leaderBrandCard && leaderMode) {
+        leaderTicketBrandId = leaderBrandCard.dataset.leaderBrand;
+        renderLeaderBrandEquipment();
+        return;
+      }
+      const imageMenuToggle = event.target.closest("[data-toggle-maintenance-image-menu]");
+      if (imageMenuToggle) {
+        const menu = $("siteGrid").querySelector("[data-maintenance-image-menu]");
+        if (menu) {
+          menu.hidden = !menu.hidden;
+          imageMenuToggle.setAttribute("aria-expanded", String(!menu.hidden));
+        }
+        return;
+      }
+      const imageSourceButton = event.target.closest("[data-select-maintenance-images]");
+      if (imageSourceButton) {
+        if (maintenanceImages.length >= 2) {
+          window.alert("Solo puedes adjuntar un máximo de 2 imágenes.");
+          return;
+        }
+        const inputId = imageSourceButton.dataset.selectMaintenanceImages === "camera"
+          ? "maintenanceCameraInput"
+          : "maintenanceGalleryInput";
+        $(inputId)?.click();
+        return;
+      }
+      const removeImageButton = event.target.closest("[data-remove-maintenance-image]");
+      if (removeImageButton) {
+        maintenanceImages.splice(Number(removeImageButton.dataset.removeMaintenanceImage), 1);
+        renderMachineDetail(currentMachine);
+        return;
+      }
+      const tab = event.target.closest("[data-machine-tab]");
+      if (tab) {
+        currentMachineTab = tab.dataset.machineTab;
+        editingMachineRecord = null;
+        renderMachineDetail(currentMachine);
+        return;
+      }
+      if (event.target.closest("[data-request-mileage-edit]")) {
+        window.alert("Para modificar un registro de kilometraje, solicita la ayuda de un supervisor o administrador.");
+        return;
+      }
+      const editRecord = event.target.closest("[data-edit-machine-record]");
+      if (editRecord && canManageMachineRecords) {
+        editingMachineRecord = { type: editRecord.dataset.editMachineRecord, id: editRecord.dataset.recordId };
+        currentMachineTab = editingMachineRecord.type === "mileage" ? "mileage" : "maintenance";
+        renderMachineDetail(currentMachine);
+        return;
+      }
+      const deleteRecord = event.target.closest("[data-delete-machine-record]");
+      if (deleteRecord && canManageMachineRecords && window.confirm("¿Eliminar este registro de la máquina?")) {
+        const record = readMachineRecord(currentMachine.recordKey);
+        const collection = deleteRecord.dataset.deleteMachineRecord;
+        record[collection] = record[collection].filter(entry => entry.id !== deleteRecord.dataset.recordId);
+        writeMachineRecord(currentMachine.recordKey, record);
+        if (editingMachineRecord?.id === deleteRecord.dataset.recordId) editingMachineRecord = null;
+        renderMachineDetail(currentMachine);
+        return;
+      }
+      if (event.target.closest("[data-cancel-machine-edit]")) {
+        editingMachineRecord = null;
+        renderMachineDetail(currentMachine);
+      }
+    });
+    $("siteGrid").addEventListener("change", async event => {
+      const input = event.target;
+      if (!(input instanceof HTMLInputElement) || !["maintenanceGalleryInput", "maintenanceCameraInput"].includes(input.id)) return;
+      const files = Array.from(input.files || []);
+      input.value = "";
+      if (!files.length) return;
+      const availableSlots = Math.max(0, 2 - maintenanceImages.length);
+      if (files.length > availableSlots) window.alert("Puedes adjuntar un máximo de 2 imágenes.");
+      const selectedFiles = files.slice(0, availableSlots);
+      if (!selectedFiles.length) return;
+      const machineRecordKey = currentMachine?.recordKey;
+      try {
+        const compressedImages = await Promise.all(selectedFiles.map(compressMaintenanceImage));
+        if (!currentMachine || currentMachine.recordKey !== machineRecordKey) return;
+        maintenanceImages.push(...compressedImages);
+        renderMachineDetail(currentMachine);
+      } catch (error) {
+        window.alert(error.message || "No se pudieron cargar las imágenes.");
+      }
+    });
+    $("siteGrid").addEventListener("input", event => {
+      if (event.target.id === "ticketTitle") leaderTicketDraft.title = event.target.value;
+      else if (event.target.id === "ticketDescription") leaderTicketDraft.description = event.target.value;
+    });
+    $("siteGrid").addEventListener("submit", async event => {
+      if (!currentMachine) return;
+      if (event.target.id === "leaderMaintenanceTicketForm") {
+        event.preventDefault();
+        if (!leaderMode) return;
+        const site = currentSite || assignedSites.find(entry => entry.id === currentMachine.siteId);
+        if (!site) {
+          window.alert("No se pudo identificar la sede asignada a este equipo.");
+          return;
+        }
+        const activeFixed = currentMachine.unit.activeFixed === "" || currentMachine.unit.activeFixed === undefined || currentMachine.unit.activeFixed === null
+          ? "N/A"
+          : currentMachine.unit.activeFixed;
+        const date = $("ticketDate").value || currentLocalDate();
+        const ticket = {
+          id: makeRecordId(),
+          ticketNumber: makeTicketNumber(activeFixed, date),
+          siteId: site.id,
+          siteName: site.name,
+          leaderId: user.id,
+          leaderName: user.name,
+          date,
+          supervisor: site.supervisor || "Sin supervisor asignado",
+          technician: site.technician || "Sin técnico asignado",
+          technicianId: site.technicianUserId || "",
+          status: "Pendiente",
+          type: leaderTicketType,
+          activeFixed: String(activeFixed),
+          machineRecordKey: currentMachine.recordKey,
+          machineName: currentMachine.item.name || "Equipo",
+          machineModel: currentMachine.item.model || "",
+          title: $("ticketTitle").value.trim(),
+          description: $("ticketDescription").value.trim(),
+          images: maintenanceImages.slice(0, 2),
+          createdAt: new Date().toISOString()
+        };
+        try {
+          const storedTickets = JSON.parse(localStorage.getItem(TICKETS_STORAGE_KEY) || "[]");
+          const tickets = Array.isArray(storedTickets) ? storedTickets : [];
+          tickets.unshift(ticket);
+          localStorage.setItem(TICKETS_STORAGE_KEY, JSON.stringify(tickets));
+        } catch (error) {
+          window.alert("No se pudo guardar el ticket. El almacenamiento del navegador podría estar lleno; intenta reducir el tamaño de las imágenes.");
+          return;
+        }
+        try {
+          await SmartFitSupabaseData.persistTicket(ticket);
+        } catch (error) {
+          leaderTicketDraft = { recordKey: "", title: "", description: "" };
+          maintenanceImages = [];
+          renderLeaderTickets();
+          window.alert(`El ticket quedó guardado localmente y se reintentará sincronizar con Supabase al volver a iniciar sesión. ${error.message || ""}`);
+          return;
+        }
+        leaderTicketDraft = { recordKey: currentMachine.recordKey, title: "", description: "" };
+        maintenanceImages = [];
+        window.alert(`Ticket ${ticket.ticketNumber} registrado.`);
+        renderMachineDetail(currentMachine);
+      } else if (event.target.id === "machineMaintenanceForm") {
+        event.preventDefault();
+        const previousRecord = readMachineRecord(currentMachine.recordKey);
+        const record = readMachineRecord(currentMachine.recordKey);
+        const existingMaintenance = editingMachineRecord?.type === "maintenance"
+          ? record.maintenance.find(item => item.id === editingMachineRecord.id)
+          : null;
+        const entry = {
+          id: editingMachineRecord?.type === "maintenance" && canManageMachineRecords ? editingMachineRecord.id : makeRecordId(),
+          date: $("maintenanceDate").value,
+          type: $("maintenanceType").value,
+          work: $("maintenanceWork").value.trim(),
+          replacement: $("maintenanceReplacement").value.trim(),
+          technician: existingMaintenance ? (existingMaintenance.technician || "Sin responsable registrado") : $("maintenanceTechnician").value.trim(),
+          observations: $("maintenanceObservations").value.trim(),
+          images: maintenanceImages.slice(0, 2),
+          recordedById: existingMaintenance?.recordedById || user.id,
+          recordedByName: existingMaintenance?.recordedByName || user.name,
+          recordedByRole: existingMaintenance?.recordedByRole || user.role,
+          recordedAt: new Date().toISOString()
+        };
+        if (editingMachineRecord?.type === "maintenance" && canManageMachineRecords) {
+          const index = record.maintenance.findIndex(item => item.id === editingMachineRecord.id);
+          if (index >= 0) {
+            entry.id = record.maintenance[index].id;
+            entry.recordedAt = record.maintenance[index].recordedAt || entry.recordedAt;
+            record.maintenance[index] = entry;
+          } else record.maintenance.unshift(entry);
+        } else record.maintenance.unshift(entry);
+        try {
+          writeMachineRecord(currentMachine.recordKey, record);
+        } catch (error) {
+          window.alert("No se pudo guardar el registro en este navegador. El almacenamiento podría estar lleno; reduce el tamaño de las imágenes e inténtalo nuevamente.");
+          return;
+        }
+        try {
+          await SmartFitSupabaseData.persistMachineRecord(currentMachine.recordKey, previousRecord, record);
+        } catch (error) {
+          window.alert(`El registro quedó guardado localmente y se reintentará sincronizar con Supabase al volver a iniciar sesión. ${error.message || ""}`);
+        }
+        editingMachineRecord = null;
+        maintenanceImageContext = "";
+        maintenanceImages = [];
+        currentMachineTab = "maintenance";
+        renderMachineDetail(currentMachine);
+      } else if (event.target.id === "machineMileageForm") {
+        event.preventDefault();
+        const previousRecord = readMachineRecord(currentMachine.recordKey);
+        const record = readMachineRecord(currentMachine.recordKey);
+        const previousMileage = editingMachineRecord?.type === "mileage" && canManageMachineRecords
+          ? record.mileage.find(entry => entry.id === editingMachineRecord.id)
+          : null;
+        const entry = {
+          id: makeRecordId(),
+          date: canSetMileageDate ? $("mileageDate").value : (previousMileage ? mileageDateValue(previousMileage) : currentLocalDate()),
+          recordedAt: previousMileage?.recordedAt || new Date().toISOString(),
+          recordedById: previousMileage?.recordedById || user.id,
+          recordedByName: previousMileage?.recordedByName || user.name,
+          recordedByRole: previousMileage?.recordedByRole || user.role,
+          km: Number($("mileageKm").value),
+          lubrication: $("mileageLubrication").value,
+          observation: $("mileageObservation").value.trim(),
+          technician: previousMileage ? (previousMileage.technician || "Sin responsable registrado") : $("mileageTechnician").value.trim()
+        };
+        if (editingMachineRecord?.type === "mileage" && canManageMachineRecords) {
+          const index = record.mileage.findIndex(item => item.id === editingMachineRecord.id);
+          if (index >= 0) {
+            entry.id = record.mileage[index].id;
+            record.mileage[index] = entry;
+          } else record.mileage.unshift(entry);
+        } else record.mileage.unshift(entry);
+        record.mileage = sortMileageRecords(record.mileage);
+        writeMachineRecord(currentMachine.recordKey, record);
+        try {
+          await SmartFitSupabaseData.persistMachineRecord(currentMachine.recordKey, previousRecord, record);
+        } catch (error) {
+          window.alert(`El kilometraje quedó guardado localmente y se reintentará sincronizar con Supabase al volver a iniciar sesión. ${error.message || ""}`);
+        }
+        editingMachineRecord = null;
+        currentMachineTab = "mileage";
+        renderMachineDetail(currentMachine);
+      }
+    });
+    $("siteFilter").addEventListener("input", () => {
+      if (leaderMaintenanceMode && !currentMachine && leaderTicketBrandId) renderMachineCards();
+      else if (leaderMaintenanceMode && !currentMachine) renderLeaderBrandCards($("siteFilter").value);
+      else if (currentBrandId && !currentMachine) renderMachineCards();
+      else renderSiteList();
+    });
+    $("siteGrid").addEventListener("click", event => {
+      const imageButton = event.target.closest("[data-enlarge-image]");
+      if (imageButton) openEquipmentImage(imageButton.dataset.enlargeImage, imageButton.dataset.imageAlt);
+    });
+    $("siteGrid").addEventListener("error", event => {
+      if (!event.target.matches(".machine-image-button img")) return;
+      event.target.closest(".machine-image-button").innerHTML = '<span class="image-placeholder">Sin imagen</span>';
+    }, true);
+    $("equipmentImageLightbox").addEventListener("click", event => {
+      if (event.target === $("equipmentImageLightbox")) closeEquipmentImage();
+    });
+    $("ticketHistoryPanel").addEventListener("click", event => {
+      const button = event.target.closest("[data-view-history-ticket]");
+      if (button) openTicketHistoryDetail(button.dataset.viewHistoryTicket);
+    });
+    $("ticketHistoryModal").addEventListener("click", event => {
+      if (event.target === $("ticketHistoryModal")) $("ticketHistoryModal").hidden = true;
+      const image = event.target.closest("[data-history-image]");
+      if (image) openEquipmentImage(image.dataset.historyImage, image.alt);
+    });
+    $("closeTicketHistoryModal").addEventListener("click", () => { $("ticketHistoryModal").hidden = true; });
+    $("closeEquipmentImage").addEventListener("click", closeEquipmentImage);
+    window.addEventListener("resize", () => {
+      if (!$("equipmentImageLightbox").hidden) fitEquipmentImage();
+    });
+    document.addEventListener("keydown", event => {
+      if (event.key === "Escape") $("ticketHistoryModal").hidden = true;
+      if (event.key === "Escape" && !$("equipmentImageLightbox").hidden) closeEquipmentImage();
+    });
+
+    $("logoutButton").addEventListener("click", () => {
+      sessionStorage.removeItem(leaderMode ? "smartfit.leader.session" : adminMode ? "smartfit.admin.session" : "smartfit.site.session");
+      sessionStorage.removeItem("smartfit.supabase.auth");
+      window.location.href = "index.html";
+    });
+    window.addEventListener("smartfit:supabase-data-hydrated", () => {
+      try {
+        const sessionKey = leaderMode ? "smartfit.leader.session" : adminMode ? "smartfit.admin.session" : "smartfit.site.session";
+        const refreshed = JSON.parse(sessionStorage.getItem(sessionKey) || "null");
+        if (refreshed && user) {
+          session = refreshed;
+          user.siteIds = refreshed.siteIds || user.siteIds || [];
+          assignedSites = AdminStore.listSites().filter(site => adminMode || user.siteIds.includes(site.id));
+        }
+      } catch (error) { /* mantiene el alcance ya cargado si falta la sesión */ }
+      if (!$('supervisorSummary').hidden) renderSupervisorSummary();
+      if (!$('leaderTicketsPanel').hidden) renderLeaderTickets();
+      if (!$('ticketHistoryPanel').hidden) renderTicketHistory();
+      if (!$('sitesPanel').hidden && $('siteGrid').classList.contains('site-grid')) renderSiteList();
+    });
+    SmartFitSupabaseData.hydrate().then(result => {
+      if (!result.skipped) window.dispatchEvent(new Event("smartfit:supabase-data-hydrated"));
+    }).catch(error => console.error("No se pudieron cargar los datos de Supabase:", error));
+  </script>
+</body>
+</html>

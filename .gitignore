@@ -1,0 +1,26 @@
+# Secrets and local environment
+.env
+.env.*
+!.env.example
+supabase/.temp/
+
+# Data exports/directories are kept locally and never uploaded to GitHub or Pages.
+/docs/
+/IMG/CSS COPIA.jpeg
+/EQU/assets/ph1670235386590.jpg
+/supabase-migrate.html
+/supabase-migrate.js
+/supabase-migrate-activity.js
+/_site/
+
+# User/account exports and provisioning files (contain emails and temporary passwords)
+/profiles_rows*.csv
+/admin_user_access_rows.csv
+
+# Generated report samples may include operational or personal data
+/informe_prueba*.pdf
+
+# Operating system artifacts
+Thumbs.db
+desktop.ini
+.DS_Store
