@@ -1036,7 +1036,7 @@
 
     let adminSession = null;
     try {
-      adminSession = JSON.parse(localStorage.getItem("smartfit.admin.session") || "null");
+      adminSession = JSON.parse(sessionStorage.getItem("smartfit.admin.session") || "null");
     } catch (error) {
       adminSession = null;
     }
@@ -2513,7 +2513,8 @@
     });
 
     $("logoutButton").addEventListener("click", () => {
-      [localStorage, sessionStorage].forEach(storage => ["smartfit.admin.session", "smartfit.site.session", "smartfit.leader.session", "smartfit.supabase.auth"].forEach(key => storage.removeItem(key)));
+      sessionStorage.removeItem("smartfit.admin.session");
+      sessionStorage.removeItem("smartfit.supabase.auth");
       window.location.href = "index.html";
     });
     document.addEventListener("keydown", event => {
