@@ -135,10 +135,55 @@
     });
     if (!response.ok) throw new Error(`No se pudo eliminar en ${table} (${response.status}): ${await response.text()}`);
   }
+  async function updateRow(table, id, row, returning = "id,legacy_id") {
+    const response = await authorizedFetch(`${URL}/rest/v1/${table}?id=eq.${encodeURIComponent(id)}&select=${encodeURIComponent(returning)}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", Prefer: "return=representation" },
+      body: JSON.stringify(row)
+    });
+    const text = await response.text();
+    if (!response.ok) throw new Error(`No se pudo actualizar en ${table} (${response.status}): ${text}`);
+    const rows = text ? JSON.parse(text) : [];
+    if (!rows.length) throw new Error(`No se pudo actualizar en ${table}: el registro no está disponible para esta cuenta.`);
+    return rows[0];
+  }
   async function persistSite(site) {
     if (!site || !site.id) throw new Error("No se encontró la sede que se debe guardar.");
     const session = appSession();
     if (session?.role !== "Administrador") throw new Error("Solo un administrador puede guardar sedes e inventario.");
+
+    let preflightEquipment = [];
+    let preflightSites = [];
+    if (Array.isArray(site.equipment)) {
+      const requestedAssets = new Map();
+      for (const group of site.equipment) {
+        for (const unit of Array.isArray(group.units) ? group.units : []) {
+          const fixedAsset = String(unit.activeFixed ?? "").trim();
+          if (!fixedAsset) continue;
+          const normalized = fixedAsset.toLocaleLowerCase("es");
+          if (requestedAssets.has(normalized)) {
+            throw new Error(`El activo fijo ${fixedAsset} está repetido en los equipos de esta sede. Cada activo fijo debe pertenecer a un solo equipo.`);
+          }
+          requestedAssets.set(normalized, fixedAsset);
+        }
+      }
+      const existingSite = await lookupOne("sites", "id", "legacy_id", String(site.id));
+      [preflightEquipment, preflightSites] = await Promise.all([
+        getRows("equipment", "id,legacy_id,site_id,fixed_asset"),
+        getRows("sites", "id,name")
+      ]);
+      const siteNameById = new Map(preflightSites.map(row => [String(row.id), row.name]));
+      const existingByFixedAsset = new Map(preflightEquipment
+        .filter(row => row.fixed_asset !== null && row.fixed_asset !== "")
+        .map(row => [String(row.fixed_asset).trim().toLocaleLowerCase("es"), row]));
+      for (const [normalized, fixedAsset] of requestedAssets) {
+        const existing = existingByFixedAsset.get(normalized);
+        if (existing && String(existing.site_id) !== String(existingSite?.id || "")) {
+          const assignedSite = siteNameById.get(String(existing.site_id)) || "otra sede";
+          throw new Error(`El activo fijo ${fixedAsset} ya está registrado en “${assignedSite}”. No se guardó ningún cambio para evitar duplicar o mover un equipo con historial.`);
+        }
+      }
+    }
 
     const remoteSite = await postRow("sites", {
       legacy_id: String(site.id),
@@ -149,11 +194,12 @@
     });
     if (!remoteSite?.id) throw new Error("Supabase no devolvió el identificador de la sede guardada.");
 
-    const [brands, remoteEquipment, assignments] = await Promise.all([
+    const [brands, assignments] = await Promise.all([
       Array.isArray(site.equipment) ? getRows("brands", "id,legacy_id,name") : Promise.resolve([]),
-      Array.isArray(site.equipment) ? queryRows(`equipment?select=id,legacy_id&site_id=eq.${encodeURIComponent(remoteSite.id)}`) : Promise.resolve([]),
       queryRows(`site_assignments?select=user_id,assignment_role&site_id=eq.${encodeURIComponent(remoteSite.id)}`)
     ]);
+    const remoteEquipment = preflightEquipment;
+    const remoteSites = preflightSites;
     const users = AdminStore.listUsers();
     const desiredAssignments = [];
     for (const [role, localUserId] of [["Técnico", site.technicianUserId], ["Supervisor", site.supervisorUserId]]) {
@@ -199,9 +245,48 @@
       }
     }
 
-    const savedEquipment = await postRows("equipment", equipmentRows);
-    const retainedLegacyIds = new Set(equipmentRows.map(row => row.legacy_id));
-    const staleRows = remoteEquipment.filter(row => row.legacy_id && !retainedLegacyIds.has(String(row.legacy_id)));
+    const assetOccurrences = new Map();
+    for (const row of equipmentRows) {
+      const fixedAsset = String(row.fixed_asset ?? "").trim();
+      if (!fixedAsset) continue;
+      const normalized = fixedAsset.toLocaleLowerCase("es");
+      if (assetOccurrences.has(normalized)) {
+        throw new Error(`El activo fijo ${fixedAsset} está repetido en los equipos de esta sede. Cada activo fijo debe pertenecer a un solo equipo.`);
+      }
+      assetOccurrences.set(normalized, fixedAsset);
+    }
+
+    const siteNameById = new Map(remoteSites.map(row => [String(row.id), row.name]));
+    const equipmentByFixedAsset = new Map(remoteEquipment
+      .filter(row => row.fixed_asset !== null && row.fixed_asset !== "")
+      .map(row => [String(row.fixed_asset).trim().toLocaleLowerCase("es"), row]));
+    const equipmentByLegacyId = new Map(remoteEquipment.map(row => [String(row.legacy_id || ""), row]));
+    const savedEquipment = [];
+    const newEquipment = [];
+    for (const row of equipmentRows) {
+      const fixedAsset = String(row.fixed_asset ?? "").trim();
+      const existingByFixedAsset = fixedAsset ? equipmentByFixedAsset.get(fixedAsset.toLocaleLowerCase("es")) : null;
+      if (existingByFixedAsset) {
+        if (String(existingByFixedAsset.site_id) !== String(remoteSite.id)) {
+          const assignedSite = siteNameById.get(String(existingByFixedAsset.site_id)) || "otra sede";
+          throw new Error(`El activo fijo ${fixedAsset} ya está registrado en “${assignedSite}”. No se guardó el inventario para evitar duplicar o mover un equipo con historial.`);
+        }
+        const existingByLegacyId = equipmentByLegacyId.get(String(row.legacy_id));
+        if (existingByLegacyId && String(existingByLegacyId.id) !== String(existingByFixedAsset.id)) {
+          throw new Error(`El activo fijo ${fixedAsset} y su identificador de catálogo apuntan a equipos distintos. Revisa la asignación antes de guardar.`);
+        }
+        savedEquipment.push(await updateRow("equipment", existingByFixedAsset.id, row));
+      } else {
+        const existingByLegacyId = equipmentByLegacyId.get(String(row.legacy_id));
+        if (existingByLegacyId && String(existingByLegacyId.site_id) !== String(remoteSite.id)) {
+          throw new Error(`El equipo ${row.name} ya está vinculado a otra sede. No se guardaron cambios para evitar alterar su historial.`);
+        }
+        newEquipment.push(row);
+      }
+    }
+    savedEquipment.push(...await postRows("equipment", newEquipment));
+    const retainedEquipmentIds = new Set(savedEquipment.map(row => String(row.id)));
+    const staleRows = remoteEquipment.filter(row => row.legacy_id && String(row.site_id) === String(remoteSite.id) && !retainedEquipmentIds.has(String(row.id)));
     for (const row of staleRows) {
       await deleteRow("equipment", `id=eq.${encodeURIComponent(row.id)}`);
     }
