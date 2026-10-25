@@ -6,12 +6,21 @@
   const RECORDS_KEY = "smartfit.machine-records.v1";
   const PENDING_KEY = "smartfit.supabase.pending.v1";
   const ACCESS_HISTORY_KEY = "smartfit.admin.access-history.v1";
+  // Migra una vez las sesiones creadas con la versión anterior.
+  for (const key of ["smartfit.supabase.auth", "smartfit.site.session", "smartfit.leader.session", "smartfit.admin.session"]) {
+    try {
+      if (!localStorage.getItem(key)) {
+        const previous = window.sessionStorage.getItem(key);
+        if (previous) localStorage.setItem(key, previous);
+      }
+    } catch (error) { /* el navegador puede bloquear el almacenamiento */ }
+  }
   let realtimeClient = null;
   let realtimeChannel = null;
   let realtimeRefreshTimer = null;
 
   function auth() {
-    try { return JSON.parse(sessionStorage.getItem("smartfit.supabase.auth") || "null"); }
+    try { return JSON.parse(localStorage.getItem("smartfit.supabase.auth") || "null"); }
     catch (error) { return null; }
   }
   let refreshInFlight = null;
@@ -37,12 +46,28 @@
       const next = Object.assign({}, current, result, {
         expires_at: Number(result.expires_at) || Math.floor(Date.now() / 1000) + Number(result.expires_in || 3600)
       });
-      sessionStorage.setItem("smartfit.supabase.auth", JSON.stringify(next));
+      localStorage.setItem("smartfit.supabase.auth", JSON.stringify(next));
       return next;
     })();
     try { return await refreshInFlight; }
     finally { refreshInFlight = null; }
   }
+  function scheduleAuthRefresh() {
+    const current = auth();
+    const expiresAt = Number(current?.expires_at) || 0;
+    if (!current?.refresh_token || !expiresAt) return;
+    const delay = Math.max(15000, (expiresAt - Math.floor(Date.now() / 1000) - 60) * 1000);
+    setTimeout(async () => {
+      if (!auth()?.refresh_token) return;
+      try {
+        await refreshAuth(true);
+        scheduleAuthRefresh();
+      } catch (error) {
+        console.warn("No se pudo renovar la sesión guardada.", error);
+      }
+    }, delay);
+  }
+  scheduleAuthRefresh();
   async function authorizedFetch(url, options = {}) {
     let session = await refreshAuth();
     const headers = new Headers(options.headers || {});
@@ -58,7 +83,7 @@
   }
   function appSession() {
     const sessions = ["smartfit.site.session", "smartfit.leader.session", "smartfit.admin.session"]
-      .map(key => { try { return JSON.parse(sessionStorage.getItem(key) || "null"); } catch (error) { return null; } })
+      .map(key => { try { return JSON.parse(localStorage.getItem(key) || "null"); } catch (error) { return null; } })
       .filter(Boolean);
     try {
       const token = auth()?.access_token || "";
@@ -716,7 +741,7 @@
       const session = parseLocalSession(key);
       if (!session?.siteIds) continue;
       session.siteIds = session.siteIds.map(id => siteIdToLegacy.get(id) || String(id));
-      sessionStorage.setItem(key, JSON.stringify(session));
+      localStorage.setItem(key, JSON.stringify(session));
     }
     const profileIdToLegacy = new Map(profiles.map(row => [row.id, String(row.legacy_id || "")]));
     const emailByProfileId = new Map(accountAccess.map(row => [row.profile_id, String(row.email || "")]));
@@ -789,7 +814,7 @@
   }
 
   function parseLocalSession(key) {
-    try { return JSON.parse(sessionStorage.getItem(key) || "null"); } catch (error) { return null; }
+    try { return JSON.parse(localStorage.getItem(key) || "null"); } catch (error) { return null; }
   }
 
   global.SmartFitSupabaseData = { hydrate, manageUser, persistSite, persistBrand, deleteBrand, deleteSite, recordAccess, startRealtimeSync, persistTicket: persistTicketQueued, persistMachineRecord };

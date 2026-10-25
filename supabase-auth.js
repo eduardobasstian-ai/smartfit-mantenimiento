@@ -42,13 +42,25 @@
       throw new Error("La respuesta de autenticación está incompleta.");
     }
 
-    sessionStorage.setItem("smartfit.supabase.auth", JSON.stringify(result.auth));
+    localStorage.setItem("smartfit.supabase.auth", JSON.stringify(result.auth));
     return result.user;
   }
 
   function clearSession() {
-    sessionStorage.removeItem("smartfit.supabase.auth");
+    for (const storage of [localStorage, sessionStorage]) {
+      for (const key of ["smartfit.supabase.auth", "smartfit.site.session", "smartfit.leader.session", "smartfit.admin.session"]) {
+        storage.removeItem(key);
+      }
+    }
   }
 
-  global.SmartFitSupabaseAuth = { login, listLoginDirectory, clearSession };
+  function saveRoleSession(user, key) {
+    for (const sessionKey of ["smartfit.site.session", "smartfit.leader.session", "smartfit.admin.session"]) {
+      localStorage.removeItem(sessionKey);
+      sessionStorage.removeItem(sessionKey);
+    }
+    localStorage.setItem(key, JSON.stringify(user));
+  }
+
+  global.SmartFitSupabaseAuth = { login, listLoginDirectory, clearSession, saveRoleSession };
 })(window);

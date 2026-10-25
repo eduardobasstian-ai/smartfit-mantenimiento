@@ -1179,7 +1179,7 @@
         console.warn("No se pudo sincronizar el acceso; se conserva en este navegador.", error);
         AdminStore.recordAccess(authenticatedUser);
       }
-      sessionStorage.setItem("smartfit.site.session", JSON.stringify(authenticatedUser));
+      SmartFitSupabaseAuth.saveRoleSession(authenticatedUser, "smartfit.site.session");
       window.location.href = authenticatedUser.mustChangePassword ? "change-password.html" : "cpsedes.html";
     });
     function openModal(title, items) {
@@ -1279,7 +1279,7 @@
           console.warn("No se pudo sincronizar el acceso; se conserva en este navegador.", error);
           AdminStore.recordAccess(admin);
         }
-        sessionStorage.setItem("smartfit.admin.session", JSON.stringify(admin));
+        SmartFitSupabaseAuth.saveRoleSession(admin, "smartfit.admin.session");
         window.location.href = admin.mustChangePassword ? "change-password.html" : "cpadmin.html";
       });
     }
@@ -1341,7 +1341,7 @@
           console.warn("No se pudo sincronizar el acceso; se conserva en este navegador.", error);
           AdminStore.recordAccess(leader);
         }
-        sessionStorage.setItem("smartfit.leader.session", JSON.stringify(leader));
+        SmartFitSupabaseAuth.saveRoleSession(leader, "smartfit.leader.session");
         window.location.href = leader.mustChangePassword ? "change-password.html" : "cplider.html";
       });
     }
@@ -1378,6 +1378,24 @@
         closeModal();
       }
     });
+
+    const savedAuth = (() => { try { return JSON.parse(localStorage.getItem("smartfit.supabase.auth") || "null"); } catch (error) { return null; } })();
+    const savedProfiles = ["smartfit.admin.session", "smartfit.leader.session", "smartfit.site.session"]
+      .map(key => { try { return JSON.parse(localStorage.getItem(key) || "null"); } catch (error) { return null; } })
+      .filter(profile => profile?.authId && profile.active !== false);
+    let savedAuthId = "";
+    try {
+      const payload = savedAuth?.access_token?.split(".")[1];
+      if (payload) savedAuthId = JSON.parse(atob(payload.replace(/-/g, "+").replace(/_/g, "/"))).sub || "";
+    } catch (error) { /* sin token legible: usar la sesión disponible */ }
+    const savedProfile = savedProfiles.find(profile => profile.authId === savedAuthId) || savedProfiles[0];
+    if (savedAuth?.refresh_token && savedProfile) {
+      const destination = savedProfile.mustChangePassword ? "change-password.html"
+        : savedProfile.role === "Administrador" ? "cpadmin.html"
+        : savedProfile.role === "Líder" ? "cplider.html"
+        : ["Técnico", "Supervisor"].includes(savedProfile.role) ? "cpsedes.html" : null;
+      if (destination) window.location.replace(destination);
+    }
 
   </script>
 </body>

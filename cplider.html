@@ -577,11 +577,11 @@
     let adminMode = false;
     let leaderMode = false;
     try {
-      session = JSON.parse(sessionStorage.getItem("smartfit.leader.session") || "null");
+      session = JSON.parse(localStorage.getItem("smartfit.leader.session") || "null");
       leaderMode = Boolean(session && session.role === "Líder");
-      if (!session) session = JSON.parse(sessionStorage.getItem("smartfit.site.session") || "null");
+      if (!session) session = JSON.parse(localStorage.getItem("smartfit.site.session") || "null");
       if (!session) {
-        session = JSON.parse(sessionStorage.getItem("smartfit.admin.session") || "null");
+        session = JSON.parse(localStorage.getItem("smartfit.admin.session") || "null");
         adminMode = Boolean(session && session.role === "Administrador");
       }
     } catch (error) {
@@ -1986,14 +1986,13 @@
     });
 
     $("logoutButton").addEventListener("click", () => {
-      sessionStorage.removeItem(leaderMode ? "smartfit.leader.session" : adminMode ? "smartfit.admin.session" : "smartfit.site.session");
-      sessionStorage.removeItem("smartfit.supabase.auth");
+      [localStorage, sessionStorage].forEach(storage => ["smartfit.admin.session", "smartfit.site.session", "smartfit.leader.session", "smartfit.supabase.auth"].forEach(key => storage.removeItem(key)));
       window.location.href = "index.html";
     });
     window.addEventListener("smartfit:supabase-data-hydrated", () => {
       try {
         const sessionKey = leaderMode ? "smartfit.leader.session" : adminMode ? "smartfit.admin.session" : "smartfit.site.session";
-        const refreshed = JSON.parse(sessionStorage.getItem(sessionKey) || "null");
+        const refreshed = JSON.parse(localStorage.getItem(sessionKey) || "null");
         if (refreshed && user) {
           session = refreshed;
           user.siteIds = refreshed.siteIds || user.siteIds || [];
