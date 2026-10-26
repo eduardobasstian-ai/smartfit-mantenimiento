@@ -520,6 +520,7 @@
           <article class="supervisor-chart-card">
             <div class="supervisor-chart-header"><div><h3>Estado de mantenimiento</h3><p>Estado más reciente por equipo en el período</p></div>
               <div class="supervisor-chart-date-filters" aria-label="Filtrar estado de mantenimiento">
+                <label for="maintenanceStatusSiteFilter">Sede<select class="supervisor-chart-filter" id="maintenanceStatusSiteFilter"></select></label>
                 <label for="maintenanceStatusMonthFilter">Mes<select class="supervisor-chart-filter" id="maintenanceStatusMonthFilter"></select></label>
                 <label for="maintenanceStatusYearFilter">Año<select class="supervisor-chart-filter" id="maintenanceStatusYearFilter"></select></label>
               </div>
@@ -1658,6 +1659,14 @@
       yearSelect.value = [...yearSelect.options].some(option => option.value === priorYear) ? priorYear : currentYear;
     }
 
+    function renderMaintenanceChartSiteFilter(sites, selectId) {
+      const select = $(selectId);
+      const priorValue = select.value;
+      select.innerHTML = `<option value="*">Todas las sedes</option>${sites.map(site => `<option value="${escapeHtml(site.id)}">${escapeHtml(site.name)}</option>`).join("")}`;
+      select.value = [...select.options].some(option => option.value === priorValue) ? priorValue : "*";
+      return select.value === "*" ? sites : sites.filter(site => String(site.id) === select.value);
+    }
+
     function maintenanceChartEntryMatchesDate(entry, monthId, yearId) {
       const parts = maintenanceChartDateParts(entry);
       return Boolean(parts && String(parts.year) === $(yearId).value &&
@@ -1757,6 +1766,7 @@
       })();
       const allMaintenanceEntries = maintenanceChartEntriesByEquipment(machineRecords);
       const maintenanceEntries = allMaintenanceEntries.map(item => item.entry);
+      const maintenanceStatusSites = renderMaintenanceChartSiteFilter(assignedSites, "maintenanceStatusSiteFilter");
       renderMaintenanceChartDateFilters(maintenanceEntries, "maintenanceStatusMonthFilter", "maintenanceStatusYearFilter");
       renderMaintenanceChartDateFilters(maintenanceEntries, "maintenanceTechnicianMonthFilter", "maintenanceTechnicianYearFilter");
       const ticketSitesByRegion = setSupervisorRegionOptions($("supervisorTicketsRegionFilter"), assignedSites);
@@ -1794,7 +1804,7 @@
         ["Mantenimiento preventivo", 0], ["Mantenimiento correctivo", 0], ["Revisión", 0], ["Fuera de servicio", 0], ["Sin registro", 0]
       ]);
       const technicianEventEntries = [];
-      assignedSites.forEach(site => {
+      maintenanceStatusSites.forEach(site => {
         const machines = supervisorEquipmentUnits(site);
         machines.forEach(machine => {
           const machineRecord = machineRecords[machine.recordKey] || {};
@@ -2508,6 +2518,7 @@
       $("supervisorMenuToggle").setAttribute("aria-label", "Abrir menú");
     });
     $("siteEquipmentRegionFilter").addEventListener("change", renderSupervisorSummary);
+    $("maintenanceStatusSiteFilter").addEventListener("change", renderSupervisorSummary);
     $("maintenanceStatusMonthFilter").addEventListener("change", renderSupervisorSummary);
     $("maintenanceStatusYearFilter").addEventListener("change", renderSupervisorSummary);
     $("maintenanceTechnicianMonthFilter").addEventListener("change", renderSupervisorSummary);
