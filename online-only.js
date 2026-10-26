@@ -31,7 +31,9 @@
     document.documentElement.appendChild(overlay);
     message = overlay.querySelector("#smartfit-online-message");
     retryButton = overlay.querySelector("button");
-    retryButton.addEventListener("click", checkConnection);
+    retryButton.addEventListener("click", function () {
+      checkConnection(true);
+    });
   }
 
   function show(text) {
@@ -47,11 +49,11 @@
     document.documentElement.removeAttribute("data-smartfit-online");
   }
 
-  async function checkConnection() {
+  async function checkConnection(showProgress) {
     if (checking) return;
     checking = true;
     buildOverlay();
-    retryButton.disabled = true;
+    if (showProgress) retryButton.disabled = true;
 
     if (!navigator.onLine) {
       show("Conéctate a internet y vuelve a intentarlo.");
@@ -60,7 +62,8 @@
       return;
     }
 
-    show("Verificando conexión a internet…");
+    // Las comprobaciones periódicas se mantienen silenciosas cuando todo funciona.
+    if (showProgress) show("Verificando conexión a internet…");
     try {
       var response = await fetch(new URL("./?online-check=" + Date.now(), window.location.href), {
         method: "GET",
@@ -83,13 +86,19 @@
   window.addEventListener("offline", function () {
     show("Conéctate a internet para continuar usando SmartFit Mantenimiento.");
   });
-  window.addEventListener("online", checkConnection);
-  window.addEventListener("focus", checkConnection);
+  window.addEventListener("online", function () {
+    checkConnection(true);
+  });
+  window.addEventListener("focus", function () {
+    checkConnection(false);
+  });
   document.addEventListener("visibilitychange", function () {
     if (!document.hidden) checkConnection();
   });
-  checkConnection();
-  checkTimer = window.setInterval(checkConnection, 30000);
+  checkConnection(true);
+  checkTimer = window.setInterval(function () {
+    checkConnection(false);
+  }, 30000);
   window.addEventListener("pagehide", function () {
     window.clearInterval(checkTimer);
   }, { once: true });
