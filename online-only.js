@@ -6,6 +6,7 @@
   var retryButton;
   var checking = false;
   var checkTimer;
+  var failedChecks = 0;
 
   function buildOverlay() {
     if (overlay) return;
@@ -38,6 +39,7 @@
 
   function show(text) {
     buildOverlay();
+    if (!overlay.hidden && message.textContent === text) return;
     message.textContent = text;
     overlay.hidden = false;
     document.documentElement.setAttribute("data-smartfit-online", "blocked");
@@ -45,6 +47,7 @@
 
   function hide() {
     buildOverlay();
+    if (overlay.hidden) return;
     overlay.hidden = true;
     document.documentElement.removeAttribute("data-smartfit-online");
   }
@@ -56,13 +59,14 @@
     if (showProgress) retryButton.disabled = true;
 
     if (!navigator.onLine) {
+      failedChecks = Math.max(failedChecks, 2);
       show("Conéctate a internet y vuelve a intentarlo.");
       retryButton.disabled = false;
       checking = false;
       return;
     }
 
-    // Las comprobaciones periódicas se mantienen silenciosas cuando todo funciona.
+    // Solo el botón de reintento muestra progreso; el monitoreo es invisible.
     if (showProgress) show("Verificando conexión a internet…");
     try {
       var response = await fetch(new URL("./?online-check=" + Date.now(), window.location.href), {
@@ -72,9 +76,14 @@
         headers: { "X-SmartFit-Online-Check": "1" }
       });
       if (!response.ok) throw new Error("Network check failed");
+      failedChecks = 0;
       hide();
     } catch (_error) {
-      show("No hay conexión con el sitio. Conéctate a internet para usar SmartFit Mantenimiento.");
+      failedChecks += 1;
+      // Una respuesta fallida aislada puede ser temporal; confirma antes de bloquear.
+      if (failedChecks >= 2 || showProgress) {
+        show("No hay conexión con el sitio. Conéctate a internet para usar SmartFit Mantenimiento.");
+      }
     } finally {
       retryButton.disabled = false;
       checking = false;
@@ -82,12 +91,12 @@
   }
 
   buildOverlay();
-  show("Verificando conexión a internet…");
+  overlay.hidden = true;
   window.addEventListener("offline", function () {
     show("Conéctate a internet para continuar usando SmartFit Mantenimiento.");
   });
   window.addEventListener("online", function () {
-    checkConnection(true);
+    checkConnection(false);
   });
   window.addEventListener("focus", function () {
     checkConnection(false);
@@ -95,10 +104,10 @@
   document.addEventListener("visibilitychange", function () {
     if (!document.hidden) checkConnection();
   });
-  checkConnection(true);
+  checkConnection(false);
   checkTimer = window.setInterval(function () {
     checkConnection(false);
-  }, 30000);
+  }, 60000);
   window.addEventListener("pagehide", function () {
     window.clearInterval(checkTimer);
   }, { once: true });
