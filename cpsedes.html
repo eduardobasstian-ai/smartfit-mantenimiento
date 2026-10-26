@@ -233,7 +233,7 @@
     .mileage-date-filter { display: block; width: 132px; min-width: 112px; margin-top: 6px; padding: 5px 7px; border: 1px solid #3c404b; border-radius: 6px; background: #111319; color: var(--text); font: inherit; font-weight: 500; }
     .machine-history-table td { color: #e7e7eb; }
     .image-placeholder { flex: 0 0 58px; width: 58px; height: 58px; display: grid; place-items: center; border: 1px solid #454854; border-radius: 11px; color: var(--muted); font-size: 10px; }
-    .image-lightbox { position: fixed; z-index: 100; inset: 0; display: grid; place-items: center; padding: 18px; background: #000e; }
+    .image-lightbox { position: fixed; z-index: 170; inset: 0; display: grid; place-items: center; padding: 18px; background: #000e; }
     .image-lightbox[hidden] { display: none; }
     .image-lightbox-frame { position: relative; display: grid; place-items: center; width: fit-content; height: fit-content; max-width: 96vw; max-height: 94vh; overflow: hidden; border: 1px solid #555966; border-radius: 13px; background: #f5f5f7; box-shadow: 0 24px 90px #000b; }
     .image-lightbox-frame img { display: block; width: auto; height: auto; max-width: 94vw; max-height: 92vh; object-fit: contain; }
@@ -325,7 +325,7 @@
     .ticket-detail-label { display: block; margin-bottom: 5px; color: var(--muted); font-size: 10px; }
     .ticket-detail-value { color: var(--text); font-size: 12px; overflow-wrap: anywhere; white-space: pre-wrap; }
     .ticket-detail-photos { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 8px; }
-    .ticket-detail-photos img { width: 120px; height: 100px; object-fit: cover; border: 1px solid #3d404b; border-radius: 9px; }
+    .ticket-detail-photos img { width: 120px; height: 100px; object-fit: cover; border: 1px solid #3d404b; border-radius: 9px; cursor: zoom-in; }
     .supervisor-menu-toggle { display: grid; place-items: center; width: 42px; height: 40px; border: 1px solid #383b47; border-radius: 9px; background: #20222a; color: var(--text); font-size: 22px; line-height: 1; }
     .supervisor-menu-toggle:hover { border-color: var(--yellow); color: var(--yellow); }
     .supervisor-mobile-bar span { font-size: 12px; font-weight: 800; }
@@ -1030,10 +1030,10 @@
           <div class="machine-form-field"><label for="supervisorTicketTitle">Título</label><input id="supervisorTicketTitle" type="text" value="${escapeHtml(supervisorTicketDraft.title)}" placeholder="Escribe el título del ticket" required maxlength="160"></div>
           <div class="machine-form-field full"><label for="supervisorTicketDescription">Descripción</label><textarea id="supervisorTicketDescription" placeholder="Describe el problema o mantenimiento requerido" required>${escapeHtml(supervisorTicketDraft.description)}</textarea></div>
         </div>
-        <div class="machine-record-actions"><button class="machine-save-button" type="submit">Enviar ticket</button><button class="back-button" type="button" data-toggle-supervisor-ticket-image-menu aria-expanded="false">Agregar imágenes (${supervisorTicketImages.length}/2)</button></div>
+        <div class="machine-record-actions"><button class="machine-save-button" type="submit">Enviar ticket</button><button class="back-button" type="button" data-toggle-supervisor-ticket-image-menu aria-expanded="false">Agregar imágenes (${supervisorTicketImages.length}/4)</button></div>
         <div class="maintenance-image-picker"><div class="maintenance-image-menu" data-supervisor-ticket-image-menu hidden><button class="back-button" type="button" data-select-supervisor-ticket-images="gallery">Desde almacenamiento</button><button class="back-button" type="button" data-select-supervisor-ticket-images="camera">Usar cámara</button></div>
           <input class="maintenance-image-input" id="supervisorTicketGalleryInput" type="file" accept="image/*" multiple><input class="maintenance-image-input" id="supervisorTicketCameraInput" type="file" accept="image/*" capture="environment">
-          <div id="supervisorTicketImageList" class="maintenance-image-list">${imageMarkup}</div><p class="maintenance-image-caption">Puedes adjuntar hasta 2 imágenes desde tu dispositivo o tomar una foto con la cámara.</p>
+          <div id="supervisorTicketImageList" class="maintenance-image-list">${imageMarkup}</div><p class="maintenance-image-caption">Puedes adjuntar hasta 4 fotografías desde tu dispositivo o tomar fotos con la cámara.</p>
         </div></form></article></div>`;
     }
 
@@ -1158,7 +1158,7 @@
           ? `<figure class="equipment-picture"><img src="${escapeHtml(new URL(equipmentImage, window.location.href).href)}" alt="${escapeHtml(ticket.machineName || "Equipo")}"><figcaption>Fotografía del equipo</figcaption></figure>`
           : `<div class="equipment-picture equipment-picture-empty">Fotografía del equipo no disponible</div>`;
         const photos = Array.isArray(ticket.images) && ticket.images.length
-          ? `<section class="section"><h2>Registro fotográfico</h2><div class="photos">${ticket.images.slice(0, 2).map((image, photoIndex) => `<figure><img src="${escapeHtml(image)}" alt="Adjunto ${photoIndex + 1} del ticket"><figcaption>Adjunto ${photoIndex + 1}</figcaption></figure>`).join("")}</div></section>`
+          ? `<section class="section"><h2>Registro fotográfico</h2><div class="photos" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px">${ticket.images.slice(0, 4).map((image, photoIndex) => `<figure style="width:auto"><img style="height:38mm" src="${escapeHtml(image)}" alt="Adjunto ${photoIndex + 1} del ticket"><figcaption>Adjunto ${photoIndex + 1}</figcaption></figure>`).join("")}</div></section>`
           : `<section class="section"><h2>Registro fotográfico</h2><p class="muted">Sin imágenes adjuntas.</p></section>`;
         return `<article class="report-page"><header class="report-header"><img src="${escapeHtml(logoUrl)}" alt="Smart Fit"><div><h1>${escapeHtml(reportTitle)}</h1><p>Fecha de emisión: ${escapeHtml(issuedAt)} · Registro ${index + 1} de ${tickets.length}</p></div></header><section class="section"><h2>Datos del ticket</h2><div class="event-info-layout"><div class="data-grid"><p><b>Número:</b> ${escapeHtml(ticket.ticketNumber || "—")}</p><p><b>Fecha:</b> ${escapeHtml(formatTicketDate(ticket.date))}</p><p><b>Sede:</b> ${escapeHtml(ticket.siteName || "—")}</p><p><b>Solicitante:</b> ${escapeHtml(ticket.createdByName || ticket.leaderName || "—")}</p><p><b>Supervisor:</b> ${escapeHtml(ticket.supervisor || "—")}</p><p><b>Técnico:</b> ${escapeHtml(ticket.technician || "—")}</p><p><b>Activo fijo:</b> ${escapeHtml(ticket.activeFixed || "N/A")}</p><p><b>Equipo:</b> ${escapeHtml(ticket.machineName || "—")}${ticket.machineModel ? ` · ${escapeHtml(ticket.machineModel)}` : ""}</p><p><b>Tipo:</b> ${escapeHtml(ticket.type || "—")}</p><p><b>Estado:</b> ${escapeHtml(ticket.status || "Pendiente")}</p><p class="wide"><b>Título:</b> ${escapeHtml(ticket.title || "—")}</p><p class="wide"><b>Descripción:</b> ${escapeHtml(ticket.description || "Sin descripción")}</p></div>${equipmentPhoto}</div></section>${photos}<footer>se genera el informe para lo que se estime conveniente.</footer></article>`;
       }).join("");
@@ -1467,7 +1467,7 @@
             <p><b>Técnico asignado:</b> ${escapeHtml(ticket.technician || "—")}</p><p><b>Activo fijo:</b> ${escapeHtml(ticket.activeFixed || "N/A")}</p>
             <p class="wide"><b>Equipo:</b> ${escapeHtml(ticket.machineName || event.equipmentName || "—")}${ticket.machineModel ? ` · ${escapeHtml(ticket.machineModel)}` : ""}</p>
             <p class="wide"><b>Título:</b> ${escapeHtml(ticket.title || "—")}</p><p class="wide"><b>Descripción:</b> ${escapeHtml(ticket.description || "—")}</p>
-          </div>${Array.isArray(ticket.images) && ticket.images.length ? `<div class="ticket-photos">${ticket.images.slice(0, 2).map((image, photoIndex) => `<figure><img src="${escapeHtml(image)}" alt="Foto ${photoIndex + 1} del ticket"><figcaption>Adjunto del ticket ${photoIndex + 1}</figcaption></figure>`).join("")}</div>` : ""}</div>`).join("")}</section>` : "";
+          </div>${Array.isArray(ticket.images) && ticket.images.length ? `<div class="ticket-photos" style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px">${ticket.images.slice(0, 4).map((image, photoIndex) => `<figure style="width:auto"><img src="${escapeHtml(image)}" alt="Foto ${photoIndex + 1} del ticket"><figcaption>Adjunto del ticket ${photoIndex + 1}</figcaption></figure>`).join("")}</div>` : ""}</div>`).join("")}</section>` : "";
         return `<article class="report-page">
           <header class="report-header"><img src="${escapeHtml(logoUrl)}" alt="Smart Fit" style="background:#000;padding:4px 8px;border-radius:4px"><div><h1>INFORME DE EVENTO</h1><p>Fecha de emisión: ${escapeHtml(issuedAt)} · Registro ${index + 1} de ${events.length}</p></div></header>
           <section class="section"><h2>Datos del evento</h2><div class="event-info-layout"><div class="data-grid">
@@ -1500,7 +1500,7 @@
       const assignedSiteIds = new Set(assignedSites.map(site => site.id));
       const ticket = readLeaderTickets().find(entry => entry.id === ticketId && assignedSiteIds.has(entry.siteId));
       if (!ticket) return;
-      const photos = Array.isArray(ticket.images) ? ticket.images.slice(0, 2) : [];
+      const photos = Array.isArray(ticket.images) ? ticket.images.slice(0, 4) : [];
       $("supervisorTicketModalTitle").textContent = `Ticket ${ticket.ticketNumber || ""}`;
       $("supervisorTicketModalBody").innerHTML = `
         <div class="ticket-detail-grid">
@@ -1515,7 +1515,7 @@
           <div class="ticket-detail-item"><span class="ticket-detail-label">Técnico asignado</span><div class="ticket-detail-value">${escapeHtml(ticket.technician || "—")}</div></div>
           <div class="ticket-detail-item full"><span class="ticket-detail-label">Título</span><div class="ticket-detail-value">${escapeHtml(ticket.title || "—")}</div></div>
           <div class="ticket-detail-item full"><span class="ticket-detail-label">Descripción</span><div class="ticket-detail-value">${escapeHtml(ticket.description || "—")}</div></div>
-          <div class="ticket-detail-item full"><span class="ticket-detail-label">Imágenes adjuntas (${photos.length}/2)</span><div class="ticket-detail-photos">${photos.map((image, index) => `<img src="${escapeHtml(image)}" alt="Imagen ${index + 1} del ticket" loading="lazy">`).join("") || "<span class=\"ticket-detail-value\">Sin imágenes adjuntas</span>"}</div></div>
+          <div class="ticket-detail-item full"><span class="ticket-detail-label">Imágenes adjuntas (${photos.length}/4)</span><div class="ticket-detail-photos">${photos.map((image, index) => `<img src="${escapeHtml(image)}" alt="Imagen ${index + 1} del ticket" data-ticket-enlarge="${escapeHtml(image)}" loading="lazy">`).join("") || "<span class=\"ticket-detail-value\">Sin imágenes adjuntas</span>"}</div></div>
           ${isAssignedTicketToCurrentTechnician(ticket) ? `<div class="ticket-detail-item full"><span class="ticket-detail-label">Actualizar estado</span><div class="ticket-status-tools"><select id="ticketStatus-${escapeHtml(ticket.id)}" data-ticket-status="${escapeHtml(ticket.id)}">${["Pendiente", "En ejecución", "Ejecutado"].map(status => `<option${(ticket.status || "Pendiente") === status ? " selected" : ""}>${status}</option>`).join("")}</select><button class="back-button" type="button" data-save-ticket-status="${escapeHtml(ticket.id)}">Guardar estado</button></div></div>` : ""}
         </div>`;
       $("supervisorTicketModal").hidden = false;
@@ -2074,6 +2074,70 @@
       });
     }
 
+    async function useSupervisorTicketCamera() {
+      if (supervisorTicketImages.length >= 4) {
+        window.alert("Solo puedes adjuntar un máximo de 4 fotografías.");
+        return;
+      }
+      if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
+        window.alert("El acceso directo a la cámara requiere una conexión segura (HTTPS) y un navegador compatible. Abre el sitio publicado con HTTPS y permite el acceso a la cámara cuando Edge, Chrome o Safari lo solicite.");
+        $("supervisorTicketCameraInput")?.click();
+        return;
+      }
+      let stream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" } }, audio: false });
+      } catch (error) {
+        const message = error.name === "NotAllowedError" || error.name === "SecurityError"
+          ? "No se concedió permiso para usar la cámara. Habilítalo en los permisos del sitio del navegador y vuelve a intentarlo."
+          : error.name === "NotFoundError" ? "No se encontró una cámara disponible en este dispositivo."
+            : "No se pudo abrir la cámara. Revisa los permisos del sitio y que ninguna otra aplicación la esté usando.";
+        window.alert(message);
+        return;
+      }
+      const equipmentKey = supervisorTicketEquipment?.recordKey;
+      const modal = document.createElement("div");
+      modal.setAttribute("role", "dialog");
+      modal.setAttribute("aria-modal", "true");
+      modal.setAttribute("aria-label", "Tomar fotografía para el ticket");
+      modal.style.cssText = "position:fixed;inset:0;z-index:10000;background:#090a0ddd;display:grid;place-items:center;padding:16px";
+      modal.innerHTML = `<div style="width:min(720px,100%);background:#191b22;border:1px solid #383b47;border-radius:14px;padding:16px;color:#f5f6fa"><h2 style="margin:0 0 6px;font-size:18px">Tomar fotografía</h2><p style="margin:0 0 12px;color:#b9bdca;font-size:13px">El navegador solicitará permiso para acceder a la cámara. Puedes agregar hasta 4 fotografías.</p><video autoplay playsinline style="display:block;width:100%;max-height:65vh;background:#000;border-radius:10px;object-fit:contain"></video><div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px"><button type="button" data-camera-cancel class="back-button">Cancelar</button><button type="button" data-camera-capture class="machine-save-button">Tomar foto</button></div></div>`;
+      const video = modal.querySelector("video");
+      video.srcObject = stream;
+      video.play().catch(() => {});
+      document.body.append(modal);
+      const close = () => {
+        stream.getTracks().forEach(track => track.stop());
+        modal.remove();
+        document.removeEventListener("keydown", onKeyDown);
+      };
+      const onKeyDown = event => { if (event.key === "Escape") close(); };
+      document.addEventListener("keydown", onKeyDown);
+      modal.addEventListener("click", event => { if (event.target === modal || event.target.closest("[data-camera-cancel]")) close(); });
+      modal.querySelector("[data-camera-capture]").addEventListener("click", async event => {
+        const button = event.currentTarget;
+        button.disabled = true;
+        try {
+          const canvas = document.createElement("canvas");
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+          if (!canvas.width || !canvas.height) throw new Error("La cámara todavía no está lista. Inténtalo nuevamente.");
+          canvas.getContext("2d")?.drawImage(video, 0, 0, canvas.width, canvas.height);
+          const blob = await new Promise(resolve => canvas.toBlob(resolve, "image/jpeg", 0.9));
+          if (!blob) throw new Error("No se pudo capturar la fotografía.");
+          const image = await compressMaintenanceImage(new File([blob], `ticket-${Date.now()}.jpg`, { type: "image/jpeg" }));
+          if (!supervisorTicketEquipment || supervisorTicketEquipment.recordKey !== equipmentKey) return close();
+          if (supervisorTicketImages.length >= 4) throw new Error("Ya alcanzaste el máximo de 4 fotografías.");
+          supervisorTicketImages.push(image);
+          close();
+          renderSupervisorTicketForm(supervisorTicketEquipment);
+        } catch (error) {
+          button.disabled = false;
+          window.alert(error.message || "No se pudo guardar la fotografía.");
+        }
+      });
+    }
+
     async function useMaintenanceCamera() {
       if (maintenanceImages.length >= 4) {
         window.alert("Solo puedes adjuntar un máximo de 4 fotografías.");
@@ -2448,7 +2512,8 @@
       }
       const imageSource = event.target.closest("[data-select-supervisor-ticket-images]");
       if (imageSource) {
-        if (supervisorTicketImages.length >= 2) { window.alert("Solo puedes adjuntar un máximo de 2 imágenes."); return; }
+        if (supervisorTicketImages.length >= 4) { window.alert("Solo puedes adjuntar un máximo de 4 fotografías."); return; }
+        if (imageSource.dataset.selectSupervisorTicketImages === "camera") { useSupervisorTicketCamera(); return; }
         const inputId = imageSource.dataset.selectSupervisorTicketImages === "camera" ? "supervisorTicketCameraInput" : "supervisorTicketGalleryInput";
         $(inputId)?.click();
         return;
@@ -2505,8 +2570,8 @@
     $("supervisorRaiseTicketPanel").addEventListener("change", async event => {
       if (!["supervisorTicketGalleryInput", "supervisorTicketCameraInput"].includes(event.target.id)) return;
       const selectedFiles = Array.from(event.target.files || []);
-      const availableSlots = Math.max(0, 2 - supervisorTicketImages.length);
-      if (selectedFiles.length > availableSlots) window.alert("Puedes adjuntar un máximo de 2 imágenes.");
+      const availableSlots = Math.max(0, 4 - supervisorTicketImages.length);
+      if (selectedFiles.length > availableSlots) window.alert("Puedes adjuntar un máximo de 4 fotografías.");
       const files = selectedFiles.slice(0, availableSlots);
       event.target.value = "";
       if (!files.length) return;
@@ -2545,7 +2610,7 @@
         technicianId: technician?.id || selected.technicianId || "", status: "Pendiente", type: "Mantenimiento",
         activeFixed: selected.activeFixed, machineRecordKey: selected.recordKey, machineName: selected.machineName,
         machineModel: selected.machineModel, title: $("supervisorTicketTitle").value.trim(),
-        description: $("supervisorTicketDescription").value.trim(), images: supervisorTicketImages.slice(0, 2), createdAt: new Date().toISOString()
+        description: $("supervisorTicketDescription").value.trim(), images: supervisorTicketImages.slice(0, 4), createdAt: new Date().toISOString()
       };
       if (!ticket.title || !ticket.description) { window.alert("Completa el título y la descripción."); return; }
       try {
@@ -2922,6 +2987,11 @@
     });
     $("closeSupervisorTicket").addEventListener("click", () => { $("supervisorTicketModal").hidden = true; });
     $("supervisorTicketModal").addEventListener("click", event => {
+      const ticketPhoto = event.target.closest("[data-ticket-enlarge]");
+      if (ticketPhoto) {
+        openEquipmentImage(ticketPhoto.dataset.ticketEnlarge, ticketPhoto.alt);
+        return;
+      }
       const saveTicketStatus = event.target.closest("[data-save-ticket-status]");
       if (saveTicketStatus) {
         const select = $("supervisorTicketModalBody").querySelector("[data-ticket-status]");

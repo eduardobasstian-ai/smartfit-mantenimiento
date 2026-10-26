@@ -1046,7 +1046,7 @@
       const siteIds = new Set(assignedSites.map(site => site.id));
       const ticket = visibleHistoryTickets().find(entry => entry.id === ticketId && siteIds.has(entry.siteId) && (!leaderMode || entry.leaderId === user.id));
       if (!ticket) return;
-      const photos = Array.isArray(ticket.images) ? ticket.images.slice(0, 2) : [];
+      const photos = Array.isArray(ticket.images) ? ticket.images.slice(0, 4) : [];
       $("ticketHistoryModalTitle").textContent = `Ticket ${ticket.ticketNumber || ""}`;
       $("ticketHistoryModalBody").innerHTML = `
         <div class="ticket-history-detail-grid">
@@ -1061,7 +1061,7 @@
           <div class="ticket-history-detail-item full"><span class="ticket-history-detail-label">Equipo</span>${escapeHtml(ticket.machineName || "—")}${ticket.machineModel ? ` · ${escapeHtml(ticket.machineModel)}` : ""}</div>
           <div class="ticket-history-detail-item full"><span class="ticket-history-detail-label">Título</span>${escapeHtml(ticket.title || "—")}</div>
           <div class="ticket-history-detail-item full"><span class="ticket-history-detail-label">Descripción</span>${escapeHtml(ticket.description || "—")}</div>
-          <div class="ticket-history-detail-item full"><span class="ticket-history-detail-label">Imágenes adjuntas (${photos.length}/2)</span><div class="ticket-history-detail-photos">${photos.map((image, index) => `<img src="${escapeHtml(image)}" alt="Imagen ${index + 1} del ticket" data-history-image="${escapeHtml(image)}" loading="lazy">`).join("") || "Sin imágenes adjuntas"}</div></div>
+          <div class="ticket-history-detail-item full"><span class="ticket-history-detail-label">Imágenes adjuntas (${photos.length}/4)</span><div class="ticket-history-detail-photos">${photos.map((image, index) => `<img src="${escapeHtml(image)}" alt="Imagen ${index + 1} del ticket" data-history-image="${escapeHtml(image)}" loading="lazy">`).join("") || "Sin imágenes adjuntas"}</div></div>
         </div>`;
       $("ticketHistoryModal").hidden = false;
       $("closeTicketHistoryModal").focus();
@@ -1644,7 +1644,7 @@
             </div>
             <div class="machine-record-actions">
               <button class="machine-save-button" type="submit">Enviar ticket</button>
-              <button class="back-button" type="button" data-toggle-maintenance-image-menu aria-expanded="false">Agregar imágenes (${maintenanceImages.length}/2)</button>
+              <button class="back-button" type="button" data-toggle-maintenance-image-menu aria-expanded="false">Agregar imágenes (${maintenanceImages.length}/4)</button>
             </div>
             <div class="maintenance-image-picker">
               <div class="maintenance-image-menu" data-maintenance-image-menu hidden>
@@ -1654,7 +1654,7 @@
               <input class="maintenance-image-input" id="maintenanceGalleryInput" type="file" accept="image/*" multiple>
               <input class="maintenance-image-input" id="maintenanceCameraInput" type="file" accept="image/*" capture="environment">
               <div class="maintenance-image-list">${imageMarkup}</div>
-              <p class="maintenance-image-caption">Puedes adjuntar hasta 2 imágenes desde tu dispositivo o tomar una foto con la cámara.</p>
+              <p class="maintenance-image-caption">Puedes adjuntar hasta 4 fotografías desde tu dispositivo o tomar fotos con la cámara.</p>
             </div>
           </form>
         </article>`;
@@ -1857,7 +1857,7 @@
       }
       const imageSourceButton = event.target.closest("[data-select-maintenance-images]");
       if (imageSourceButton) {
-        const maxImages = leaderMode && leaderMaintenanceMode ? 2 : 4;
+        const maxImages = 4;
         if (maintenanceImages.length >= maxImages) {
           window.alert(`Solo puedes adjuntar un máximo de ${maxImages} fotografías.`);
           return;
@@ -1917,7 +1917,7 @@
       const files = Array.from(input.files || []);
       input.value = "";
       if (!files.length) return;
-      const maxImages = leaderMode && leaderMaintenanceMode ? 2 : 4;
+      const maxImages = 4;
       const availableSlots = Math.max(0, maxImages - maintenanceImages.length);
       if (files.length > availableSlots) window.alert(`Puedes adjuntar un máximo de ${maxImages} fotografías.`);
       const selectedFiles = files.slice(0, availableSlots);
@@ -1969,7 +1969,7 @@
           machineModel: currentMachine.item.model || "",
           title: $("ticketTitle").value.trim(),
           description: $("ticketDescription").value.trim(),
-          images: maintenanceImages.slice(0, 2),
+          images: maintenanceImages.slice(0, 4),
           createdAt: new Date().toISOString()
         };
         try {
