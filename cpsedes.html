@@ -1280,7 +1280,7 @@
             work: entry.work || "",
             replacement: entry.replacement || "",
             observations: entry.observations || "",
-            images: Array.isArray(entry.images) ? entry.images.slice(0, 2) : [],
+            images: Array.isArray(entry.images) ? entry.images.slice(0, 4) : [],
             tickets: relatedTickets
           });
         });
@@ -1453,7 +1453,7 @@
       const logoUrl = new URL("IMG/logo-header.png", window.location.href).href;
       const pages = events.map((event, index) => {
         const photos = event.images.length
-          ? `<section class="section"><h2>Registro fotográfico</h2><div class="photos">${event.images.map((image, photoIndex) => `<figure><img src="${escapeHtml(image)}" alt="Fotografía ${photoIndex + 1}"><figcaption>Fotografía ${photoIndex + 1}</figcaption></figure>`).join("")}</div></section>`
+          ? `<section class="section"><h2>Registro fotográfico</h2><div class="photos" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px">${event.images.map((image, photoIndex) => `<figure style="width:auto"><img src="${escapeHtml(image)}" alt="Fotografía ${photoIndex + 1}"><figcaption>Fotografía ${photoIndex + 1}</figcaption></figure>`).join("")}</div></section>`
           : `<section class="section"><h2>Registro fotográfico</h2><p class="muted">Sin fotografías adjuntas.</p></section>`;
         const ticketText = event.tickets.length ? event.tickets.map(ticket => ticket.ticketNumber || "Ticket sin número").join(", ") : "Sin ticket asociado";
         const equipmentPhoto = event.equipmentImage
@@ -2074,6 +2074,71 @@
       });
     }
 
+    async function useMaintenanceCamera() {
+      if (maintenanceImages.length >= 4) {
+        window.alert("Solo puedes adjuntar un máximo de 4 fotografías.");
+        return;
+      }
+      if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
+        window.alert("El acceso directo a la cámara requiere una conexión segura (HTTPS) y un navegador compatible. Abre el sitio publicado con HTTPS y permite el acceso a la cámara cuando Edge, Chrome o Safari lo solicite.");
+        $("maintenanceCameraInput")?.click();
+        return;
+      }
+      let stream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" } }, audio: false });
+      } catch (error) {
+        const message = error.name === "NotAllowedError" || error.name === "SecurityError"
+          ? "No se concedió permiso para usar la cámara. Habilítalo en los permisos del sitio del navegador y vuelve a intentarlo."
+          : error.name === "NotFoundError" ? "No se encontró una cámara disponible en este dispositivo."
+            : "No se pudo abrir la cámara. Revisa los permisos del sitio y que ninguna otra aplicación la esté usando.";
+        window.alert(message);
+        return;
+      }
+      const machineKey = currentMachine?.recordKey;
+      const modal = document.createElement("div");
+      modal.setAttribute("role", "dialog");
+      modal.setAttribute("aria-modal", "true");
+      modal.setAttribute("aria-label", "Tomar fotografía del mantenimiento");
+      modal.style.cssText = "position:fixed;inset:0;z-index:10000;background:#090a0ddd;display:grid;place-items:center;padding:16px";
+      modal.innerHTML = `<div style="width:min(720px,100%);background:#191b22;border:1px solid #383b47;border-radius:14px;padding:16px;color:#f5f6fa"><h2 style="margin:0 0 6px;font-size:18px">Tomar fotografía</h2><p style="margin:0 0 12px;color:#b9bdca;font-size:13px">El navegador solicitará permiso para acceder a la cámara. Puedes agregar hasta 4 fotografías.</p><video autoplay playsinline style="display:block;width:100%;max-height:65vh;background:#000;border-radius:10px;object-fit:contain"></video><div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px"><button type="button" data-camera-cancel class="back-button">Cancelar</button><button type="button" data-camera-capture class="machine-save-button">Tomar foto</button></div></div>`;
+      const video = modal.querySelector("video");
+      video.srcObject = stream;
+      video.play().catch(() => {});
+      document.body.append(modal);
+      const close = () => {
+        stream.getTracks().forEach(track => track.stop());
+        modal.remove();
+        document.removeEventListener("keydown", onKeyDown);
+      };
+      const onKeyDown = event => { if (event.key === "Escape") close(); };
+      document.addEventListener("keydown", onKeyDown);
+      modal.addEventListener("click", event => { if (event.target === modal || event.target.closest("[data-camera-cancel]")) close(); });
+      modal.querySelector("[data-camera-capture]").addEventListener("click", async event => {
+        const button = event.currentTarget;
+        button.disabled = true;
+        try {
+          const canvas = document.createElement("canvas");
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+          if (!canvas.width || !canvas.height) throw new Error("La cámara todavía no está lista. Inténtalo nuevamente.");
+          canvas.getContext("2d")?.drawImage(video, 0, 0, canvas.width, canvas.height);
+          const blob = await new Promise(resolve => canvas.toBlob(resolve, "image/jpeg", 0.9));
+          if (!blob) throw new Error("No se pudo capturar la fotografía.");
+          const image = await compressMaintenanceImage(new File([blob], `mantenimiento-${Date.now()}.jpg`, { type: "image/jpeg" }));
+          if (!currentMachine || currentMachine.recordKey !== machineKey) return close();
+          if (maintenanceImages.length >= 4) throw new Error("Ya alcanzaste el máximo de 4 fotografías.");
+          maintenanceImages.push(image);
+          captureMaintenanceDraft();
+          close();
+          renderMachineDetail(currentMachine);
+        } catch (error) {
+          button.disabled = false;
+          window.alert(error.message || "No se pudo guardar la fotografía.");
+        }
+      });
+    }
+
     function currentLocalDate() {
       const date = new Date();
       const pad = value => String(value).padStart(2, "0");
@@ -2130,7 +2195,7 @@
       const imageContext = `${machine.recordKey}:${editingMaintenance?.id || "new"}`;
       if (maintenanceImageContext !== imageContext) {
         maintenanceImageContext = imageContext;
-        maintenanceImages = Array.isArray(editingMaintenance?.images) ? editingMaintenance.images.slice(0, 2) : [];
+        maintenanceImages = Array.isArray(editingMaintenance?.images) ? editingMaintenance.images.slice(0, 4) : [];
       }
       const maintenanceImageMarkup = maintenanceImages.map((image, index) => `
         <div class="maintenance-image-thumb-wrap">
@@ -2140,7 +2205,7 @@
           <button class="maintenance-image-remove" type="button" data-remove-maintenance-image="${index}" aria-label="Eliminar imagen ${index + 1}">×</button>
         </div>`).join("");
       const maintenanceLogPhotos = entry => Array.isArray(entry.images) && entry.images.length
-        ? `<div class="machine-log-photos">${entry.images.slice(0, 2).map((image, index) => `<button class="maintenance-image-thumb" type="button" data-enlarge-image="${escapeHtml(image)}" data-image-alt="Imagen adjunta al mantenimiento" aria-label="Ampliar imagen adjunta"><img src="${escapeHtml(image)}" alt="Imagen adjunta ${index + 1}" loading="lazy"></button>`).join("")}</div>`
+        ? `<div class="machine-log-photos">${entry.images.slice(0, 4).map((image, index) => `<button class="maintenance-image-thumb" type="button" data-enlarge-image="${escapeHtml(image)}" data-image-alt="Imagen adjunta al mantenimiento" aria-label="Ampliar imagen adjunta"><img src="${escapeHtml(image)}" alt="Imagen adjunta ${index + 1}" loading="lazy"></button>`).join("")}</div>`
         : "";
       const editingMileage = editingMachineRecord?.type === "mileage"
         ? record.mileage.find(entry => entry.id === editingMachineRecord.id)
@@ -2212,7 +2277,7 @@
                 <div class="machine-form-field"><label for="maintenanceTechnician">Técnico / responsable</label><input id="maintenanceTechnician" value="${escapeHtml(editingMaintenance ? (editingMaintenance.technician || "Sin responsable registrado") : user.name)}" readonly aria-readonly="true"></div>
                 <div class="machine-form-field full"><label for="maintenanceObservations">Observaciones</label><textarea id="maintenanceObservations" placeholder="Detalle adicional">${escapeHtml(savedDraft ? savedDraft.observations : editingMaintenance?.observations || "")}</textarea></div>
               </div>
-              <div class="machine-record-actions"><button class="machine-save-button" type="submit">${editingMaintenance ? "Guardar cambios" : "Guardar"}</button><button class="back-button" type="button" data-toggle-maintenance-image-menu aria-expanded="false">Agregar imágenes (${maintenanceImages.length}/2)</button><button class="back-button machine-request-button" type="button" data-open-parts-request="machine">Pedir repuesto</button>${editingMaintenance ? '<button class="back-button" type="button" data-cancel-machine-edit>Cancelar edición</button>' : ""}</div>
+              <div class="machine-record-actions"><button class="machine-save-button" type="submit">${editingMaintenance ? "Guardar cambios" : "Guardar"}</button><button class="back-button" type="button" data-toggle-maintenance-image-menu aria-expanded="false">Agregar imágenes (${maintenanceImages.length}/4)</button><button class="back-button machine-request-button" type="button" data-open-parts-request="machine">Pedir repuesto</button>${editingMaintenance ? '<button class="back-button" type="button" data-cancel-machine-edit>Cancelar edición</button>' : ""}</div>
               <div class="maintenance-image-picker">
                 <div class="maintenance-image-menu" data-maintenance-image-menu hidden>
                   <button class="back-button" type="button" data-select-maintenance-images="gallery">Desde almacenamiento</button>
@@ -2221,7 +2286,7 @@
                 <input class="maintenance-image-input" id="maintenanceGalleryInput" type="file" accept="image/*" multiple>
                 <input class="maintenance-image-input" id="maintenanceCameraInput" type="file" accept="image/*" capture="environment">
                 <div class="maintenance-image-list">${maintenanceImageMarkup}</div>
-                <p class="maintenance-image-caption">Puedes adjuntar hasta 2 imágenes desde tu dispositivo o tomar una foto con la cámara.</p>
+                <p class="maintenance-image-caption">Puedes adjuntar hasta 4 fotografías desde tu dispositivo o tomar fotos con la cámara.</p>
               </div>
             </form>
           </article>
@@ -2627,8 +2692,12 @@
       }
       const imageSourceButton = event.target.closest("[data-select-maintenance-images]");
       if (imageSourceButton) {
-        if (maintenanceImages.length >= 2) {
-          window.alert("Solo puedes adjuntar un máximo de 2 imágenes.");
+        if (maintenanceImages.length >= 4) {
+          window.alert("Solo puedes adjuntar un máximo de 4 fotografías.");
+          return;
+        }
+        if (imageSourceButton.dataset.selectMaintenanceImages === "camera") {
+          useMaintenanceCamera();
           return;
         }
         const inputId = imageSourceButton.dataset.selectMaintenanceImages === "camera"
@@ -2689,8 +2758,8 @@
       const files = Array.from(input.files || []);
       input.value = "";
       if (!files.length) return;
-      const availableSlots = Math.max(0, 2 - maintenanceImages.length);
-      if (files.length > availableSlots) window.alert("Puedes adjuntar un máximo de 2 imágenes.");
+      const availableSlots = Math.max(0, 4 - maintenanceImages.length);
+      if (files.length > availableSlots) window.alert("Puedes adjuntar un máximo de 4 fotografías.");
       const selectedFiles = files.slice(0, availableSlots);
       if (!selectedFiles.length) return;
       const machineRecordKey = currentMachine?.recordKey;
@@ -2725,7 +2794,7 @@
           replacement: $("maintenanceReplacement").value.trim(),
           technician: existingMaintenance ? (existingMaintenance.technician || "Sin responsable registrado") : $("maintenanceTechnician").value.trim(),
           observations: $("maintenanceObservations").value.trim(),
-          images: maintenanceImages.slice(0, 2),
+          images: maintenanceImages.slice(0, 4),
           ticketIds: existingMaintenance && Array.isArray(existingMaintenance.ticketIds) ? [...existingMaintenance.ticketIds] : [],
           recordedById: existingMaintenance?.recordedById || user.id,
           recordedByName: existingMaintenance?.recordedByName || user.name,

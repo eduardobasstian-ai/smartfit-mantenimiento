@@ -1207,7 +1207,7 @@
             work: entry.work || "",
             replacement: entry.replacement || "",
             observations: entry.observations || "",
-            images: Array.isArray(entry.images) ? entry.images.slice(0, 2) : [],
+            images: Array.isArray(entry.images) ? entry.images.slice(0, 4) : [],
             tickets: eventTickets
           });
         });
@@ -1431,7 +1431,7 @@
       const logoUrl = new URL("IMG/logo-header.png", window.location.href).href;
       const pages = events.map((event, index) => {
         const photos = event.images.length
-          ? `<section class="section"><h2>Registro fotográfico</h2><div class="photos">${event.images.map((image, photoIndex) => `<figure><img src="${escapeHtml(image)}" alt="Fotografía ${photoIndex + 1}"><figcaption>Fotografía ${photoIndex + 1}</figcaption></figure>`).join("")}</div></section>`
+          ? `<section class="section"><h2>Registro fotográfico</h2><div class="photos" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px">${event.images.map((image, photoIndex) => `<figure style="width:auto"><img src="${escapeHtml(image)}" alt="Fotografía ${photoIndex + 1}"><figcaption>Fotografía ${photoIndex + 1}</figcaption></figure>`).join("")}</div></section>`
           : `<section class="section"><h2>Registro fotográfico</h2><p class="muted">Sin fotografías adjuntas.</p></section>`;
         const ticketText = event.tickets.length ? event.tickets.map(ticket => ticket.ticketNumber || "Ticket sin número").join(", ") : "Sin ticket asociado";
         const equipmentPhoto = event.equipmentImage
