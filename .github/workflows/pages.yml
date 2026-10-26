@@ -23,8 +23,8 @@ jobs:
       - name: Preparar versión pública
         run: |
           mkdir -p _site/IMG _site/EQU
-          cp index.html cpadmin.html cpsedes.html cplider.html change-password.html admin-store.js supabase-auth.js supabase-data.js _site/
-          cp IMG/favicon.ico IMG/favicon.png IMG/logo-header.png _site/IMG/
+          cp index.html cpadmin.html cpsedes.html cplider.html change-password.html admin-store.js supabase-auth.js supabase-data.js online-only.js manifest.webmanifest _site/
+          cp IMG/favicon.ico IMG/favicon.png IMG/logo-header.png IMG/pwa-180.png IMG/pwa-192.png IMG/pwa-512.png _site/IMG/
           cp -R EQU/. _site/EQU/
           touch _site/.nojekyll
       - uses: actions/upload-pages-artifact@v3
