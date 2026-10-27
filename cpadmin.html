@@ -1035,7 +1035,7 @@
   <script src="supabase-data.js?v=20261026-offline-drafts"></script>
   <script src="EQU/matrix-catalog.js"></script>
   <script src="EQU/booty-catalog.js"></script>
-  <script src="EQU/other-catalogs.js"></script>
+  <script src="EQU/other-catalogs.js?v=20261026-lifefitness-smith"></script>
   <script>
     "use strict";
 
@@ -1159,7 +1159,7 @@
               site,
               item,
               activeFixed: unit.activeFixed,
-              equipmentImage: item.image || catalogItem?.image || "",
+              equipmentImage: catalogItem?.image || item.image || "",
               equipmentName: item.name || catalogItem?.name || "Equipo",
               model: item.model || catalogItem?.model || "",
               brandName: item.brandName || brand?.name || catalogItem?.brandName || ""
@@ -1563,7 +1563,7 @@
         equipment.find(candidate => Array.isArray(candidate.units) && candidate.units.some(unit => String(unit.activeFixed ?? "N/A") === fixedNumber));
       if (!item) return "";
       const catalogItem = catalogEquipment.find(candidate => candidate.catalogId === item.catalogId);
-      return item.image || catalogItem?.image || "";
+      return catalogItem?.image || item.image || "";
     }
 
     function exportTicketsPdf(tickets, reportTitle) {
@@ -2043,8 +2043,10 @@
         grouped.get(brand).sort((a, b) => `${a.item.name} ${a.item.model}`.localeCompare(`${b.item.name} ${b.item.model}`, "es"));
         grouped.get(brand).forEach(({ item, unit }) => {
           const isEditing = editingFixedUnitId === unit.unitId;
+          const catalogItem = catalogEquipment.find(entry => entry.catalogId === item.catalogId);
+          const image = catalogItem?.image || item.image || "";
           rows += `<tr>
-            <td>${item.image ? `<img class="inventory-thumb" src="${escapeHtml(item.image)}" alt="${escapeHtml(item.name)}" data-inventory-image>` : "—"}</td>
+            <td>${image ? `<img class="inventory-thumb" src="${escapeHtml(image)}" alt="${escapeHtml(item.name)}" data-inventory-image>` : "—"}</td>
             <td><span class="user-name">${escapeHtml(item.name)}</span></td>
             <td>${escapeHtml(item.model || "—")}</td>
             <td>${escapeHtml(item.category || "—")}</td>
@@ -2308,6 +2310,10 @@
       }
     });
     $("siteEquipmentGrid").addEventListener("click", event => {
+      const thumbnail = event.target.closest(".matrix-thumb");
+      if (thumbnail) openMatrixImage(thumbnail.currentSrc || thumbnail.src, thumbnail.alt);
+    });
+    $("matrixGrid").addEventListener("click", event => {
       const thumbnail = event.target.closest(".matrix-thumb");
       if (thumbnail) openMatrixImage(thumbnail.currentSrc || thumbnail.src, thumbnail.alt);
     });

@@ -715,7 +715,7 @@
   <script src="supabase-data.js?v=20261026-offline-drafts"></script>
   <script src="EQU/matrix-catalog.js"></script>
   <script src="EQU/booty-catalog.js"></script>
-  <script src="EQU/other-catalogs.js"></script>
+  <script src="EQU/other-catalogs.js?v=20261026-lifefitness-smith"></script>
   <script>
     "use strict";
     const $ = id => document.getElementById(id);
@@ -791,6 +791,14 @@
       "brand-matrix": Array.isArray(window.MATRIX_CATALOG) ? window.MATRIX_CATALOG : [],
       "brand-booty-builder": Array.isArray(window.BOOTY_CATALOG) ? window.BOOTY_CATALOG : []
     }, window.BRAND_EQUIPMENT_CATALOGS || {});
+
+    function supervisorCatalogImage(item) {
+      const brand = brandDirectory.find(entry => entry.id === item.brandId) || brandDirectory.find(entry => normalizeChartLabel(entry.name) === normalizeChartLabel(item.brandName));
+      const brandId = item.brandId || String(item.catalogId || "").split(":")[0] || brand?.id || "";
+      const catalog = (supervisorEquipmentCatalogs[brandId] || []).find((entry, index) => `${brandId}:${index}` === item.catalogId) ||
+        (supervisorEquipmentCatalogs[brandId] || []).find(entry => normalizeChartLabel(entry.name) === normalizeChartLabel(item.name) && normalizeChartLabel(entry.model) === normalizeChartLabel(item.model));
+      return catalog?.image || item.image || "";
+    }
 
     if (supervisorMode) {
       document.title = "Panel supervisor | Mantenimiento";
@@ -1010,7 +1018,6 @@
           const brand = brandDirectory.find(entry => entry.id === item.brandId) || brandDirectory.find(entry => normalizeChartLabel(entry.name) === normalizeChartLabel(item.brandName));
           const brandId = item.brandId || brand?.id || "";
           const units = Array.isArray(item.units) && item.units.length ? item.units : Array.from({ length: Math.max(0, Number(item.quantity) || 0) }, (_, index) => ({ unitId: `${item.catalogId || brandId || "equipo"}:${index}` }));
-          const catalog = (supervisorEquipmentCatalogs[brandId] || []).find((entry, index) => `${brandId}:${index}` === item.catalogId);
           units.forEach((unit, index) => {
             const unitId = unit.unitId || `${item.catalogId || brandId || "equipo"}:${index}`;
             const fixed = unit.activeFixed === "" || unit.activeFixed == null ? "N/A" : String(unit.activeFixed);
@@ -1018,7 +1025,7 @@
             if (search && !normalizeChartLabel(fixed).includes(search)) return;
             const displayBrandName = item.brandName || "Sin marca";
             const equipment = { siteId: site.id, unitId, recordKey: `${site.id}::${unitId}`, siteName: site.name, supervisor: site.supervisor || user.name, technician: technician?.name || site.technician || "Sin técnico asignado", technicianId: technician?.id || "", activeFixed: fixed, machineName: item.name || "Equipo", machineModel: item.model || "" };
-            const image = item.image || catalog?.image || "";
+            const image = supervisorCatalogImage(item);
             const imageMarkup = image
               ? `<button class="machine-image-button" type="button" data-enlarge-image="${escapeHtml(image)}" data-image-alt="${escapeHtml(equipment.machineName)} ${escapeHtml(equipment.machineModel)}" aria-label="Ampliar imagen de ${escapeHtml(equipment.machineName)}"><img src="${escapeHtml(image)}" alt="${escapeHtml(equipment.machineName)}" loading="lazy"><span class="zoom-indicator" aria-hidden="true">⌕</span></button>`
               : '<span class="image-placeholder">Sin imagen</span>';
@@ -1162,10 +1169,7 @@
       const item = equipment.find(candidate => normalizeChartLabel(candidate.name) === machineName && (!machineModel || normalizeChartLabel(candidate.model) === machineModel)) ||
         equipment.find(candidate => Array.isArray(candidate.units) && candidate.units.some(unit => String(unit.activeFixed ?? "N/A") === fixedNumber));
       if (!item) return "";
-      const brand = brandDirectory.find(candidate => candidate.id === item.brandId) || brandDirectory.find(candidate => normalizeChartLabel(candidate.name) === normalizeChartLabel(item.brandName));
-      const brandId = item.brandId || brand?.id || "";
-      const catalogItem = (supervisorEquipmentCatalogs[brandId] || []).find((candidate, index) => `${brandId}:${index}` === item.catalogId);
-      return item.image || catalogItem?.image || "";
+      return supervisorCatalogImage(item);
     }
 
     function exportTicketsReport(tickets, reportTitle) {
@@ -1238,15 +1242,13 @@
 
       sites.forEach(site => (Array.isArray(site.equipment) ? site.equipment : []).forEach(item => {
         const brand = brandDirectory.find(entry => entry.id === item.brandId) || brandDirectory.find(entry => normalizeChartLabel(entry.name) === normalizeChartLabel(item.brandName));
-        const brandId = item.brandId || brand?.id || "";
-        const catalogItem = (supervisorEquipmentCatalogs[brandId] || []).find((candidate, index) => `${brandId}:${index}` === item.catalogId);
         const units = Array.isArray(item.units) && item.units.length ? item.units : Array.from({ length: Math.max(0, Number(item.quantity) || 0) }, () => ({}));
         units.forEach((unit, index) => {
           const unitKey = unit.unitId || `${item.catalogId || item.brandId || brand?.id || "equipo"}:${index}`;
           metadataByKey.set(`${site.id}::${unitKey}`, {
             name: item.name || "Equipo",
             model: item.model || "",
-            image: item.image || catalogItem?.image || "",
+            image: supervisorCatalogImage(item),
             activeFixed: unit.activeFixed,
             brandName: item.brandName || brand?.name || ""
           });
@@ -1926,10 +1928,11 @@
       $("siteGrid").innerHTML = filteredMachines.map(({ machine, index }) => {
         const { item, unit } = machine;
         const ticketCount = countMachineTickets(machine, tickets);
+        const image = supervisorCatalogImage(item);
         return `
         <article class="machine-card" data-open-machine="${index}" role="button" tabindex="0" aria-label="Abrir ficha de ${escapeHtml(item.name || "Equipo")}">
-          ${item.image
-            ? `<button class="machine-image-button" type="button" data-enlarge-image="${escapeHtml(item.image)}" data-image-alt="${escapeHtml(item.name)} ${escapeHtml(item.model || "")}" aria-label="Ampliar imagen de ${escapeHtml(item.name)}"><img src="${escapeHtml(item.image)}" alt="${escapeHtml(item.name)}" loading="lazy"><span class="zoom-indicator" aria-hidden="true">⌕</span></button>`
+          ${image
+            ? `<button class="machine-image-button" type="button" data-enlarge-image="${escapeHtml(image)}" data-image-alt="${escapeHtml(item.name)} ${escapeHtml(item.model || "")}" aria-label="Ampliar imagen de ${escapeHtml(item.name)}"><img src="${escapeHtml(image)}" alt="${escapeHtml(item.name)}" loading="lazy"><span class="zoom-indicator" aria-hidden="true">⌕</span></button>`
             : '<span class="image-placeholder">Sin imagen</span>'}
           <div class="machine-info">
             <div class="machine-title-row"><h3>${escapeHtml(item.name || "Equipo")}</h3><span class="machine-active-fixed">AF: ${unit.activeFixed === "" || unit.activeFixed === undefined || unit.activeFixed === null ? "N/A" : escapeHtml(unit.activeFixed)}</span></div>

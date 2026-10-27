@@ -590,6 +590,7 @@
   <script src="admin-store.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="supabase-data.js?v=20261026-offline-drafts"></script>
+  <script src="EQU/other-catalogs.js?v=20261026-lifefitness-smith"></script>
   <script>
     "use strict";
     const $ = id => document.getElementById(id);
@@ -737,6 +738,14 @@
 
     function normalizeChartLabel(value) {
       return String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLocaleLowerCase("es");
+    }
+
+    function catalogImageForEquipment(item) {
+      const brand = brandDirectory.find(entry => entry.id === item.brandId) || brandDirectory.find(entry => normalizeChartLabel(entry.name) === normalizeChartLabel(item.brandName));
+      const brandId = item.brandId || String(item.catalogId || "").split(":")[0] || brand?.id || "";
+      const catalog = (window.BRAND_EQUIPMENT_CATALOGS?.[brandId] || []).find((entry, index) => `${brandId}:${index}` === item.catalogId) ||
+        (window.BRAND_EQUIPMENT_CATALOGS?.[brandId] || []).find(entry => normalizeChartLabel(entry.name) === normalizeChartLabel(item.name) && normalizeChartLabel(entry.model) === normalizeChartLabel(item.model));
+      return catalog?.image || item.image || "";
     }
 
     function formatSupervisorRegion(value) {
@@ -1257,8 +1266,8 @@
         });
       $("siteGrid").innerHTML = filteredMachines.map(({ machine: { item, unit, siteName, brandName }, index }) => `
         <article class="machine-card" data-open-machine="${index}" role="button" tabindex="0" aria-label="Abrir ficha de ${escapeHtml(item.name || "Equipo")}">
-          ${item.image
-            ? `<button class="machine-image-button" type="button" data-enlarge-image="${escapeHtml(item.image)}" data-image-alt="${escapeHtml(item.name)} ${escapeHtml(item.model || "")}" aria-label="Ampliar imagen de ${escapeHtml(item.name)}"><img src="${escapeHtml(item.image)}" alt="${escapeHtml(item.name)}" loading="lazy"><span class="zoom-indicator" aria-hidden="true">⌕</span></button>`
+          ${catalogImageForEquipment(item)
+            ? `<button class="machine-image-button" type="button" data-enlarge-image="${escapeHtml(catalogImageForEquipment(item))}" data-image-alt="${escapeHtml(item.name)} ${escapeHtml(item.model || "")}" aria-label="Ampliar imagen de ${escapeHtml(item.name)}"><img src="${escapeHtml(catalogImageForEquipment(item))}" alt="${escapeHtml(item.name)}" loading="lazy"><span class="zoom-indicator" aria-hidden="true">⌕</span></button>`
             : '<span class="image-placeholder">Sin imagen</span>'}
           <div class="machine-info">
             <div class="machine-title-row"><h3>${escapeHtml(item.name || "Equipo")}</h3><span class="machine-active-fixed">AF: ${unit.activeFixed === "" || unit.activeFixed === undefined || unit.activeFixed === null ? "N/A" : escapeHtml(unit.activeFixed)}</span></div>
