@@ -897,7 +897,7 @@
     <div class="environment">
       <span class="environment-dot" aria-hidden="true"></span>
       <span>Portal de acceso</span>
-      <button type="button" class="access-button" id="accessButton">Acceso</button>
+      <button type="button" class="access-button" id="accessButton" aria-haspopup="dialog">Acceso Supervisor</button>
       <button type="button" class="leader-button" id="leaderButton" aria-haspopup="dialog">Acceso Líder</button>
       <button type="button" class="admin-button" id="adminButton">Administrador</button>
     </div>
@@ -932,7 +932,7 @@
             </button>
             <div class="picker-menu" id="technicianMenu" hidden>
               <input class="picker-search" id="technicianSearch" type="search" placeholder="Buscar nombre o usuario..." autocomplete="off" aria-label="Buscar en la nómina">
-              <div class="options-list" id="technicianOptions" role="listbox" aria-label="Técnicos y supervisores"></div>
+              <div class="options-list" id="technicianOptions" role="listbox" aria-label="Técnicos activos"></div>
             </div>
           </div>
           <div class="control username-wrap" id="usernameFallback" hidden>
@@ -1124,12 +1124,13 @@
 
     async function loadLoginDirectory() {
       try {
-        loginDirectory = await SmartFitSupabaseAuth.listLoginDirectory();
-        $("technicianValue").textContent = loginDirectory.length ? "Selecciona tu nombre..." : "No hay cuentas activas";
+        loginDirectory = (await SmartFitSupabaseAuth.listLoginDirectory())
+          .filter(account => account.role === "Técnico");
+        $("technicianValue").textContent = loginDirectory.length ? "Selecciona tu nombre..." : "No hay técnicos activos";
         if (!loginDirectory.length) {
           $("technicianPicker").hidden = true;
           $("usernameFallback").hidden = false;
-          showMessage("error", "No hay cuentas activas en la nómina. Puedes ingresar tu RUT o usuario manualmente.");
+          showMessage("error", "No hay técnicos activos en la nómina. Puedes ingresar tu RUT o usuario manualmente.");
         }
       } catch (error) {
         $("technicianPicker").hidden = true;
@@ -1173,8 +1174,8 @@
         $("password").focus();
         return;
       }
-      if (!["Técnico", "Supervisor"].includes(authenticatedUser.role)) {
-        showMessage("error", "Esta cuenta no tiene un perfil habilitado para este acceso.");
+      if (authenticatedUser.role !== "Técnico") {
+        showMessage("error", "Este acceso está habilitado únicamente para técnicos activos. Usa el acceso correspondiente a tu perfil.");
         SmartFitSupabaseAuth.clearSession();
         return;
       }
@@ -1351,17 +1352,76 @@
       });
     }
 
+    function openSupervisorModal() {
+      const modal = $("modalBackdrop").querySelector(".modal");
+      modal.classList.add("admin-mode");
+      $("modalTitle").textContent = "Acceso a Supervisor";
+      $("modalIcon").hidden = false;
+      $("modalBody").innerHTML = `
+        <form class="admin-login-form" id="supervisorLoginForm">
+          <div class="field">
+            <label class="field-label" for="supervisorRut">RUT o nombre de usuario</label>
+            <div class="control admin-control-wrap">
+              <span class="admin-field-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.5"></circle><path d="M5 20c.8-3.2 3.2-5 7-5s6.2 1.8 7 5"></path></svg></span>
+              <input class="admin-input" id="supervisorRut" name="username" type="text" placeholder="RUT o usuario" autocomplete="username" required>
+            </div>
+          </div>
+          <div class="field">
+            <label class="field-label" for="supervisorPassword">Clave</label>
+            <div class="control admin-control-wrap">
+              <span class="admin-field-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="11" rx="2"></rect><path d="M8 10V7a4 4 0 0 1 8 0v3"></path></svg></span>
+              <input class="admin-input" id="supervisorPassword" name="password" type="password" autocomplete="current-password" required>
+              <button class="show-password" type="button" id="toggleSupervisorPassword" aria-pressed="false">Mostrar</button>
+            </div>
+          </div>
+          <div class="message" id="supervisorMessage" role="status" aria-live="polite"></div>
+          <button type="submit" class="continue-btn">Ingresar</button>
+        </form>`;
+      $("modalBackdrop").hidden = false;
+      $("supervisorRut").focus();
+      $("toggleSupervisorPassword").addEventListener("click", () => {
+        const input = $("supervisorPassword");
+        const button = $("toggleSupervisorPassword");
+        const showing = input.type === "text";
+        input.type = showing ? "password" : "text";
+        button.textContent = showing ? "Mostrar" : "Ocultar";
+        button.setAttribute("aria-pressed", String(!showing));
+      });
+      $("supervisorLoginForm").addEventListener("submit", async event => {
+        event.preventDefault();
+        const message = $("supervisorMessage");
+        let supervisor;
+        try {
+          supervisor = await SmartFitSupabaseAuth.login($("supervisorRut").value, $("supervisorPassword").value);
+        } catch (error) {
+          message.className = "message visible error";
+          message.textContent = error.message || "RUT, usuario o clave incorrectos, o la cuenta está inactiva.";
+          return;
+        }
+        if (supervisor.role !== "Supervisor") {
+          SmartFitSupabaseAuth.clearSession();
+          message.className = "message visible error";
+          message.textContent = "Esta cuenta no tiene el perfil Supervisor.";
+          return;
+        }
+        try {
+          await SmartFitSupabaseData.recordAccess(supervisor);
+        } catch (error) {
+          console.warn("No se pudo sincronizar el acceso; se conserva en este navegador.", error);
+          AdminStore.recordAccess(supervisor);
+        }
+        sessionStorage.setItem("smartfit.site.session", JSON.stringify(supervisor));
+        window.location.href = supervisor.mustChangePassword ? "change-password.html" : "cpsedes.html";
+      });
+    }
+
     function closeModal() {
       $("modalBackdrop").hidden = true;
       $("modalIcon").hidden = true;
       $("modalBackdrop").querySelector(".modal").classList.remove("admin-mode");
     }
 
-    $("accessButton").addEventListener("click", () => {
-      $("loginForm").scrollIntoView({ behavior: "smooth", block: "center" });
-      if ($("usernameFallback").hidden) $("technicianTrigger").focus({ preventScroll: true });
-      else $("technicianUsername").focus({ preventScroll: true });
-    });
+    $("accessButton").addEventListener("click", openSupervisorModal);
 
     $("adminButton").addEventListener("click", openAdminModal);
     $("leaderButton").addEventListener("click", openLeaderModal);
