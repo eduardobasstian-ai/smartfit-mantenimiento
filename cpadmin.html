@@ -1999,6 +1999,15 @@
 
     function openSiteEquipmentModal() {
       const brands = catalogBrands.filter(brand => Array.isArray(brandCatalogs[brand.id]));
+      const availableBrandIds = new Set(brands.map(brand => brand.id));
+      Object.entries(brandCatalogs).forEach(([id, items]) => {
+        if (availableBrandIds.has(id)) return;
+        const name = items.find(item => item.brandName)?.brandName || id.replace(/^brand-/, "").replace(/[-_]+/g, " ").replace(/(^|\s)\S/g, letter => letter.toLocaleUpperCase("es"));
+        const shuaIndex = brands.findIndex(brand => brand.id === "brand-shua");
+        const insertAt = id === "brand-ubian" && shuaIndex >= 0 ? shuaIndex + 1 : brands.length;
+        brands.splice(insertAt, 0, { id, name });
+        availableBrandIds.add(id);
+      });
       $("siteEquipmentBrand").innerHTML = brands.map(brand => `<option value="${escapeHtml(brand.id)}">${escapeHtml(brand.name)}</option>`).join("");
       if (!brands.some(brand => brand.id === $("siteEquipmentBrand").value)) {
         $("siteEquipmentBrand").value = brands[0] ? brands[0].id : "";
