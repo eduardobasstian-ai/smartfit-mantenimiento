@@ -11,7 +11,8 @@
   <title>Mis sedes | Mantenimiento de Equipos</title>
   <link rel="icon" type="image/x-icon" href="IMG/favicon.ico">
   <link rel="icon" type="image/png" href="IMG/favicon.png">
-  <script src="./online-only.js?v=20261026-3"></script>
+  <script src="./online-only.js?v=20261026-5"></script>
+  <script src="./form-drafts.js?v=20261026-1"></script>
   <style>
     :root {
       --bg: #101116;
@@ -711,13 +712,17 @@
   </div>
   <script src="admin-store.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="supabase-data.js?v=20261025-chart-month-year"></script>
+  <script src="supabase-data.js?v=20261026-offline-drafts"></script>
   <script src="EQU/matrix-catalog.js"></script>
   <script src="EQU/booty-catalog.js"></script>
   <script src="EQU/other-catalogs.js"></script>
   <script>
     "use strict";
     const $ = id => document.getElementById(id);
+    function saveDraftImagesFor(form, images) {
+      const key = form?.dataset.smartfitDraftKey;
+      if (key) document.dispatchEvent(new CustomEvent("smartfit:form-draft-save-images", { detail: { key, images } }));
+    }
     let session = null;
     let adminMode = false;
     try {
@@ -761,6 +766,18 @@
     const TICKETS_STORAGE_KEY = "smartfit.leader-tickets.v1";
     let supervisorTicketImages = [];
     let supervisorTicketDraft = { recordKey: "", title: "", description: "" };
+    window.addEventListener("smartfit:form-draft-restored", event => {
+      const { form, fields, images } = event.detail || {};
+      if (!form) return;
+      if (form.id === "machineMaintenanceForm" && currentMachine) {
+        maintenanceDraft = { recordKey: currentMachine.recordKey, recordId: editingMachineRecord?.id || "", date: fields?.maintenanceDate || currentLocalDate(), type: fields?.maintenanceType || "Mantenimiento preventivo", work: fields?.maintenanceWork || "", replacement: fields?.maintenanceReplacement || "", observations: fields?.maintenanceObservations || "" };
+        if (Array.isArray(images)) maintenanceImages = images.slice(0, 4);
+      }
+      if (form.id === "supervisorRaiseTicketForm" && supervisorTicketEquipment) {
+        supervisorTicketDraft = { recordKey: supervisorTicketEquipment.recordKey, title: fields?.supervisorTicketTitle || "", description: fields?.supervisorTicketDescription || "" };
+        if (Array.isArray(images)) supervisorTicketImages = images.slice(0, 4);
+      }
+    });
     let supervisorTicketEquipment = null;
     let supervisorTicketSiteId = "";
     let supervisorTicketBrandId = "";
@@ -1028,7 +1045,7 @@
       $("pageTitle").textContent = equipment.machineName || "Equipo";
       $("technicianHeading").textContent = `${equipment.siteName} · ${equipment.machineModel || "Sin modelo"} · AF: ${equipment.activeFixed}`;
       $("supervisorRaiseTicketContent").innerHTML = `<div class="panel-heading"><div><h3>${escapeHtml(equipment.machineName || "Equipo")}</h3><p>${escapeHtml(equipment.siteName)} · ${escapeHtml(equipment.machineModel || "Sin modelo")} · AF: ${escapeHtml(equipment.activeFixed)}</p></div><button type="button" class="back-button" data-supervisor-ticket-back>← Volver a equipos</button></div>
-        <div class="machine-detail"><article class="machine-detail-card"><h3>Ticket de mantenimiento</h3><form id="supervisorRaiseTicketForm"><div class="machine-form-grid">
+        <div class="machine-detail"><article class="machine-detail-card"><h3>Ticket de mantenimiento</h3><form id="supervisorRaiseTicketForm" data-smartfit-draft-key="${escapeHtml(`${user.id}|${user.role}|ticket|${equipment.recordKey}`)}"><div class="machine-form-grid">
           <div class="machine-form-field"><label for="supervisorTicketAssignedSupervisor">Supervisor asignado</label><input id="supervisorTicketAssignedSupervisor" value="${escapeHtml(site?.supervisor || equipment.supervisor || "Sin supervisor asignado")}" readonly aria-readonly="true"></div>
           <div class="machine-form-field"><label for="supervisorTicketTechnician">Técnico asignado</label><input id="supervisorTicketTechnician" value="${escapeHtml(equipment.technician || "Sin técnico asignado")}" readonly aria-readonly="true"></div>
           <div class="machine-form-field"><label for="supervisorTicketDate">Fecha</label><input id="supervisorTicketDate" type="date" value="${escapeHtml(currentLocalDate())}" readonly aria-readonly="true"></div>
@@ -2134,6 +2151,7 @@
           if (!supervisorTicketEquipment || supervisorTicketEquipment.recordKey !== equipmentKey) return close();
           if (supervisorTicketImages.length >= 4) throw new Error("Ya alcanzaste el máximo de 4 fotografías.");
           supervisorTicketImages.push(image);
+          saveDraftImagesFor($("supervisorRaiseTicketForm"), supervisorTicketImages);
           close();
           renderSupervisorTicketForm(supervisorTicketEquipment);
         } catch (error) {
@@ -2198,6 +2216,7 @@
           if (!currentMachine || currentMachine.recordKey !== machineKey) return close();
           if (maintenanceImages.length >= 4) throw new Error("Ya alcanzaste el máximo de 4 fotografías.");
           maintenanceImages.push(image);
+          saveDraftImagesFor($("machineMaintenanceForm"), maintenanceImages);
           captureMaintenanceDraft();
           close();
           renderMachineDetail(currentMachine);
@@ -2337,7 +2356,7 @@
           <article class="machine-detail-card">
             <h3>Agregar actualización de mantenimiento</h3>
             ${machineTicketExecutionMarkup ? `<div class="maintenance-ticket-actions"><h4>Tickets del equipo</h4>${machineTicketExecutionMarkup}</div>` : ""}
-            <form id="machineMaintenanceForm">
+            <form id="machineMaintenanceForm" data-smartfit-draft-key="${escapeHtml(`${user.id}|${user.role}|maintenance|${machine.recordKey}|${editingMaintenance?.id || "new"}`)}">
               <div class="machine-form-grid">
               <div class="machine-form-field"><label for="maintenanceDate">Fecha</label><input id="maintenanceDate" type="date" value="${escapeHtml(savedDraft ? savedDraft.date : editingMaintenance?.date || currentLocalDate())}" required></div>
                 <div class="machine-form-field"><label for="maintenanceType">Tipo / estado</label><select id="maintenanceType">${[["Mantenimiento preventivo", "Preventivo"], ["Mantenimiento correctivo", "Correctivo"], ["Inspección", "Inspección"], ["Fuera de servicio", "Fuera de servicio"]].map(([value, label]) => `<option value="${value}"${(savedDraft ? savedDraft.type : editingMaintenance?.type || "Mantenimiento preventivo") === value ? " selected" : ""}>${label}</option>`).join("")}</select></div>
@@ -2373,7 +2392,7 @@
         ${treadmill ? `<section class="machine-tab-panel" data-machine-panel="mileage" ${currentMachineTab === "mileage" ? "" : "hidden"}>
           <article class="machine-detail-card">
             <h3>Historial de kilometraje (Km)</h3>
-            <form id="machineMileageForm">
+            <form id="machineMileageForm" data-smartfit-draft-key="${escapeHtml(`${user.id}|${user.role}|mileage|${machine.recordKey}|${editingMileage?.id || "new"}`)}">
               <div class="machine-form-grid">
                 <div class="machine-form-field"><label for="mileageDate">Fecha</label><input id="mileageDate" type="date" value="${escapeHtml(editingMileage ? mileageDateValue(editingMileage) : currentLocalDate())}"${canSetMileageDate ? "" : " readonly aria-readonly=\"true\""} required></div>
                 <div class="machine-form-field"><label for="mileageKm">Kilometraje (Km)</label><input id="mileageKm" type="number" min="0" step="0.1" value="${escapeHtml(editingMileage?.km ?? "")}" placeholder="Ej.: 12543.7" required></div>
@@ -2574,6 +2593,7 @@
     });
     $("supervisorRaiseTicketPanel").addEventListener("change", async event => {
       if (!["supervisorTicketGalleryInput", "supervisorTicketCameraInput"].includes(event.target.id)) return;
+      const draftKey = event.target.form?.dataset.smartfitDraftKey || "";
       const selectedFiles = Array.from(event.target.files || []);
       const availableSlots = Math.max(0, 4 - supervisorTicketImages.length);
       if (selectedFiles.length > availableSlots) window.alert("Puedes adjuntar un máximo de 4 fotografías.");
@@ -2583,13 +2603,16 @@
       try {
         const images = await Promise.all(files.map(compressMaintenanceImage));
         supervisorTicketImages.push(...images);
+        if (draftKey) document.dispatchEvent(new CustomEvent("smartfit:form-draft-save-images", { detail: { key: draftKey, images: supervisorTicketImages } }));
         renderSupervisorTicketForm(supervisorTicketEquipment);
       } catch (error) { window.alert(error.message || "No se pudieron cargar las imágenes."); }
     });
     $("supervisorRaiseTicketPanel").addEventListener("click", event => {
       const remove = event.target.closest("[data-remove-supervisor-ticket-image]");
       if (!remove) return;
+      const draftKey = remove.closest("form")?.dataset.smartfitDraftKey || "";
       supervisorTicketImages.splice(Number(remove.dataset.removeSupervisorTicketImage), 1);
+      if (draftKey) document.dispatchEvent(new CustomEvent("smartfit:form-draft-save-images", { detail: { key: draftKey, images: supervisorTicketImages } }));
       renderSupervisorTicketForm(supervisorTicketEquipment);
     });
     $("supervisorRaiseTicketPanel").addEventListener("submit", async event => {
@@ -2626,12 +2649,14 @@
       try {
         await SmartFitSupabaseData.persistTicket(ticket);
       } catch (error) {
+        document.dispatchEvent(new CustomEvent("smartfit:form-draft-clear", { detail: { key: event.target.dataset.smartfitDraftKey } }));
         supervisorTicketDraft = { recordKey: "", title: "", description: "" };
         supervisorTicketImages = [];
         renderSupervisorTickets();
         window.alert(`El ticket quedó guardado localmente y se reintentará sincronizar con Supabase al volver a iniciar sesión. ${error.message || ""}`);
         return;
       }
+      document.dispatchEvent(new CustomEvent("smartfit:form-draft-clear", { detail: { key: event.target.dataset.smartfitDraftKey } }));
       supervisorTicketDraft = { recordKey: "", title: "", description: "" };
       supervisorTicketImages = [];
       window.alert(`Ticket ${ticket.ticketNumber} registrado.`);
@@ -2778,7 +2803,9 @@
       }
       const removeImageButton = event.target.closest("[data-remove-maintenance-image]");
       if (removeImageButton) {
+        const draftKey = removeImageButton.closest("form")?.dataset.smartfitDraftKey || "";
         maintenanceImages.splice(Number(removeImageButton.dataset.removeMaintenanceImage), 1);
+        if (draftKey) document.dispatchEvent(new CustomEvent("smartfit:form-draft-save-images", { detail: { key: draftKey, images: maintenanceImages } }));
         renderMachineDetail(currentMachine);
         return;
       }
@@ -2825,6 +2852,7 @@
       const input = event.target;
       if (input.id === "maintenanceDate" || input.id === "maintenanceType") captureMaintenanceDraft();
       if (!(input instanceof HTMLInputElement) || !["maintenanceGalleryInput", "maintenanceCameraInput"].includes(input.id)) return;
+      const draftKey = input.form?.dataset.smartfitDraftKey || "";
       const files = Array.from(input.files || []);
       input.value = "";
       if (!files.length) return;
@@ -2837,6 +2865,7 @@
         const compressedImages = await Promise.all(selectedFiles.map(compressMaintenanceImage));
         if (!currentMachine || currentMachine.recordKey !== machineRecordKey) return;
         maintenanceImages.push(...compressedImages);
+        if (draftKey) document.dispatchEvent(new CustomEvent("smartfit:form-draft-save-images", { detail: { key: draftKey, images: maintenanceImages } }));
         renderMachineDetail(currentMachine);
       } catch (error) {
         window.alert(error.message || "No se pudieron cargar las imágenes.");
@@ -2885,6 +2914,7 @@
           if (!savedRecord.maintenance.some(savedEntry => savedEntry.id === entry.id)) {
             throw new Error("El navegador no confirmó el registro guardado.");
           }
+          document.dispatchEvent(new CustomEvent("smartfit:form-draft-clear", { detail: { key: event.target.dataset.smartfitDraftKey } }));
         } catch (error) {
           console.error("Error al guardar mantenimiento:", error);
           window.alert("No se pudo guardar el mantenimiento. Revisa el espacio disponible del navegador e inténtalo nuevamente; tus datos siguen en el formulario.");
@@ -2933,6 +2963,7 @@
         } else record.mileage.unshift(entry);
         record.mileage = sortMileageRecords(record.mileage);
         writeMachineRecord(currentMachine.recordKey, record);
+        document.dispatchEvent(new CustomEvent("smartfit:form-draft-clear", { detail: { key: event.target.dataset.smartfitDraftKey } }));
         try {
           await SmartFitSupabaseData.persistMachineRecord(currentMachine.recordKey, previousRecord, record);
         } catch (error) {

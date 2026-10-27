@@ -7,67 +7,69 @@
   var checking = false;
   var checkTimer;
   var failedChecks = 0;
+  var appLocked = false;
+
+  function setAppLocked(locked) {
+    appLocked = locked;
+    if (document.body) document.body.inert = locked;
+    document.documentElement.toggleAttribute("data-smartfit-offline", locked);
+  }
 
   function buildOverlay() {
     if (overlay) return;
 
     var style = document.createElement("style");
     style.textContent = [
-      "#smartfit-online-guard{position:fixed;inset:0;z-index:2147483647;display:grid;place-items:center;padding:24px;background:rgba(16,17,22,.98);color:#f5f6f8;font:15px/1.5 Arial,sans-serif}",
+      "#smartfit-online-guard{position:fixed;z-index:2147483647;top:14px;left:50%;transform:translateX(-50%);width:min(calc(100% - 28px),540px);display:flex;align-items:center;gap:12px;padding:12px 16px;border:1px solid #5a4925;border-radius:13px;background:#2c261a;color:#f5f6f8;font:14px/1.45 Arial,sans-serif;box-shadow:0 12px 35px #0005;opacity:1;transition:opacity .2s ease,transform .2s ease}",
       "#smartfit-online-guard[hidden]{display:none}",
-      "#smartfit-online-guard .smartfit-online-card{width:min(100%,460px);padding:28px;background:#191b22;border:1px solid #343743;border-radius:16px;text-align:center;box-shadow:0 18px 60px #0008}",
-      "#smartfit-online-guard h1{margin:0 0 10px;font-size:22px}",
-      "#smartfit-online-guard p{margin:0;color:#b9c0ce}",
-      "#smartfit-online-guard button{margin-top:22px;padding:12px 20px;border:0;border-radius:10px;background:#ffb51b;color:#171717;font:700 15px Arial,sans-serif;cursor:pointer}",
-      "#smartfit-online-guard button:disabled{opacity:.65;cursor:wait}"
+      "#smartfit-online-guard .smartfit-offline-icon{width:18px;height:18px;flex:0 0 18px;color:#ffb51b}",
+      "#smartfit-online-guard strong{color:#ffbd32}",
+      "#smartfit-online-guard span{min-width:0}",
+      "html[data-smartfit-offline] body{user-select:none}",
+      "@media(max-width:480px){#smartfit-online-guard{top:10px;width:calc(100% - 20px);padding:11px 13px;font-size:13px}}"
     ].join("");
     document.head.appendChild(style);
 
     overlay = document.createElement("div");
     overlay.id = "smartfit-online-guard";
-    overlay.setAttribute("role", "alertdialog");
-    overlay.setAttribute("aria-modal", "true");
-    overlay.setAttribute("aria-labelledby", "smartfit-online-title");
-    overlay.innerHTML = '<div class="smartfit-online-card"><h1 id="smartfit-online-title">Se requiere conexión a internet</h1><p id="smartfit-online-message">Verificando conexión…</p><button type="button">Reintentar</button></div>';
+    overlay.setAttribute("role", "status");
+    overlay.setAttribute("aria-live", "polite");
+    overlay.innerHTML = '<svg class="smartfit-offline-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.5 18.2h10.2a4.3 4.3 0 0 0 .5-8.6A6.2 6.2 0 0 0 5.7 8.4a4.9 4.9 0 0 0 .8 9.8Z"/><path d="m4 4 16 16"/></svg><span id="smartfit-online-message"><strong>No tienes conexión</strong></span>';
     document.documentElement.appendChild(overlay);
     message = overlay.querySelector("#smartfit-online-message");
-    retryButton = overlay.querySelector("button");
-    retryButton.addEventListener("click", function () {
-      checkConnection(true);
-    });
   }
 
-  function show(text) {
+  function show() {
     buildOverlay();
-    if (!overlay.hidden && message.textContent === text) return;
-    message.textContent = text;
+    if (!overlay.hidden) return;
     overlay.hidden = false;
-    document.documentElement.setAttribute("data-smartfit-online", "blocked");
+    setAppLocked(true);
   }
 
   function hide() {
     buildOverlay();
-    if (overlay.hidden) return;
+    var connectionWasBlocked = appLocked;
     overlay.hidden = true;
-    document.documentElement.removeAttribute("data-smartfit-online");
+    setAppLocked(false);
+    if (connectionWasBlocked && global.SmartFitSupabaseData?.retryPending) {
+      global.SmartFitSupabaseData.retryPending().catch(function (error) {
+        console.warn("Quedaron registros locales pendientes de sincronizar.", error);
+      });
+    }
   }
 
-  async function checkConnection(showProgress) {
+  async function checkConnection() {
     if (checking) return;
     checking = true;
     buildOverlay();
-    if (showProgress) retryButton.disabled = true;
 
     if (!navigator.onLine) {
       failedChecks = Math.max(failedChecks, 2);
-      show("Conéctate a internet y vuelve a intentarlo.");
-      retryButton.disabled = false;
+      show();
       checking = false;
       return;
     }
 
-    // Solo el botón de reintento muestra progreso; el monitoreo es invisible.
-    if (showProgress) show("Verificando conexión a internet…");
     try {
       var response = await fetch(new URL("./?online-check=" + Date.now(), window.location.href), {
         method: "GET",
@@ -81,32 +83,32 @@
     } catch (_error) {
       failedChecks += 1;
       // Una respuesta fallida aislada puede ser temporal; confirma antes de bloquear.
-      if (failedChecks >= 2 || showProgress) {
-        show("No hay conexión con el sitio. Conéctate a internet para usar SmartFit Mantenimiento.");
-      }
+      if (failedChecks >= 2) show();
     } finally {
-      retryButton.disabled = false;
       checking = false;
     }
   }
 
   buildOverlay();
   overlay.hidden = true;
+  document.addEventListener("DOMContentLoaded", function () {
+    if (appLocked) setAppLocked(true);
+  }, { once: true });
   window.addEventListener("offline", function () {
-    show("Conéctate a internet para continuar usando SmartFit Mantenimiento.");
+    show();
   });
   window.addEventListener("online", function () {
-    checkConnection(false);
+    checkConnection();
   });
   window.addEventListener("focus", function () {
-    checkConnection(false);
+    checkConnection();
   });
   document.addEventListener("visibilitychange", function () {
     if (!document.hidden) checkConnection();
   });
-  checkConnection(false);
+  checkConnection();
   checkTimer = window.setInterval(function () {
-    checkConnection(false);
+    checkConnection();
   }, 60000);
   window.addEventListener("pagehide", function () {
     window.clearInterval(checkTimer);

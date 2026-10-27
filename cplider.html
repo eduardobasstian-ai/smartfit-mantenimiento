@@ -11,7 +11,8 @@
   <title>Mis sedes | Mantenimiento de Equipos</title>
   <link rel="icon" type="image/x-icon" href="IMG/favicon.ico">
   <link rel="icon" type="image/png" href="IMG/favicon.png">
-  <script src="./online-only.js?v=20261026-3"></script>
+  <script src="./online-only.js?v=20261026-5"></script>
+  <script src="./form-drafts.js?v=20261026-1"></script>
   <style>
     :root {
       --bg: #101116;
@@ -588,10 +589,14 @@
   </div>
   <script src="admin-store.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="supabase-data.js?v=20261025-chart-month-year"></script>
+  <script src="supabase-data.js?v=20261026-offline-drafts"></script>
   <script>
     "use strict";
     const $ = id => document.getElementById(id);
+    function saveDraftImagesFor(form, images) {
+      const key = form?.dataset.smartfitDraftKey;
+      if (key) document.dispatchEvent(new CustomEvent("smartfit:form-draft-save-images", { detail: { key, images } }));
+    }
     let session = null;
     let adminMode = false;
     let leaderMode = false;
@@ -638,6 +643,15 @@
     const PARTS_REQUEST_URL = "https://solicitudrepuestos.lovable.app/";
     const MACHINE_RECORDS_KEY = "smartfit.machine-records.v1";
     const TICKETS_STORAGE_KEY = "smartfit.leader-tickets.v1";
+    window.addEventListener("smartfit:form-draft-restored", event => {
+      const { form, fields, images } = event.detail || {};
+      if (form?.id === "leaderMaintenanceTicketForm" && currentMachine) {
+        leaderTicketDraft = { recordKey: currentMachine.recordKey, title: fields?.ticketTitle || "", description: fields?.ticketDescription || "" };
+      }
+      if (form && Array.isArray(images) && ["machineMaintenanceForm", "leaderMaintenanceTicketForm"].includes(form.id)) {
+        maintenanceImages = images.slice(0, 4);
+      }
+    });
     const brandDirectory = AdminStore.listBrands();
 
     if (supervisorMode) {
@@ -1447,6 +1461,7 @@
           if (!currentMachine || currentMachine.recordKey !== machineKey) return close();
           if (maintenanceImages.length >= maxImages) throw new Error(`Ya alcanzaste el máximo de ${maxImages} fotografías.`);
           maintenanceImages.push(image);
+          saveDraftImagesFor($("siteGrid").querySelector("form[data-smartfit-draft-key]"), maintenanceImages);
           close();
           renderMachineDetail(currentMachine);
         } catch (error) {
@@ -1570,7 +1585,7 @@
         <section class="machine-tab-panel" data-machine-panel="maintenance" ${currentMachineTab === "maintenance" ? "" : "hidden"}>
           <article class="machine-detail-card">
             <h3>Agregar actualización de mantenimiento</h3>
-            <form id="machineMaintenanceForm">
+            <form id="machineMaintenanceForm" data-smartfit-draft-key="${escapeHtml(`${user.id}|${user.role}|maintenance|${machine.recordKey}|${editingMaintenance?.id || "new"}`)}">
               <div class="machine-form-grid">
               <div class="machine-form-field"><label for="maintenanceDate">Fecha</label><input id="maintenanceDate" type="date" value="${escapeHtml(editingMaintenance?.date || currentLocalDate())}" required></div>
                 <div class="machine-form-field"><label for="maintenanceType">Tipo / estado</label><select id="maintenanceType">${["Mantenimiento preventivo", "Mantenimiento correctivo", "Inspección", "Fuera de servicio"].map(type => `<option${(editingMaintenance?.type || "Mantenimiento preventivo") === type ? " selected" : ""}>${type}</option>`).join("")}</select></div>
@@ -1597,7 +1612,7 @@
         ${treadmill ? `<section class="machine-tab-panel" data-machine-panel="mileage" ${currentMachineTab === "mileage" ? "" : "hidden"}>
           <article class="machine-detail-card">
             <h3>Historial de kilometraje (Km)</h3>
-            <form id="machineMileageForm">
+            <form id="machineMileageForm" data-smartfit-draft-key="${escapeHtml(`${user.id}|${user.role}|mileage|${machine.recordKey}|${editingMileage?.id || "new"}`)}">
               <div class="machine-form-grid">
                 <div class="machine-form-field"><label for="mileageDate">Fecha</label><input id="mileageDate" type="date" value="${escapeHtml(editingMileage ? mileageDateValue(editingMileage) : currentLocalDate())}"${canSetMileageDate ? "" : " readonly aria-readonly=\"true\""} required></div>
                 <div class="machine-form-field"><label for="mileageKm">Kilometraje (Km)</label><input id="mileageKm" type="number" min="0" step="0.1" value="${escapeHtml(editingMileage?.km ?? "")}" placeholder="Ej.: 12543.7" required></div>
@@ -1639,7 +1654,7 @@
       $("siteGrid").innerHTML = `
         <article class="machine-detail-card">
           <h3>Ticket de ${escapeHtml(leaderTicketType.toLocaleLowerCase("es"))}</h3>
-          <form id="leaderMaintenanceTicketForm">
+          <form id="leaderMaintenanceTicketForm" data-smartfit-draft-key="${escapeHtml(`${user.id}|${user.role}|ticket|${machine.recordKey}`)}">
             <div class="machine-form-grid">
               <div class="machine-form-field"><label for="ticketSupervisor">Supervisor asignado</label><input id="ticketSupervisor" value="${escapeHtml(site?.supervisor || "Sin supervisor asignado")}" readonly aria-readonly="true"></div>
               <div class="machine-form-field"><label for="ticketTechnician">Técnico asignado</label><input id="ticketTechnician" value="${escapeHtml(site?.technician || "Sin técnico asignado")}" readonly aria-readonly="true"></div>
@@ -1879,7 +1894,9 @@
       }
       const removeImageButton = event.target.closest("[data-remove-maintenance-image]");
       if (removeImageButton) {
+        const draftKey = removeImageButton.closest("form")?.dataset.smartfitDraftKey || "";
         maintenanceImages.splice(Number(removeImageButton.dataset.removeMaintenanceImage), 1);
+        if (draftKey) document.dispatchEvent(new CustomEvent("smartfit:form-draft-save-images", { detail: { key: draftKey, images: maintenanceImages } }));
         renderMachineDetail(currentMachine);
         return;
       }
@@ -1919,6 +1936,7 @@
     $("siteGrid").addEventListener("change", async event => {
       const input = event.target;
       if (!(input instanceof HTMLInputElement) || !["maintenanceGalleryInput", "maintenanceCameraInput"].includes(input.id)) return;
+      const draftKey = input.form?.dataset.smartfitDraftKey || "";
       const files = Array.from(input.files || []);
       input.value = "";
       if (!files.length) return;
@@ -1932,6 +1950,7 @@
         const compressedImages = await Promise.all(selectedFiles.map(compressMaintenanceImage));
         if (!currentMachine || currentMachine.recordKey !== machineRecordKey) return;
         maintenanceImages.push(...compressedImages);
+        if (draftKey) document.dispatchEvent(new CustomEvent("smartfit:form-draft-save-images", { detail: { key: draftKey, images: maintenanceImages } }));
         renderMachineDetail(currentMachine);
       } catch (error) {
         window.alert(error.message || "No se pudieron cargar las imágenes.");
@@ -1988,7 +2007,9 @@
         }
         try {
           await SmartFitSupabaseData.persistTicket(ticket);
+          document.dispatchEvent(new CustomEvent("smartfit:form-draft-clear", { detail: { key: event.target.dataset.smartfitDraftKey } }));
         } catch (error) {
+          document.dispatchEvent(new CustomEvent("smartfit:form-draft-clear", { detail: { key: event.target.dataset.smartfitDraftKey } }));
           leaderTicketDraft = { recordKey: "", title: "", description: "" };
           maintenanceImages = [];
           renderLeaderTickets();
@@ -2030,6 +2051,7 @@
         } else record.maintenance.unshift(entry);
         try {
           writeMachineRecord(currentMachine.recordKey, record);
+          document.dispatchEvent(new CustomEvent("smartfit:form-draft-clear", { detail: { key: event.target.dataset.smartfitDraftKey } }));
         } catch (error) {
           window.alert("No se pudo guardar el registro en este navegador. El almacenamiento podría estar lleno; reduce el tamaño de las imágenes e inténtalo nuevamente.");
           return;
@@ -2072,6 +2094,7 @@
         } else record.mileage.unshift(entry);
         record.mileage = sortMileageRecords(record.mileage);
         writeMachineRecord(currentMachine.recordKey, record);
+        document.dispatchEvent(new CustomEvent("smartfit:form-draft-clear", { detail: { key: event.target.dataset.smartfitDraftKey } }));
         try {
           await SmartFitSupabaseData.persistMachineRecord(currentMachine.recordKey, previousRecord, record);
         } catch (error) {
