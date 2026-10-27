@@ -1617,7 +1617,10 @@
     function renderTicketAssignmentOptions() {
       const query = normalizeHistoryName($("ticketAssignmentSearch").value.trim());
       const candidates = ticketAssignmentCandidates.filter(candidate => !query || normalizeHistoryName(candidate.name).includes(query));
-      $("ticketAssignmentOptions").innerHTML = candidates.map(candidate => `<button class="secondary-button ticket-assignment-option" type="button" role="option" aria-selected="${candidate.id === ticketAssignmentSelectedId}" aria-pressed="${candidate.id === ticketAssignmentSelectedId}" data-assignment-technician="${escapeHtml(candidate.id)}"><span>${escapeHtml(candidate.name)}</span><span class="subtext">Técnico</span></button>`).join("") || '<p class="subtext">No se encontraron técnicos activos asignados a la sede de este ticket.</p>';
+      $("ticketAssignmentOptions").innerHTML = candidates.map(candidate => {
+        const assignedSites = (candidate.siteIds || []).map(id => AdminStore.listSites().find(site => String(site.id) === String(id))?.name).filter(Boolean);
+        return `<button class="secondary-button ticket-assignment-option" type="button" role="option" aria-selected="${candidate.id === ticketAssignmentSelectedId}" aria-pressed="${candidate.id === ticketAssignmentSelectedId}" data-assignment-technician="${escapeHtml(candidate.id)}"><span>${escapeHtml(candidate.name)}</span><span class="subtext">Asignación temporal para este ticket${assignedSites.length ? ` · Sedes: ${escapeHtml(assignedSites.join(" · "))}` : ""}</span></button>`;
+      }).join("") || '<p class="subtext">No se encontraron técnicos activos.</p>';
       $("saveTicketAssignment").disabled = !ticketAssignmentCandidates.some(candidate => candidate.id === ticketAssignmentSelectedId);
     }
 
@@ -1627,10 +1630,9 @@
       if (!ticket || !site) { window.alert("No se encontró el ticket o su sede asignada."); return; }
       ticketAssignmentId = String(ticket.id);
       ticketAssignmentSelectedId = String(ticket.technicianId || "");
-      ticketAssignmentCandidates = AdminStore.listUsers().filter(candidate => candidate.active && candidate.role === "Técnico" &&
-        ((candidate.siteIds || []).some(id => String(id) === String(site.id)) || String(site.technicianUserId || "") === String(candidate.id))
-      ).sort((a, b) => a.name.localeCompare(b.name, "es"));
-      $("ticketAssignmentDescription").textContent = `Ticket ${ticket.ticketNumber || ticket.id} · ${site.name}`;
+      ticketAssignmentCandidates = AdminStore.listUsers().filter(candidate => candidate.active && candidate.role === "Técnico")
+        .sort((a, b) => a.name.localeCompare(b.name, "es"));
+      $("ticketAssignmentDescription").textContent = `Ticket ${ticket.ticketNumber || ticket.id} · ${site.name} · Asignación temporal hasta el cierre del ticket`;
       $("ticketAssignmentSearch").value = "";
       $("ticketAssignmentError").hidden = true;
       renderTicketAssignmentOptions();

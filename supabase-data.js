@@ -845,6 +845,31 @@
       list.push(siteLegacyId);
       assignmentSitesByUser.set(row.user_id, list);
     });
+    // El acceso temporal derivado de tickets se agrega solo al usuario de esta
+    // sesión; nunca se mezcla con las asignaciones permanentes de los perfiles.
+    const temporaryTicketSitesByUser = new Map();
+    const activeTicketStatuses = new Set(["Pendiente", "En ejecución", "Ejecutado"]);
+    tickets.forEach(ticket => {
+      if (!ticket.technician_id || !ticket.site_id || !activeTicketStatuses.has(ticket.status)) return;
+      const siteLegacyId = siteIdToLegacy.get(ticket.site_id);
+      if (!siteLegacyId) return;
+      const list = temporaryTicketSitesByUser.get(ticket.technician_id) || [];
+      if (!list.includes(siteLegacyId)) list.push(siteLegacyId);
+      temporaryTicketSitesByUser.set(ticket.technician_id, list);
+    });
+    const currentAuthUserId = appSession()?.authId || "";
+    if (currentAuthUserId) {
+      for (const key of ["smartfit.site.session", "smartfit.leader.session", "smartfit.admin.session"]) {
+        const session = parseLocalSession(key);
+        if (session?.authId !== currentAuthUserId || session.role !== "Técnico") continue;
+        const siteIds = [...(assignmentSitesByUser.get(currentAuthUserId) || [])];
+        (temporaryTicketSitesByUser.get(currentAuthUserId) || []).forEach(siteId => {
+          if (!siteIds.includes(siteId)) siteIds.push(siteId);
+        });
+        session.siteIds = siteIds;
+        sessionStorage.setItem(key, JSON.stringify(session));
+      }
+    }
     const siteRowsForLocal = hydrateSites(sites, brands, equipment, parseLocal("smartfit.admin.sites.v1", []));
     const brandLegacyIdByUuid = new Map(brands.map(row => [row.id, String(row.legacy_id || row.id)]));
     const equipmentCountByBrand = new Map();
@@ -869,12 +894,20 @@
     }));
     const hydratedTickets = hydrateTickets(tickets, siteIdToLegacy, profileIdToLegacy);
     const localUsers = parseLocal("smartfit.admin.users.v1", []);
-    const hydratedUsers = profiles.filter(row => row.legacy_id).map(row => ({
-      id: String(row.legacy_id), authId: row.id, name: row.full_name, username: row.username,
-      email: emailByProfileId.get(row.id) || "", role: row.role, active: row.active !== false,
-      passwordChangeRequired: row.password_change_required === true,
-      siteIds: assignmentSitesByUser.get(row.id) || [], updatedAt: row.updated_at || "", password: ""
-    }));
+    const hydratedUsers = profiles.filter(row => row.legacy_id).map(row => {
+      const siteIds = [...(assignmentSitesByUser.get(row.id) || [])];
+      if (row.id === currentAuthUserId) {
+        (temporaryTicketSitesByUser.get(row.id) || []).forEach(siteId => {
+          if (!siteIds.includes(siteId)) siteIds.push(siteId);
+        });
+      }
+      return {
+        id: String(row.legacy_id), authId: row.id, name: row.full_name, username: row.username,
+        email: emailByProfileId.get(row.id) || "", role: row.role, active: row.active !== false,
+        passwordChangeRequired: row.password_change_required === true,
+        siteIds, updatedAt: row.updated_at || "", password: ""
+      };
+    });
     const mergedUsers = mergeById(localUsers, hydratedUsers);
     mergedUsers.forEach(user => { if (user.authId) user.password = ""; });
     if (canReadAccountEmails) {
