@@ -968,7 +968,7 @@
 
     function supervisorTicketBrandKey(item) {
       const brand = brandDirectory.find(entry => entry.id === item.brandId) || brandDirectory.find(entry => normalizeChartLabel(entry.name) === normalizeChartLabel(item.brandName));
-      return item.brandId || brand?.id || normalizeChartLabel(item.brandName) || "sin-marca";
+      return brand?.id || item.brandId || normalizeChartLabel(item.brandName) || "sin-marca";
     }
 
     function renderSupervisorTicketBrands(focusSearch = false) {
@@ -1949,9 +1949,11 @@
       const brand = brandDirectory.find(entry => entry.id === brandId);
       if (!brand) return;
       currentBrandId = brandId;
+      const normalizeBrand = value => String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLocaleLowerCase("es");
       const brandItems = (Array.isArray(currentSite.equipment) ? currentSite.equipment : []).filter(item => {
-        if (item.brandId) return item.brandId === brandId;
-        return String(item.brandName || "").toLocaleLowerCase("es") === brand.name.toLocaleLowerCase("es");
+        const resolvedBrand = brandDirectory.find(entry => entry.id === item.brandId) ||
+          brandDirectory.find(entry => normalizeBrand(entry.name) === normalizeBrand(item.brandName));
+        return item.brandId === brandId || resolvedBrand?.id === brandId || normalizeBrand(item.brandName) === normalizeBrand(brand.name);
       });
       const machines = [];
       brandItems.forEach(item => {
@@ -3071,7 +3073,16 @@
       if (!$('supervisorEventsPanel').hidden) renderSupervisorEvents();
       if (!$('supervisorMaintenanceHistoryBlank').hidden) renderSupervisorMaintenanceHistory();
       if (!$('supervisorMileageHistoryBlank').hidden) renderSupervisorMileageHistory();
-      if (!$('sitesPanel').hidden && $('siteGrid').classList.contains('site-grid')) renderSiteList();
+      if (!$('sitesPanel').hidden) {
+        if ($('siteGrid').classList.contains('site-grid')) renderSiteList();
+        else if (currentSite && $('siteGrid').classList.contains('brand-grid')) renderSiteBrands(currentSite);
+        else if (currentSite && currentBrandId && $('siteGrid').classList.contains('machine-grid')) renderBrandEquipment(currentBrandId, { resetFilter: false });
+      }
+      if (!$('supervisorRaiseTicketPanel').hidden && !supervisorTicketEquipment) {
+        if (supervisorTicketBrandId) renderSupervisorTicketEquipment(true);
+        else if (supervisorTicketSiteId) renderSupervisorTicketBrands(true);
+        else renderSupervisorTicketSites(true);
+      }
     });
     SmartFitSupabaseData.hydrate().then(result => {
       if (!result.skipped) {
