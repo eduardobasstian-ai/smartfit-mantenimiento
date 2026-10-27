@@ -332,6 +332,12 @@
     .ticket-detail-value { color: var(--text); font-size: 12px; overflow-wrap: anywhere; white-space: pre-wrap; }
     .ticket-detail-photos { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 8px; }
     .ticket-detail-photos img { width: 120px; height: 100px; object-fit: cover; border: 1px solid #3d404b; border-radius: 9px; cursor: zoom-in; }
+    .ticket-assignment-options { display: grid; gap: 8px; max-height: 300px; overflow: auto; margin-top: 12px; }
+    .ticket-assignment-option { display: flex; justify-content: space-between; align-items: center; gap: 12px; width: 100%; min-height: 44px; padding: 10px 12px; text-align: left; }
+    .ticket-assignment-option[aria-pressed="true"] { border-color: var(--yellow); box-shadow: 0 0 0 1px var(--yellow); }
+    .ticket-assignment-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+    .ticket-assignment-error { margin: 10px 0 0; color: #ff9ca4; font-size: 12px; }
+    .ticket-row-actions { display: flex; flex-wrap: wrap; gap: 6px; }
     .supervisor-menu-toggle { display: grid; place-items: center; width: 42px; height: 40px; border: 1px solid #383b47; border-radius: 9px; background: #20222a; color: var(--text); font-size: 22px; line-height: 1; }
     .supervisor-menu-toggle:hover { border-color: var(--yellow); color: var(--yellow); }
     .supervisor-mobile-bar span { font-size: 12px; font-weight: 800; }
@@ -595,7 +601,7 @@
       <div class="supervisor-history-tools"><span id="supervisorTicketsResultCount" aria-live="polite">0 tickets</span><div style="display:flex;gap:8px"><button class="back-button" id="exportSupervisorTicketsPdf" type="button">PDF</button><button class="back-button" id="clearSupervisorTicketsFilters" type="button">Limpiar filtros</button></div></div>
       <div class="supervisor-tickets-wrap">
         <table class="supervisor-tickets-table">
-          <thead><tr><th>Número de ticket</th><th>Sede</th><th>Solicitante</th><th>Fecha</th><th>Supervisor</th><th>Técnico</th><th>Activo fijo</th><th>Tipo</th><th>Estado</th><th></th></tr></thead>
+          <thead><tr><th>Número de ticket</th><th>Sede</th><th>Solicitante</th><th>Fecha</th><th>Supervisor</th><th>Técnico</th><th>Activo fijo</th><th>Tipo</th><th>Estado</th><th>Acciones</th></tr></thead>
           <tbody id="supervisorTicketsBody"></tbody>
         </table>
       </div>
@@ -710,9 +716,21 @@
       <div class="ticket-modal-body" id="supervisorTicketModalBody"></div>
     </section>
   </div>
+  <div class="ticket-modal-backdrop" id="supervisorAssignmentModal" hidden>
+    <section class="ticket-modal" role="dialog" aria-modal="true" aria-labelledby="supervisorAssignmentTitle">
+      <header class="ticket-modal-header"><h2 id="supervisorAssignmentTitle">Asignar técnico</h2><button class="ticket-modal-close" type="button" id="closeSupervisorAssignment" aria-label="Cerrar ventana">×</button></header>
+      <div class="ticket-modal-body">
+        <p class="subtext" id="supervisorAssignmentDescription"></p>
+        <label class="machine-form-field">Buscar técnico<input class="supervisor-chart-filter" type="search" id="supervisorAssignmentSearch" placeholder="Escribe el nombre del técnico..." autocomplete="off"></label>
+        <div class="ticket-assignment-options" id="supervisorAssignmentOptions" role="listbox" aria-label="Técnicos asignados a la sede"></div>
+        <p class="ticket-assignment-error" id="supervisorAssignmentError" role="alert" hidden></p>
+        <div class="ticket-assignment-actions"><button class="back-button" type="button" id="cancelSupervisorAssignment">Cancelar</button><button class="back-button" type="button" id="saveSupervisorAssignment" disabled>Asignar técnico</button></div>
+      </div>
+    </section>
+  </div>
   <script src="admin-store.js?v=20261026-ubian"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="supabase-data.js?v=20261026-ubian"></script>
+  <script src="supabase-data.js?v=20261027-ticket-assignment"></script>
   <script src="EQU/matrix-catalog.js"></script>
   <script src="EQU/booty-catalog.js"></script>
   <script src="EQU/other-catalogs.js?v=20261026-ubian-rack"></script>
@@ -785,6 +803,9 @@
     let supervisorTicketBrandQuery = "";
     let supervisorTicketEquipmentQuery = "";
     let supervisorFilteredTickets = [];
+    let supervisorAssignmentTicketId = "";
+    let supervisorAssignmentCandidates = [];
+    let supervisorAssignmentSelectedId = "";
     let supervisorHistoryFilteredEvents = [];
     const brandDirectory = AdminStore.listBrands();
     const supervisorEquipmentCatalogs = Object.assign({
@@ -906,6 +927,16 @@
       localStorage.setItem(TICKETS_STORAGE_KEY, JSON.stringify(tickets));
       for (const ticket of matchingTickets) await SmartFitSupabaseData.persistTicket(ticket);
       return matchingTickets;
+    }
+
+    function assignedMachineTicket(machine) {
+      if (user?.role !== "Supervisor" || !machine) return null;
+      return readLeaderTickets().filter(ticket => ticketBelongsToMachine(ticket, machine) && canManageMachineTicket(ticket) &&
+        !ticket.linkedMaintenanceRecordId && !["cerrado", "cerrada", "resuelto", "resuelta", "cancelado", "cancelada"].includes(normalizedTicketStatus(ticket))
+      ).sort((a, b) => {
+        const priority = status => status === "en ejecucion" ? 0 : ["ejecutado", "ejecutada"].includes(status) ? 1 : 2;
+        return priority(normalizedTicketStatus(a)) - priority(normalizedTicketStatus(b));
+      })[0] || null;
     }
 
     function formatTicketDate(value) {
@@ -1152,8 +1183,70 @@
           <td>${escapeHtml(ticket.activeFixed || "N/A")}</td>
           <td>${escapeHtml(ticket.type || "—")}</td>
           <td>${ticketStatus(ticket)}</td>
-          <td><button class="back-button" type="button" data-view-supervisor-ticket="${escapeHtml(ticket.id || "")}">Ver ticket</button></td>
+          <td><div class="ticket-row-actions"><button class="back-button" type="button" data-assign-supervisor-ticket="${escapeHtml(ticket.id || "")}">Asignar técnico</button><button class="back-button" type="button" data-view-supervisor-ticket="${escapeHtml(ticket.id || "")}">Ver ticket</button></div></td>
         </tr>`).join("") || '<tr><td colspan="10" class="empty-state">No hay tickets en tus sedes para los filtros seleccionados.</td></tr>';
+    }
+
+    function renderSupervisorAssignmentOptions() {
+      const query = normalizeChartLabel($("supervisorAssignmentSearch").value.trim());
+      const candidates = supervisorAssignmentCandidates.filter(candidate => !query || normalizeChartLabel(candidate.name).includes(query));
+      $("supervisorAssignmentOptions").innerHTML = candidates.map(candidate => `<button class="back-button ticket-assignment-option" type="button" role="option" aria-selected="${candidate.id === supervisorAssignmentSelectedId}" aria-pressed="${candidate.id === supervisorAssignmentSelectedId}" data-supervisor-assignment-technician="${escapeHtml(candidate.id)}"><span>${escapeHtml(candidate.name)}</span><span class="subtext">Técnico</span></button>`).join("") || '<p class="subtext">No se encontraron técnicos activos asignados a esta sede.</p>';
+      $("saveSupervisorAssignment").disabled = !supervisorAssignmentCandidates.some(candidate => candidate.id === supervisorAssignmentSelectedId);
+    }
+
+    function openSupervisorTicketAssignment(ticketId) {
+      const ticket = readLeaderTickets().find(entry => String(entry.id) === String(ticketId));
+      const site = ticket && assignedSites.find(entry => String(entry.id) === String(ticket.siteId));
+      if (!supervisorMode || !ticket || !site) { window.alert("El ticket no corresponde a una de tus sedes asignadas."); return; }
+      supervisorAssignmentTicketId = String(ticket.id);
+      supervisorAssignmentSelectedId = String(ticket.technicianId || "");
+      supervisorAssignmentCandidates = AdminStore.listUsers().filter(candidate => candidate.active && candidate.role === "Técnico" &&
+        ((candidate.siteIds || []).some(id => String(id) === String(site.id)) || String(site.technicianUserId || "") === String(candidate.id))
+      ).sort((a, b) => a.name.localeCompare(b.name, "es"));
+      $("supervisorAssignmentDescription").textContent = `Ticket ${ticket.ticketNumber || ticket.id} · ${site.name}`;
+      $("supervisorAssignmentSearch").value = "";
+      $("supervisorAssignmentError").hidden = true;
+      renderSupervisorAssignmentOptions();
+      $("supervisorAssignmentModal").hidden = false;
+      $("supervisorAssignmentSearch").focus();
+    }
+
+    function closeSupervisorTicketAssignment() {
+      $("supervisorAssignmentModal").hidden = true;
+      supervisorAssignmentTicketId = "";
+      supervisorAssignmentCandidates = [];
+      supervisorAssignmentSelectedId = "";
+    }
+
+    async function saveSupervisorTicketAssignment() {
+      const ticketId = supervisorAssignmentTicketId;
+      const candidate = supervisorAssignmentCandidates.find(entry => entry.id === supervisorAssignmentSelectedId);
+      if (!ticketId || !candidate) return;
+      const button = $("saveSupervisorAssignment");
+      button.disabled = true;
+      button.textContent = "Guardando...";
+      $("supervisorAssignmentError").hidden = true;
+      try {
+        const result = await SmartFitSupabaseData.assignTicketTechnician(ticketId, candidate.id);
+        const tickets = readLeaderTickets();
+        const ticket = tickets.find(entry => String(entry.id) === ticketId && assignedSites.some(site => site.id === entry.siteId));
+        if (!ticket) throw new Error("El ticket ya no está disponible dentro de tus sedes.");
+        ticket.technicianId = result.technicianId || candidate.id;
+        ticket.technician = result.technician || candidate.name;
+        ticket.technicianAssignment = { technicianId: ticket.technicianId, technicianName: ticket.technician, assignedById: result.assignedById || user.id, assignedByName: result.assignedByName || user.name, assignedAt: result.assignedAt || new Date().toISOString() };
+        localStorage.setItem(TICKETS_STORAGE_KEY, JSON.stringify(tickets));
+        try { await SmartFitSupabaseData.hydrate(); } catch (error) { console.warn("La asignación se guardó, pero no se pudo actualizar la caché remota.", error); }
+        window.dispatchEvent(new Event("smartfit:supabase-data-hydrated"));
+        closeSupervisorTicketAssignment();
+      } catch (error) {
+        $("supervisorAssignmentError").textContent = error.message || "No se pudo asignar el técnico.";
+        $("supervisorAssignmentError").hidden = false;
+      } finally {
+        if (!$("supervisorAssignmentModal").hidden) {
+          button.disabled = !supervisorAssignmentCandidates.some(entry => entry.id === supervisorAssignmentSelectedId);
+          button.textContent = "Asignar técnico";
+        }
+      }
     }
 
     function exportSupervisorTicketsPdf() {
@@ -1537,6 +1630,7 @@
           <div class="ticket-detail-item"><span class="ticket-detail-label">Activo fijo</span><div class="ticket-detail-value">${escapeHtml(ticket.activeFixed || "N/A")}</div></div>
           <div class="ticket-detail-item"><span class="ticket-detail-label">Equipo</span><div class="ticket-detail-value">${escapeHtml(ticket.machineName || "—")}${ticket.machineModel ? ` · ${escapeHtml(ticket.machineModel)}` : ""}</div></div>
           <div class="ticket-detail-item"><span class="ticket-detail-label">Técnico asignado</span><div class="ticket-detail-value">${escapeHtml(ticket.technician || "—")}</div></div>
+          ${ticket.technicianAssignment?.assignedByName ? `<div class="ticket-detail-item"><span class="ticket-detail-label">Última asignación</span><div class="ticket-detail-value">${escapeHtml(ticket.technicianAssignment.assignedByName)} · ${escapeHtml(formatTicketDate(ticket.technicianAssignment.assignedAt))}</div></div>` : ""}
           <div class="ticket-detail-item full"><span class="ticket-detail-label">Título</span><div class="ticket-detail-value">${escapeHtml(ticket.title || "—")}</div></div>
           <div class="ticket-detail-item full"><span class="ticket-detail-label">Descripción</span><div class="ticket-detail-value">${escapeHtml(ticket.description || "—")}</div></div>
           <div class="ticket-detail-item full"><span class="ticket-detail-label">Imágenes adjuntas (${photos.length}/4)</span><div class="ticket-detail-photos">${photos.map((image, index) => `<img src="${escapeHtml(image)}" alt="Imagen ${index + 1} del ticket" data-ticket-enlarge="${escapeHtml(image)}" loading="lazy">`).join("") || "<span class=\"ticket-detail-value\">Sin imágenes adjuntas</span>"}</div></div>
@@ -2312,6 +2406,10 @@
       ).sort((first, second) =>
         String(second.createdAt || second.date || "").localeCompare(String(first.createdAt || first.date || ""))
       );
+      const assignedExecutionTicket = assignedMachineTicket(machine);
+      const maintenanceResponsibleName = editingMaintenance
+        ? editingMaintenance.technician || "Sin responsable registrado"
+        : assignedExecutionTicket?.technician || user.name;
       const machineTicketsMarkup = machineTickets.map(ticket => `
         <tr>
           <td><strong>${escapeHtml(ticket.ticketNumber || "—")}</strong></td>
@@ -2367,7 +2465,7 @@
                 <div class="machine-form-field"><label for="maintenanceType">Tipo / estado</label><select id="maintenanceType">${[["Mantenimiento preventivo", "Preventivo"], ["Mantenimiento correctivo", "Correctivo"], ["Inspección", "Inspección"], ["Fuera de servicio", "Fuera de servicio"]].map(([value, label]) => `<option value="${value}"${(savedDraft ? savedDraft.type : editingMaintenance?.type || "Mantenimiento preventivo") === value ? " selected" : ""}>${label}</option>`).join("")}</select></div>
                 <div class="machine-form-field full"><label for="maintenanceWork">Trabajo realizado / actualización</label><textarea id="maintenanceWork" placeholder="Ej.: lubricación, ajuste, cambio de perno, revisión..." required>${escapeHtml(savedDraft ? savedDraft.work : editingMaintenance?.work || "")}</textarea></div>
                 <div class="machine-form-field"><label for="maintenanceReplacement">Repuesto / material</label><input id="maintenanceReplacement" value="${escapeHtml(savedDraft ? savedDraft.replacement : editingMaintenance?.replacement || "")}" placeholder="Opcional"></div>
-                <div class="machine-form-field"><label for="maintenanceTechnician">Técnico / responsable</label><input id="maintenanceTechnician" value="${escapeHtml(editingMaintenance ? (editingMaintenance.technician || "Sin responsable registrado") : user.name)}" readonly aria-readonly="true"></div>
+                <div class="machine-form-field"><label for="maintenanceTechnician">Técnico / responsable</label><input id="maintenanceTechnician" value="${escapeHtml(maintenanceResponsibleName)}" readonly aria-readonly="true"></div>
                 <div class="machine-form-field full"><label for="maintenanceObservations">Observaciones</label><textarea id="maintenanceObservations" placeholder="Detalle adicional">${escapeHtml(savedDraft ? savedDraft.observations : editingMaintenance?.observations || "")}</textarea></div>
               </div>
               <div class="machine-record-actions"><button class="machine-save-button" type="submit">${editingMaintenance ? "Guardar cambios" : "Guardar"}</button><button class="back-button" type="button" data-toggle-maintenance-image-menu aria-expanded="false">Agregar imágenes (${maintenanceImages.length}/4)</button><button class="back-button machine-request-button" type="button" data-open-parts-request="machine">Pedir repuesto</button>${editingMaintenance ? '<button class="back-button" type="button" data-cancel-machine-edit>Cancelar edición</button>' : ""}</div>
@@ -2896,7 +2994,7 @@
           type: $("maintenanceType").value,
           work: $("maintenanceWork").value.trim(),
           replacement: $("maintenanceReplacement").value.trim(),
-          technician: existingMaintenance ? (existingMaintenance.technician || "Sin responsable registrado") : $("maintenanceTechnician").value.trim(),
+          technician: existingMaintenance ? (existingMaintenance.technician || "Sin responsable registrado") : (assignedMachineTicket(currentMachine)?.technician || $("maintenanceTechnician").value.trim()),
           observations: $("maintenanceObservations").value.trim(),
           images: maintenanceImages.slice(0, 4),
           ticketIds: existingMaintenance && Array.isArray(existingMaintenance.ticketIds) ? [...existingMaintenance.ticketIds] : [],
@@ -3019,9 +3117,22 @@
     });
     $("exportSupervisorTicketsPdf").addEventListener("click", exportSupervisorTicketsPdf);
     $("supervisorTicketsBody").addEventListener("click", event => {
+      const assignButton = event.target.closest("[data-assign-supervisor-ticket]");
+      if (assignButton) { openSupervisorTicketAssignment(assignButton.dataset.assignSupervisorTicket); return; }
       const button = event.target.closest("[data-view-supervisor-ticket]");
       if (button) openSupervisorTicket(button.dataset.viewSupervisorTicket);
     });
+    $("supervisorAssignmentSearch").addEventListener("input", renderSupervisorAssignmentOptions);
+    $("supervisorAssignmentOptions").addEventListener("click", event => {
+      const option = event.target.closest("[data-supervisor-assignment-technician]");
+      if (!option) return;
+      supervisorAssignmentSelectedId = option.dataset.supervisorAssignmentTechnician;
+      renderSupervisorAssignmentOptions();
+    });
+    $("saveSupervisorAssignment").addEventListener("click", saveSupervisorTicketAssignment);
+    $("closeSupervisorAssignment").addEventListener("click", closeSupervisorTicketAssignment);
+    $("cancelSupervisorAssignment").addEventListener("click", closeSupervisorTicketAssignment);
+    $("supervisorAssignmentModal").addEventListener("click", event => { if (event.target === $("supervisorAssignmentModal")) closeSupervisorTicketAssignment(); });
     $("siteGrid").addEventListener("click", event => {
       const button = event.target.closest("[data-view-machine-ticket]");
       if (button) openSupervisorTicket(button.dataset.viewMachineTicket);

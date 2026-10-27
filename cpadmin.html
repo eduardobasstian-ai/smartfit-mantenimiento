@@ -341,6 +341,12 @@
     .ticket-detail-value { color: var(--text); font-size: 12px; overflow-wrap: anywhere; white-space: pre-wrap; }
     .ticket-detail-photos { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 8px; }
     .ticket-detail-photos img { width: 120px; height: 100px; object-fit: cover; border: 1px solid #3d404b; border-radius: 9px; cursor: zoom-in; }
+    .ticket-assignment-options { display: grid; gap: 8px; max-height: 300px; overflow: auto; margin-top: 12px; }
+    .ticket-assignment-option { display: flex; justify-content: space-between; align-items: center; gap: 12px; width: 100%; min-height: 44px; padding: 10px 12px; text-align: left; }
+    .ticket-assignment-option[aria-pressed="true"] { border-color: var(--yellow); box-shadow: 0 0 0 1px var(--yellow); }
+    .ticket-assignment-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+    .ticket-row-actions { display: flex; gap: 6px; }
+    .ticket-assignment-error { margin: 10px 0 0; color: #ff9ca4; font-size: 12px; }
     @media (max-width: 560px) { .ticket-detail-grid { grid-template-columns: 1fr; } .ticket-detail-item.full { grid-column: auto; } }
     .modal-header {
       display: flex;
@@ -820,6 +826,19 @@
     </section>
   </div>
 
+  <div class="modal-backdrop" id="ticketAssignmentModal" hidden>
+    <section class="modal" role="dialog" aria-modal="true" aria-labelledby="ticketAssignmentTitle">
+      <header class="modal-header"><h2 id="ticketAssignmentTitle">Asignar técnico</h2><button class="modal-close" type="button" id="closeTicketAssignment" aria-label="Cerrar ventana">×</button></header>
+      <div class="modal-body">
+        <p class="subtext" id="ticketAssignmentDescription"></p>
+        <label class="form-field">Buscar técnico<input class="form-control" type="search" id="ticketAssignmentSearch" placeholder="Escribe el nombre del técnico..." autocomplete="off"></label>
+        <div class="ticket-assignment-options" id="ticketAssignmentOptions" role="listbox" aria-label="Técnicos asignados a la sede"></div>
+        <p class="ticket-assignment-error" id="ticketAssignmentError" role="alert" hidden></p>
+        <div class="ticket-assignment-actions"><button class="secondary-button" type="button" id="cancelTicketAssignment">Cancelar</button><button class="primary-button" type="button" id="saveTicketAssignment" disabled>Asignar técnico</button></div>
+      </div>
+    </section>
+  </div>
+
   <div class="modal-backdrop" id="userModal" hidden>
     <section class="modal" role="dialog" aria-modal="true" aria-labelledby="userModalTitle">
       <header class="modal-header">
@@ -1032,7 +1051,7 @@
   </div>
   <script src="admin-store.js?v=20261026-ubian"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="supabase-data.js?v=20261026-ubian"></script>
+  <script src="supabase-data.js?v=20261027-ticket-assignment"></script>
   <script src="EQU/matrix-catalog.js"></script>
   <script src="EQU/booty-catalog.js"></script>
   <script src="EQU/other-catalogs.js?v=20261026-ubian-rack"></script>
@@ -1070,6 +1089,9 @@
     const TICKETS_STORAGE_KEY = "smartfit.leader-tickets.v1";
     const MACHINE_RECORDS_KEY = "smartfit.machine-records.v1";
     let adminFilteredTickets = [];
+    let ticketAssignmentId = "";
+    let ticketAssignmentCandidates = [];
+    let ticketAssignmentSelectedId = "";
     let maintenanceHistoryFilteredEvents = [];
     let mileageHistoryFilteredEntries = [];
     const chartColors = ["#ffb51b", "#f47721", "#ec5b68", "#ba78e5", "#7389ff", "#45b8d1", "#45c99a", "#a7c957", "#ff8fba", "#d4a373", "#7eccc1", "#a6a9b6", "#ffcf5c", "#ee8a4d"];
@@ -1549,7 +1571,7 @@
           <td>${escapeHtml(ticket.activeFixed || "N/A")}</td>
           <td>${escapeHtml(ticket.type || "—")}</td>
           <td><span class="status-badge ${ticketStatusClass(ticket.status)}">${escapeHtml(ticket.status || "Pendiente")}</span></td>
-          <td><button class="secondary-button" type="button" data-view-ticket="${escapeHtml(ticket.id || "")}">Ver ticket</button></td>
+          <td><div class="ticket-row-actions"><button class="secondary-button" type="button" data-assign-ticket-technician="${escapeHtml(ticket.id || "")}">Asignar técnico</button><button class="secondary-button" type="button" data-view-ticket="${escapeHtml(ticket.id || "")}">Ver ticket</button></div></td>
         </tr>`).join("") || '<tr><td colspan="10" class="empty-state">No hay tickets para los filtros seleccionados.</td></tr>';
     }
 
@@ -1592,6 +1614,68 @@
       return normalized === "ejecutado" || normalized === "ejecutada" ? "active" : normalized === "en ejecucion" ? "in-progress" : "pending";
     }
 
+    function renderTicketAssignmentOptions() {
+      const query = normalizeHistoryName($("ticketAssignmentSearch").value.trim());
+      const candidates = ticketAssignmentCandidates.filter(candidate => !query || normalizeHistoryName(candidate.name).includes(query));
+      $("ticketAssignmentOptions").innerHTML = candidates.map(candidate => `<button class="secondary-button ticket-assignment-option" type="button" role="option" aria-selected="${candidate.id === ticketAssignmentSelectedId}" aria-pressed="${candidate.id === ticketAssignmentSelectedId}" data-assignment-technician="${escapeHtml(candidate.id)}"><span>${escapeHtml(candidate.name)}</span><span class="subtext">Técnico</span></button>`).join("") || '<p class="subtext">No se encontraron técnicos activos asignados a la sede de este ticket.</p>';
+      $("saveTicketAssignment").disabled = !ticketAssignmentCandidates.some(candidate => candidate.id === ticketAssignmentSelectedId);
+    }
+
+    function openTicketAssignment(ticketId) {
+      const ticket = readLeaderTickets().find(entry => String(entry.id) === String(ticketId));
+      const site = ticket && AdminStore.listSites().find(entry => String(entry.id) === String(ticket.siteId));
+      if (!ticket || !site) { window.alert("No se encontró el ticket o su sede asignada."); return; }
+      ticketAssignmentId = String(ticket.id);
+      ticketAssignmentSelectedId = String(ticket.technicianId || "");
+      ticketAssignmentCandidates = AdminStore.listUsers().filter(candidate => candidate.active && candidate.role === "Técnico" &&
+        ((candidate.siteIds || []).some(id => String(id) === String(site.id)) || String(site.technicianUserId || "") === String(candidate.id))
+      ).sort((a, b) => a.name.localeCompare(b.name, "es"));
+      $("ticketAssignmentDescription").textContent = `Ticket ${ticket.ticketNumber || ticket.id} · ${site.name}`;
+      $("ticketAssignmentSearch").value = "";
+      $("ticketAssignmentError").hidden = true;
+      renderTicketAssignmentOptions();
+      $("ticketAssignmentModal").hidden = false;
+      $("ticketAssignmentSearch").focus();
+    }
+
+    function closeTicketAssignment() {
+      $("ticketAssignmentModal").hidden = true;
+      ticketAssignmentId = "";
+      ticketAssignmentCandidates = [];
+      ticketAssignmentSelectedId = "";
+    }
+
+    async function saveTicketAssignment() {
+      const ticketId = ticketAssignmentId;
+      const candidate = ticketAssignmentCandidates.find(entry => entry.id === ticketAssignmentSelectedId);
+      if (!ticketId || !candidate) return;
+      const button = $("saveTicketAssignment");
+      button.disabled = true;
+      button.textContent = "Guardando...";
+      $("ticketAssignmentError").hidden = true;
+      try {
+        const result = await SmartFitSupabaseData.assignTicketTechnician(ticketId, candidate.id);
+        const tickets = readLeaderTickets();
+        const ticket = tickets.find(entry => String(entry.id) === ticketId);
+        if (!ticket) throw new Error("El ticket ya no está disponible en esta lista.");
+        ticket.technicianId = result.technicianId || candidate.id;
+        ticket.technician = result.technician || candidate.name;
+        ticket.technicianAssignment = { technicianId: ticket.technicianId, technicianName: ticket.technician, assignedById: result.assignedById || adminSession.id, assignedByName: result.assignedByName || adminSession.name, assignedAt: result.assignedAt || new Date().toISOString() };
+        localStorage.setItem(TICKETS_STORAGE_KEY, JSON.stringify(tickets));
+        try { await SmartFitSupabaseData.hydrate(); } catch (error) { console.warn("La asignación se guardó, pero no se pudo actualizar la caché remota.", error); }
+        window.dispatchEvent(new Event("smartfit:supabase-data-hydrated"));
+        closeTicketAssignment();
+      } catch (error) {
+        $("ticketAssignmentError").textContent = error.message || "No se pudo asignar el técnico.";
+        $("ticketAssignmentError").hidden = false;
+      } finally {
+        if (!$("ticketAssignmentModal").hidden) {
+          button.disabled = !ticketAssignmentCandidates.some(entry => entry.id === ticketAssignmentSelectedId);
+          button.textContent = "Asignar técnico";
+        }
+      }
+    }
+
     function openTicketDetail(ticketId) {
       const ticket = readLeaderTickets().find(entry => entry.id === ticketId);
       if (!ticket) return;
@@ -1608,6 +1692,7 @@
           <div class="ticket-detail-item"><span class="ticket-detail-label">Activo fijo</span><div class="ticket-detail-value">${escapeHtml(ticket.activeFixed || "N/A")}</div></div>
           <div class="ticket-detail-item"><span class="ticket-detail-label">Equipo</span><div class="ticket-detail-value">${escapeHtml(ticket.machineName || "—")}${ticket.machineModel ? ` · ${escapeHtml(ticket.machineModel)}` : ""}</div></div>
           <div class="ticket-detail-item"><span class="ticket-detail-label">Técnico asignado</span><div class="ticket-detail-value">${escapeHtml(ticket.technician || "—")}</div></div>
+          ${ticket.technicianAssignment?.assignedByName ? `<div class="ticket-detail-item"><span class="ticket-detail-label">Última asignación</span><div class="ticket-detail-value">${escapeHtml(ticket.technicianAssignment.assignedByName)} · ${escapeHtml(formatTicketDate(ticket.technicianAssignment.assignedAt))}</div></div>` : ""}
           <div class="ticket-detail-item full"><span class="ticket-detail-label">Título</span><div class="ticket-detail-value">${escapeHtml(ticket.title || "—")}</div></div>
           <div class="ticket-detail-item full"><span class="ticket-detail-label">Descripción</span><div class="ticket-detail-value">${escapeHtml(ticket.description || "—")}</div></div>
           <div class="ticket-detail-item full"><span class="ticket-detail-label">Imágenes adjuntas (${photos.length}/4)</span><div class="ticket-detail-photos">${photos.map((image, index) => `<img src="${escapeHtml(image)}" alt="Imagen ${index + 1} del ticket" data-ticket-enlarge="${escapeHtml(image)}" loading="lazy">`).join("") || "<span class=\"ticket-detail-value\">Sin imágenes adjuntas</span>"}</div></div>
@@ -2205,9 +2290,22 @@
     });
     $("exportTicketsPdf").addEventListener("click", () => exportTicketsPdf(adminFilteredTickets, "INFORME DE TICKETS"));
     $("ticketsBody").addEventListener("click", event => {
+      const assignButton = event.target.closest("[data-assign-ticket-technician]");
+      if (assignButton) { openTicketAssignment(assignButton.dataset.assignTicketTechnician); return; }
       const button = event.target.closest("[data-view-ticket]");
       if (button) openTicketDetail(button.dataset.viewTicket);
     });
+    $("ticketAssignmentSearch").addEventListener("input", renderTicketAssignmentOptions);
+    $("ticketAssignmentOptions").addEventListener("click", event => {
+      const option = event.target.closest("[data-assignment-technician]");
+      if (!option) return;
+      ticketAssignmentSelectedId = option.dataset.assignmentTechnician;
+      renderTicketAssignmentOptions();
+    });
+    $("saveTicketAssignment").addEventListener("click", saveTicketAssignment);
+    $("closeTicketAssignment").addEventListener("click", closeTicketAssignment);
+    $("cancelTicketAssignment").addEventListener("click", closeTicketAssignment);
+    $("ticketAssignmentModal").addEventListener("click", event => { if (event.target === $("ticketAssignmentModal")) closeTicketAssignment(); });
     $("closeTicketDetail").addEventListener("click", () => { $("ticketDetailModal").hidden = true; });
     $("ticketDetailModal").addEventListener("click", event => {
       const ticketPhoto = event.target.closest("[data-ticket-enlarge]");

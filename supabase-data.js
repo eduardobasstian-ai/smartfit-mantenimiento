@@ -469,12 +469,14 @@
     if (!actor?.authId || !ticket?.id) throw new Error("No se identificó la sesión o el ticket.");
     const siteUuid = await siteUuidForLegacy(ticket.siteId);
     if (!siteUuid) throw new Error("La sede del ticket todavía no está vinculada a Supabase.");
-    const existing = await lookupOne("tickets", "id,created_by", "legacy_id", ticket.id);
+    const existing = await lookupOne("tickets", "id,created_by,technician_id,technician_name,metadata", "legacy_id", ticket.id);
     const site = AdminStore.listSites().find(row => String(row.id) === String(ticket.siteId));
     const equipmentId = ticket.machineRecordKey ? await equipmentForRecordKey(ticket.machineRecordKey) : null;
     const creatorId = existing?.created_by || await profileIdForLegacy(ticket.createdById || ticket.leaderId, actor) || actor.authId;
     const supervisorId = await profileIdForLegacy(ticket.supervisorId || site?.supervisorUserId, actor);
-    const technicianId = await profileIdForLegacy(ticket.technicianId || site?.technicianUserId, actor);
+    // Los guardados de estado o datos del ticket no deben revertir una reasignación
+    // que ya hizo el supervisor o el administrador en otra sesión.
+    const technicianId = existing?.technician_id || await profileIdForLegacy(ticket.technicianId || site?.technicianUserId, actor);
     const leaderId = await profileIdForLegacy(ticket.leaderId, actor);
     const ticketDate = String(ticket.date || ticket.createdAt || new Date().toISOString()).slice(0, 10);
     const ticketType = cleanName(ticket.type).includes("infraestructura") ? "Infraestructura" : "Mantenimiento";
@@ -487,13 +489,32 @@
       fixed_asset: !ticket.activeFixed || cleanName(ticket.activeFixed) === "n/a" ? null : String(ticket.activeFixed),
       title: String(ticket.title || ticket.machineName || ticket.ticketNumber || "Ticket"), description: String(ticket.description || ""), status,
       supervisor_id: supervisorId, supervisor_name: String(ticket.supervisor || site?.supervisor || "") || null,
-      technician_id: technicianId, technician_name: String(ticket.technician || site?.technician || "") || null,
+      technician_id: technicianId, technician_name: existing?.technician_name || String(ticket.technician || site?.technician || "") || null,
       leader_id: leaderId, leader_name: String(ticket.leaderName || "") || null,
       created_by: creatorId, created_by_name: String(ticket.createdByName || ticket.leaderName || ticket.supervisor || actor.name || "") || null,
       updated_by: actor.authId, machine_record_key: ticket.machineRecordKey || null, ticket_date: ticketDate,
-      photos, metadata: cleanMetadata(ticket, "images"),
+      photos, metadata: Object.assign({}, existing?.metadata || {}, cleanMetadata(ticket, "images"), {
+        ...(existing?.metadata?.technicianAssignment ? { technicianAssignment: existing.metadata.technicianAssignment } : {})
+      }),
       created_at: ticket.createdAt || new Date().toISOString(), updated_at: new Date().toISOString()
     });
+  }
+  async function assignTicketTechnician(ticketId, technicianId) {
+    if (!String(ticketId || "").trim() || !String(technicianId || "").trim()) {
+      throw new Error("Selecciona el ticket y el técnico que se asignará.");
+    }
+    const response = await authorizedFetch(`${URL}/rest/v1/rpc/assign_ticket_technician`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ p_ticket_legacy_id: String(ticketId), p_technician_legacy_id: String(technicianId) })
+    });
+    const text = await response.text();
+    if (!response.ok) {
+      let message = text;
+      try { const data = JSON.parse(text); message = data.message || data.details || data.error || text; } catch (error) {}
+      throw new Error(`No se pudo asignar el técnico (${response.status}): ${message}`);
+    }
+    return text ? JSON.parse(text) : {};
   }
 
   async function persistMaintenance(recordKey, entry) {
@@ -718,6 +739,7 @@
         supervisor: row.supervisor_name || original.supervisor || "",
         technicianId: profileIdToLegacy.get(row.technician_id) || original.technicianId || "",
         technician: row.technician_name || original.technician || "",
+        technicianAssignment: original.technicianAssignment || null,
         leaderId: profileIdToLegacy.get(row.leader_id) || original.leaderId || "",
         leaderName: row.leader_name || original.leaderName || "",
         createdById: profileIdToLegacy.get(row.created_by) || original.createdById || "",
@@ -895,5 +917,5 @@
     try { return JSON.parse(sessionStorage.getItem(key) || "null"); } catch (error) { return null; }
   }
 
-  global.SmartFitSupabaseData = { hydrate, manageUser, persistSite, persistBrand, deleteBrand, deleteSite, recordAccess, startRealtimeSync, persistTicket: persistTicketQueued, persistMachineRecord, retryPending: flushPending };
+  global.SmartFitSupabaseData = { hydrate, manageUser, persistSite, persistBrand, deleteBrand, deleteSite, recordAccess, startRealtimeSync, persistTicket: persistTicketQueued, assignTicketTechnician, persistMachineRecord, retryPending: flushPending };
 })(window);
