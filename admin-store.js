@@ -19,6 +19,7 @@
     { id: "brand-matrix", name: "Matrix", equipmentCount: 71 },
     { id: "brand-booty-builder", name: "Booty Builder", equipmentCount: 8 },
     { id: "brand-shua", name: "Shua", equipmentCount: 29 },
+    { id: "brand-ubian", name: "Ubian", equipmentCount: 1 },
     { id: "brand-lifefitness", name: "Lifefitness", equipmentCount: 43 },
     { id: "brand-hammer-strength", name: "Hammer Strength", equipmentCount: 23 },
     { id: "brand-technogym", name: "Technogym", equipmentCount: 46 },

@@ -1030,12 +1030,12 @@
       <img class="lightbox-image" id="matrixLightboxImage" alt="">
     </div>
   </div>
-  <script src="admin-store.js"></script>
+  <script src="admin-store.js?v=20261026-ubian"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="supabase-data.js?v=20261026-offline-drafts"></script>
+  <script src="supabase-data.js?v=20261026-ubian"></script>
   <script src="EQU/matrix-catalog.js"></script>
   <script src="EQU/booty-catalog.js"></script>
-  <script src="EQU/other-catalogs.js?v=20261026-lifefitness-smith"></script>
+  <script src="EQU/other-catalogs.js?v=20261026-ubian-rack"></script>
   <script>
     "use strict";
 
@@ -1083,7 +1083,7 @@
       return items.map((item, index) => Object.assign({}, item, {
         catalogId: `${brandId}:${index}`,
         brandId,
-        brandName: brand ? brand.name : brandId
+        brandName: brand ? brand.name : item.brandName || brandId
       }));
     });
     let activeEquipmentCatalog = brandCatalogs["brand-matrix"];

@@ -231,7 +231,15 @@
     for (const [groupIndex, group] of site.equipment.entries()) {
       for (const [unitIndex, unit] of (Array.isArray(group.units) ? group.units : []).entries()) {
         const brandLegacyId = String(group.brandId || group.catalogId || "");
-        const brandId = brandIdByLegacy.get(brandLegacyId) || brandIdByName.get(cleanName(group.brandName)) || null;
+        let brandId = brandIdByLegacy.get(brandLegacyId) || brandIdByName.get(cleanName(group.brandName)) || null;
+        if (!brandId && brandLegacyId && group.brandName && global.BRAND_EQUIPMENT_CATALOGS?.[brandLegacyId]) {
+          const createdBrand = await persistBrand({ id: brandLegacyId, name: group.brandName, active: true });
+          brandId = createdBrand?.id || null;
+          if (brandId) {
+            brandIdByLegacy.set(brandLegacyId, brandId);
+            brandIdByName.set(cleanName(group.brandName), brandId);
+          }
+        }
         equipmentRows.push({
           legacy_id: `${site.id}::${group.brandId || group.catalogId || groupIndex}::${unit.unitId || unitIndex}`,
           site_id: remoteSite.id,
@@ -822,7 +830,15 @@
       const brandId = brandLegacyIdByUuid.get(row.brand_id) || String(row.metadata?.legacyBrandId || "");
       if (brandId) equipmentCountByBrand.set(brandId, (equipmentCountByBrand.get(brandId) || 0) + 1);
     });
-    const brandRowsForLocal = mergeById(parseLocal("smartfit.admin.brands.v1", []), brands.map(row => {
+    const storedBrands = parseLocal("smartfit.admin.brands.v1", []);
+    const knownBrandNames = new Set([...storedBrands, ...brands].map(row => cleanName(row.name)).filter(Boolean));
+    const catalogBrands = Object.entries(global.BRAND_EQUIPMENT_CATALOGS || {}).map(([id, items]) => ({
+      id,
+      name: items.find(item => item.brandName)?.brandName || id.replace(/^brand-/, "").replace(/[-_]+/g, " ").replace(/(^|\s)\S/g, letter => letter.toLocaleUpperCase("es")),
+      active: true,
+      equipmentCount: equipmentCountByBrand.get(id) || 0
+    })).filter(brand => !knownBrandNames.has(cleanName(brand.name)));
+    const brandRowsForLocal = mergeById(mergeById(storedBrands, catalogBrands), brands.map(row => {
       const id = String(row.legacy_id || row.id);
       return {
         id, name: row.name, active: row.active !== false,
