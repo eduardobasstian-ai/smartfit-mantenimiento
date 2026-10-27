@@ -516,6 +516,22 @@
     }
     return text ? JSON.parse(text) : {};
   }
+  async function listAssignableTicketTechnicians(ticketId) {
+    if (!String(ticketId || "").trim()) throw new Error("No se identificó el ticket.");
+    const response = await authorizedFetch(`${URL}/rest/v1/rpc/list_assignable_ticket_technicians`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ p_ticket_legacy_id: String(ticketId) })
+    });
+    const text = await response.text();
+    if (!response.ok) {
+      let message = text;
+      try { const data = JSON.parse(text); message = data.message || data.details || data.error || text; } catch (error) {}
+      throw new Error(`No se pudo cargar la nómina de técnicos (${response.status}): ${message}`);
+    }
+    const rows = text ? JSON.parse(text) : [];
+    return Array.isArray(rows) ? rows : [];
+  }
 
   async function persistMaintenance(recordKey, entry) {
     const actor = appSession();
@@ -950,5 +966,5 @@
     try { return JSON.parse(sessionStorage.getItem(key) || "null"); } catch (error) { return null; }
   }
 
-  global.SmartFitSupabaseData = { hydrate, manageUser, persistSite, persistBrand, deleteBrand, deleteSite, recordAccess, startRealtimeSync, persistTicket: persistTicketQueued, assignTicketTechnician, persistMachineRecord, retryPending: flushPending };
+  global.SmartFitSupabaseData = { hydrate, manageUser, persistSite, persistBrand, deleteBrand, deleteSite, recordAccess, startRealtimeSync, persistTicket: persistTicketQueued, assignTicketTechnician, listAssignableTicketTechnicians, persistMachineRecord, retryPending: flushPending };
 })(window);
