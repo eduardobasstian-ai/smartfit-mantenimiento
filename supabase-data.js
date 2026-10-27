@@ -75,11 +75,11 @@
   }
   // Mantiene el tamaño por debajo del límite máximo de filas que puede fijar
   // Supabase REST; así la paginación no confunde una página truncada con el final.
-  async function queryRows(path, pageSize = 25) {
+  async function queryRows(path, pageSize = 250) {
     const token = auth()?.access_token;
     if (!token) return [];
     const rows = [];
-    const limit = Math.max(1, Math.min(1000, Number(pageSize) || 25));
+    const limit = Math.max(1, Math.min(1000, Number(pageSize) || 250));
     for (let offset = 0; ; offset += limit) {
       const separator = path.includes("?") ? "&" : "?";
       const response = await authorizedFetch(`${URL}/rest/v1/${path}${separator}limit=${limit}&offset=${offset}`);
