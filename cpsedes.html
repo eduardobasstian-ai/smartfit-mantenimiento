@@ -804,6 +804,7 @@
     let supervisorTicketEquipmentQuery = "";
     let supervisorFilteredTickets = [];
     let supervisorAssignmentTicketId = "";
+    let supervisorAssignmentTicketSiteId = "";
     let supervisorAssignmentCandidates = [];
     let supervisorAssignmentSelectedId = "";
     let supervisorHistoryFilteredEvents = [];
@@ -1190,8 +1191,13 @@
     function renderSupervisorAssignmentOptions() {
       const query = normalizeChartLabel($("supervisorAssignmentSearch").value.trim());
       const candidates = supervisorAssignmentCandidates.filter(candidate => !query || normalizeChartLabel(candidate.name).includes(query));
-      $("supervisorAssignmentOptions").innerHTML = candidates.map(candidate => `<button class="back-button ticket-assignment-option" type="button" role="option" aria-selected="${candidate.id === supervisorAssignmentSelectedId}" aria-pressed="${candidate.id === supervisorAssignmentSelectedId}" data-supervisor-assignment-technician="${escapeHtml(candidate.id)}"><span>${escapeHtml(candidate.name)}</span><span class="subtext">Técnico</span></button>`).join("") || '<p class="subtext">No se encontraron técnicos activos asignados a esta sede.</p>';
-      $("saveSupervisorAssignment").disabled = !supervisorAssignmentCandidates.some(candidate => candidate.id === supervisorAssignmentSelectedId);
+      $("supervisorAssignmentOptions").innerHTML = candidates.map(candidate => {
+        const eligible = candidate.assignmentSiteIds.includes(supervisorAssignmentTicketSiteId);
+        const siteText = (candidate.assignmentSiteNames || []).join(" · ") || "Técnico de tu equipo";
+        const availability = eligible ? "Disponible para este ticket" : "No asignado a la sede del ticket";
+        return `<button class="back-button ticket-assignment-option" type="button" role="option" aria-selected="${candidate.id === supervisorAssignmentSelectedId}" aria-pressed="${candidate.id === supervisorAssignmentSelectedId}" data-supervisor-assignment-technician="${escapeHtml(candidate.id)}" ${eligible ? "" : "disabled"}><span>${escapeHtml(candidate.name)}</span><span class="subtext">${escapeHtml(siteText)} · ${availability}</span></button>`;
+      }).join("") || '<p class="subtext">No se encontraron técnicos activos asociados a tus sedes.</p>';
+      $("saveSupervisorAssignment").disabled = !supervisorAssignmentCandidates.some(candidate => candidate.id === supervisorAssignmentSelectedId && candidate.assignmentSiteIds.includes(supervisorAssignmentTicketSiteId));
     }
 
     function openSupervisorTicketAssignment(ticketId) {
@@ -1199,10 +1205,22 @@
       const site = ticket && assignedSites.find(entry => String(entry.id) === String(ticket.siteId));
       if (!supervisorMode || !ticket || !site) { window.alert("El ticket no corresponde a una de tus sedes asignadas."); return; }
       supervisorAssignmentTicketId = String(ticket.id);
+      supervisorAssignmentTicketSiteId = String(site.id);
       supervisorAssignmentSelectedId = String(ticket.technicianId || "");
-      supervisorAssignmentCandidates = AdminStore.listUsers().filter(candidate => candidate.active && candidate.role === "Técnico" &&
-        ((candidate.siteIds || []).some(id => String(id) === String(site.id)) || String(site.technicianUserId || "") === String(candidate.id))
-      ).sort((a, b) => a.name.localeCompare(b.name, "es"));
+      const scopedSites = new Map(assignedSites.map(entry => [String(entry.id), entry]));
+      supervisorAssignmentCandidates = AdminStore.listUsers().filter(candidate => candidate.active && candidate.role === "Técnico")
+        .map(candidate => Object.assign({}, candidate, {
+          assignmentSites: Array.from(scopedSites.values())
+            .filter(entry => (candidate.siteIds || []).some(id => String(id) === String(entry.id)) || String(entry.technicianUserId || "") === String(candidate.id)),
+          assignmentSiteNames: [],
+          assignmentSiteIds: []
+        }))
+        .map(candidate => Object.assign(candidate, {
+          assignmentSiteNames: candidate.assignmentSites.map(entry => entry.name),
+          assignmentSiteIds: candidate.assignmentSites.map(entry => String(entry.id))
+        }))
+        .filter(candidate => candidate.assignmentSiteNames.length > 0)
+        .sort((a, b) => a.name.localeCompare(b.name, "es"));
       $("supervisorAssignmentDescription").textContent = `Ticket ${ticket.ticketNumber || ticket.id} · ${site.name}`;
       $("supervisorAssignmentSearch").value = "";
       $("supervisorAssignmentError").hidden = true;
@@ -1214,13 +1232,14 @@
     function closeSupervisorTicketAssignment() {
       $("supervisorAssignmentModal").hidden = true;
       supervisorAssignmentTicketId = "";
+      supervisorAssignmentTicketSiteId = "";
       supervisorAssignmentCandidates = [];
       supervisorAssignmentSelectedId = "";
     }
 
     async function saveSupervisorTicketAssignment() {
       const ticketId = supervisorAssignmentTicketId;
-      const candidate = supervisorAssignmentCandidates.find(entry => entry.id === supervisorAssignmentSelectedId);
+      const candidate = supervisorAssignmentCandidates.find(entry => entry.id === supervisorAssignmentSelectedId && entry.assignmentSiteIds.includes(supervisorAssignmentTicketSiteId));
       if (!ticketId || !candidate) return;
       const button = $("saveSupervisorAssignment");
       button.disabled = true;
@@ -3125,7 +3144,7 @@
     $("supervisorAssignmentSearch").addEventListener("input", renderSupervisorAssignmentOptions);
     $("supervisorAssignmentOptions").addEventListener("click", event => {
       const option = event.target.closest("[data-supervisor-assignment-technician]");
-      if (!option) return;
+      if (!option || option.disabled) return;
       supervisorAssignmentSelectedId = option.dataset.supervisorAssignmentTechnician;
       renderSupervisorAssignmentOptions();
     });
