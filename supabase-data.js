@@ -1299,10 +1299,30 @@
       setLocal(ACCESS_HISTORY_KEY, mergedAccesses.slice(0, 500));
     }
     if (refreshTickets) {
-      const localTickets = parseLocal(TICKETS_KEY, []);
-      const mergedTickets = mergeById(localTickets, hydratedTickets);
+      const localTickets = await restoreTicketMedia(parseLocal(TICKETS_KEY, []));
+      const localById = new Map(localTickets.map(ticket => [String(ticket.id), ticket]));
+      const pending = readPending();
+      pending.tickets = Array.isArray(pending.tickets) ? pending.tickets : [];
+      const remoteTicketsWithRecoveredMedia = hydratedTickets.map(ticket => {
+        const localTicket = localById.get(String(ticket.id));
+        const remoteHasPhotos = Array.isArray(ticket.images) && ticket.images.length > 0;
+        const localHasPhotos = Array.isArray(localTicket?.images) && localTicket.images.length > 0;
+        if (!remoteHasPhotos && localHasPhotos) {
+          pending.tickets = [...new Set([...pending.tickets, String(ticket.id)])];
+          return Object.assign({}, ticket, { images: localTicket.images });
+        }
+        return ticket;
+      });
+      const remoteTicketIds = new Set(remoteTicketsWithRecoveredMedia.map(ticket => String(ticket.id)));
+      for (const ticket of localTickets) {
+        if (!remoteTicketIds.has(String(ticket.id)) && Array.isArray(ticket.images) && ticket.images.length) {
+          pending.tickets = [...new Set([...pending.tickets, String(ticket.id)])];
+        }
+      }
+      const mergedTickets = mergeById(localTickets, remoteTicketsWithRecoveredMedia);
       await putTicketMedia(mergedTickets);
       await writeTicketCache(mergedTickets);
+      savePending(pending);
     }
     if (refreshRecords) {
       const ticketUuidToLegacy = new Map(tickets.map(row => [row.id, String(row.legacy_id || "")]));
@@ -1368,7 +1388,7 @@
       setLocal("smartfit.admin.brands.v1", brandRowsForLocal);
     }
     if (refreshUsers) setLocal("smartfit.admin.users.v1", mergedUsers);
-    if (fullHydration) setTimeout(() => {
+    if (fullHydration || refreshTickets || refreshRecords) setTimeout(() => {
       flushPending().catch(error => console.warn("No se pudieron sincronizar algunos cambios pendientes.", error));
     }, 0);
     return { sites: sites.length, brands: brands.length, equipment: equipment.length, tickets: tickets.length, events: events.length, mileage: mileageRows.length };
