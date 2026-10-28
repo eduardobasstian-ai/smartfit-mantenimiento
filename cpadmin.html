@@ -1091,7 +1091,7 @@
     </div>
   </div>
   <script src="admin-store.js?v=20261026-ubian"></script>
-  <script src="supabase-data.js?v=20261027-speed-3"></script>
+  <script src="supabase-data.js?v=20261028-storage-quota-1"></script>
   <script src="EQU/matrix-catalog.js"></script>
   <script src="EQU/booty-catalog.js"></script>
   <script src="EQU/other-catalogs.js?v=20261026-ubian-rack"></script>
@@ -1167,16 +1167,22 @@
     function readLeaderTickets() {
       try {
         const tickets = JSON.parse(localStorage.getItem(TICKETS_STORAGE_KEY) || "[]");
-        return Array.isArray(tickets) ? tickets.filter(ticket => ticket && typeof ticket === "object") : [];
+        return SmartFitSupabaseData.getTicketsWithCachedMediaSync(Array.isArray(tickets) ? tickets.filter(ticket => ticket && typeof ticket === "object") : []);
       } catch (error) {
         return [];
       }
     }
 
+    async function writeLeaderTickets(tickets) {
+      await SmartFitSupabaseData.writeTicketCache(tickets);
+    }
+
     function readMachineRecords() {
       try {
         const records = JSON.parse(localStorage.getItem(MACHINE_RECORDS_KEY) || "{}");
-        return records && typeof records === "object" && !Array.isArray(records) ? records : {};
+        return records && typeof records === "object" && !Array.isArray(records)
+          ? Object.fromEntries(Object.entries(records).map(([recordKey, record]) => [recordKey, SmartFitSupabaseData.getMachineRecordWithCachedMediaSync(recordKey, record)]))
+          : {};
       } catch (error) {
         return {};
       }
@@ -1705,7 +1711,7 @@
         ticket.technicianId = result.technicianId || candidate.id;
         ticket.technician = result.technician || candidate.name;
         ticket.technicianAssignment = { technicianId: ticket.technicianId, technicianName: ticket.technician, assignedById: result.assignedById || adminSession.id, assignedByName: result.assignedByName || adminSession.name, assignedAt: result.assignedAt || new Date().toISOString() };
-        localStorage.setItem(TICKETS_STORAGE_KEY, JSON.stringify(tickets));
+        await writeLeaderTickets(tickets);
         try { await SmartFitSupabaseData.hydrate({ tables: ["tickets"] }); } catch (error) { console.warn("La asignación se guardó, pero no se pudo actualizar la caché remota.", error); }
         window.dispatchEvent(new Event("smartfit:supabase-data-hydrated"));
         closeTicketAssignment();
