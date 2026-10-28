@@ -716,6 +716,7 @@
         <label class="inventory-filter">Buscar equipo o activo fijo<input id="profileInventorySearch" type="search" placeholder="Nombre, modelo o activo fijo..."></label>
         <label class="inventory-filter">Sede<input id="profileInventorySite" type="search" list="profileInventorySiteOptions" placeholder="Todas las sedes" autocomplete="off"><datalist id="profileInventorySiteOptions"></datalist></label>
         <label class="inventory-filter">Marca<select id="profileInventoryBrand"><option value="*">Todas las marcas</option></select></label>
+        <label class="inventory-filter">Categoría<select id="profileInventoryCategory"><option value="*">Todas las categorías</option></select></label>
       </div>
       <div class="inventory-toolbar"><span class="inventory-count" id="profileInventoryCount">0 equipos</span><div class="inventory-export-actions"><button class="back-button" id="profileInventoryPdf" type="button">PDF</button><button class="back-button" id="profileInventoryExcel" type="button">Excel</button></div></div>
       <div class="inventory-table-wrap"><table class="inventory-table"><thead><tr><th>Sede</th><th>Marca</th><th>Equipo</th><th>Modelo</th><th>Activo fijo</th><th>Categoría</th></tr></thead><tbody id="profileInventoryBody"></tbody></table></div>
@@ -1933,9 +1934,13 @@
         }));
       }));
       const brandSelect = $("profileInventoryBrand"), previousBrand = brandSelect.value || "*";
+      const categorySelect = $("profileInventoryCategory"), previousCategory = categorySelect.value || "*";
       const brands = [...new Map(rows.map(row => [row.brandId, row.brandName])).entries()].sort((a, b) => a[1].localeCompare(b[1], "es"));
       brandSelect.innerHTML = '<option value="*">Todas las marcas</option>' + brands.map(([id, name]) => `<option value="${escapeHtml(id)}">${escapeHtml(name)}</option>`).join("");
       brandSelect.value = brands.some(([id]) => id === previousBrand) ? previousBrand : "*";
+      const categories = [...new Set(rows.map(row => String(row.category || "").trim()).filter(category => category && category !== "—"))].sort((a, b) => a.localeCompare(b, "es"));
+      categorySelect.innerHTML = '<option value="*">Todas las categorías</option>' + categories.map(category => `<option value="${escapeHtml(category)}">${escapeHtml(category)}</option>`).join("");
+      categorySelect.value = categories.includes(previousCategory) ? previousCategory : "*";
       const siteNames = [...new Set(assignedSites.map(site => site.name).filter(Boolean))].sort((a, b) => a.localeCompare(b, "es"));
       $("profileInventorySiteOptions").innerHTML = siteNames.map(name => `<option value="${escapeHtml(name)}"></option>`).join("");
       const query = normalizeChartLabel($("profileInventorySearch").value);
@@ -1943,6 +1948,7 @@
       const visible = rows.filter(row =>
         (!siteQuery || normalizeChartLabel(row.siteName).includes(siteQuery)) &&
         (brandSelect.value === "*" || row.brandId === brandSelect.value) &&
+        (categorySelect.value === "*" || row.category === categorySelect.value) &&
         (!query || normalizeChartLabel(`${row.siteName} ${row.brandName} ${row.equipmentName} ${row.model} ${row.activeFixed ?? ""} ${row.category}`).includes(query))
       );
       $("profileInventoryCount").textContent = `${visible.length.toLocaleString("es-CL")} ${visible.length === 1 ? "equipo" : "equipos"}`;
@@ -1956,8 +1962,9 @@
       const siteFilter = $("profileInventorySite").value.trim() || "Todas las sedes asignadas";
       const selectedBrand = $("profileInventoryBrand");
       const brandFilter = selectedBrand.value === "*" ? "Todas las marcas" : selectedBrand.selectedOptions[0]?.textContent || "Todas las marcas";
+      const categoryFilter = $("profileInventoryCategory").value === "*" ? "Todas las categorías" : $("profileInventoryCategory").value;
       const search = $("profileInventorySearch").value.trim() || "Sin búsqueda";
-      const payload = { rows: data.rows, globalCount: data.globalRows.length, exportedBy: user.name, siteFilter, brandFilter, search };
+      const payload = { rows: data.rows, globalCount: data.globalRows.length, exportedBy: user.name, siteFilter, brandFilter, categoryFilter, search };
       if (format === "pdf") window.SmartFitInventoryExport.exportPdf(payload);
       else window.SmartFitInventoryExport.exportExcel(payload);
     }
@@ -3212,6 +3219,7 @@
     });
     ["profileInventorySearch", "profileInventorySite"].forEach(id => $(id).addEventListener("input", renderProfileInventory));
     $("profileInventoryBrand").addEventListener("change", renderProfileInventory);
+    $("profileInventoryCategory").addEventListener("change", renderProfileInventory);
     $("profileInventoryPdf").addEventListener("click", () => exportProfileInventory("pdf"));
     $("profileInventoryExcel").addEventListener("click", () => exportProfileInventory("excel"));
     $("siteGrid").addEventListener("click", event => {

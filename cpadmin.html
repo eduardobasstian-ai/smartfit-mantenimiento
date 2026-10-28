@@ -732,6 +732,7 @@
               </div>
             </label>
             <label class="history-filter">Marca<select class="form-control form-select" id="adminInventoryBrandFilter"><option value="*">Todas las marcas</option></select></label>
+            <label class="history-filter">Categoría<select class="form-control form-select" id="adminInventoryCategoryFilter"><option value="*">Todas las categorías</option></select></label>
           </div>
           <div class="table-tools" style="justify-content:space-between; margin:0 0 10px;">
             <span class="subtext" id="adminInventoryCount" aria-live="polite">0 equipos</span>
@@ -1958,8 +1959,9 @@
       const siteSearch = $("adminInventorySiteSearch");
       const siteSuggestions = $("adminInventorySiteSuggestions");
       const brandFilter = $("adminInventoryBrandFilter");
+      const categoryFilter = $("adminInventoryCategoryFilter");
       const body = $("adminInventoryBody");
-      if (!siteFilter || !siteSearch || !siteSuggestions || !brandFilter || !body) return;
+      if (!siteFilter || !siteSearch || !siteSuggestions || !brandFilter || !categoryFilter || !body) return;
 
       const sites = AdminStore.listSites();
       const brands = AdminStore.listBrands();
@@ -1986,11 +1988,15 @@
       });
 
       const selectedBrand = brandFilter.value || "*";
+      const selectedCategory = categoryFilter.value || "*";
       const siteOptions = sites.slice().sort((a, b) => String(a.name).localeCompare(String(b.name), "es"));
       const brandOptions = [...new Map(inventory.map(item => [item.brandId || item.brandName, item.brandName])).entries()]
         .sort((a, b) => String(a[1]).localeCompare(String(b[1]), "es"));
       brandFilter.innerHTML = '<option value="*">Todas las marcas</option>' + brandOptions.map(([id, name]) => `<option value="${escapeHtml(id)}">${escapeHtml(name)}</option>`).join("");
+      const categoryOptions = [...new Set(inventory.map(item => String(item.category || "").trim()).filter(category => category && category !== "—"))].sort((a, b) => a.localeCompare(b, "es"));
+      categoryFilter.innerHTML = '<option value="*">Todas las categorías</option>' + categoryOptions.map(category => `<option value="${escapeHtml(category)}">${escapeHtml(category)}</option>`).join("");
       brandFilter.value = brandOptions.some(([id]) => id === selectedBrand) ? selectedBrand : "*";
+      categoryFilter.value = categoryOptions.includes(selectedCategory) ? selectedCategory : "*";
 
       const siteQuery = normalizeHistoryName(siteSearch.value);
       const filteredSites = siteOptions.filter(site => !siteQuery || normalizeHistoryName(site.name).includes(siteQuery));
@@ -2005,6 +2011,7 @@
       const filtered = inventory.filter(item =>
         (siteFilter.value !== "*" ? item.siteId === siteFilter.value : (!siteQuery || normalizeHistoryName(item.siteName).includes(siteQuery))) &&
         (brandFilter.value === "*" || (item.brandId || item.brandName) === brandFilter.value) &&
+        (categoryFilter.value === "*" || item.category === categoryFilter.value) &&
         (!query || normalizeHistoryName(`${item.siteName} ${item.brandName} ${item.equipmentName} ${item.model} ${item.activeFixed ?? ""} ${item.category}`).includes(query))
       );
       adminFilteredInventoryRows = filtered;
@@ -2027,6 +2034,7 @@
         : $("adminInventorySiteSearch").value.trim() || "Todas las sedes";
       const brandId = $("adminInventoryBrandFilter").value;
       const brandName = brandId === "*" ? "Todas las marcas" : AdminStore.listBrands().find(brand => String(brand.id) === brandId)?.name || brandId;
+      const category = $("adminInventoryCategoryFilter").value === "*" ? "Todas las categorías" : $("adminInventoryCategoryFilter").value;
       const search = $("adminInventorySearch").value.trim() || "Sin búsqueda";
       const groupedBrands = new Map();
       const groupedModels = new Map();
@@ -2043,6 +2051,7 @@
         filteredRows: adminFilteredInventoryRows,
         siteName,
         brandName,
+        category,
         search,
         brandCounts: [...groupedBrands.entries()].sort((a, b) => a[0].localeCompare(b[0], "es")),
         modelCounts: [...groupedModels.entries()].map(([key, count]) => ({ brand: key.split("|||")[0], model: key.split("|||")[1], count })).sort((a, b) => a.brand.localeCompare(b.brand, "es") || a.model.localeCompare(b.model, "es"))
@@ -2064,7 +2073,7 @@
       reportWindow.document.write(`<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Inventario general</title><style>
         @page{size:letter landscape;margin:12mm}*{box-sizing:border-box}body{margin:0;color:#171923;font:9pt Arial,sans-serif}.header{display:flex;align-items:center;gap:20px;border-bottom:3px solid #ffb51b;padding:0 0 10px}.header img{width:120px;height:auto;background:#000;padding:4px 8px;border-radius:4px}.header-copy{flex:1;text-align:right}.header h1{font-size:19pt;margin:0 0 6px}.header p{margin:3px 0;color:#555}.section{margin-top:14px}.section h2{font-size:11pt;margin:0 0 7px;padding-bottom:4px;border-bottom:1px solid #cfd1d8}.meta{display:grid;grid-template-columns:repeat(3,1fr);gap:6px 18px}.meta p{margin:0;line-height:1.4}.stats{display:flex;gap:10px;margin:10px 0}.stat{flex:1;padding:9px;border:1px solid #cfd1d8;border-radius:7px}.stat b{display:block;font-size:8pt;color:#555}.stat strong{display:block;margin-top:3px;font-size:15pt}table{width:100%;border-collapse:collapse}th,td{padding:6px 7px;border:1px solid #d8dae0;text-align:left;vertical-align:top}th{background:#f0f1f4;font-weight:700}.summary-grid{display:grid;grid-template-columns:1fr 1.6fr;gap:14px}.empty{text-align:center;color:#666}thead{display:table-header-group}tr{break-inside:avoid}footer{margin-top:14px;border-top:1px solid #d8dae0;padding-top:6px;text-align:center;color:#555;font-size:8pt}@media print{*{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
       </style></head><body><header class="header"><img src="${escapeHtml(logoUrl)}" alt="Smart Fit"><div class="header-copy"><h1>INVENTARIO GENERAL</h1><p>Exportado por: <b>${escapeHtml(context.exportedBy)}</b></p><p>Fecha y hora: ${escapeHtml(context.exportedAt)}</p></div></header>
-        <section class="section"><h2>Alcance del informe</h2><div class="meta"><p><b>Sede:</b> ${escapeHtml(context.siteName)}</p><p><b>Marca:</b> ${escapeHtml(context.brandName)}</p><p><b>Búsqueda:</b> ${escapeHtml(context.search)}</p></div><div class="stats"><div class="stat"><b>Total global de equipos</b><strong>${context.globalCount.toLocaleString("es-CL")}</strong></div><div class="stat"><b>Equipos incluidos en este informe</b><strong>${context.filteredRows.length.toLocaleString("es-CL")}</strong></div><div class="stat"><b>Marcas incluidas</b><strong>${context.brandCounts.length.toLocaleString("es-CL")}</strong></div><div class="stat"><b>Modelos incluidos</b><strong>${context.modelCounts.length.toLocaleString("es-CL")}</strong></div></div></section>
+        <section class="section"><h2>Alcance del informe</h2><div class="meta"><p><b>Sede:</b> ${escapeHtml(context.siteName)}</p><p><b>Marca:</b> ${escapeHtml(context.brandName)}</p><p><b>Categoría:</b> ${escapeHtml(context.category)}</p><p><b>Búsqueda:</b> ${escapeHtml(context.search)}</p></div><div class="stats"><div class="stat"><b>Total global de equipos</b><strong>${context.globalCount.toLocaleString("es-CL")}</strong></div><div class="stat"><b>Equipos incluidos en este informe</b><strong>${context.filteredRows.length.toLocaleString("es-CL")}</strong></div><div class="stat"><b>Marcas incluidas</b><strong>${context.brandCounts.length.toLocaleString("es-CL")}</strong></div><div class="stat"><b>Modelos incluidos</b><strong>${context.modelCounts.length.toLocaleString("es-CL")}</strong></div></div></section>
         <section class="section"><h2>Resumen por marca y modelo</h2><div class="summary-grid"><table><thead><tr><th>Marca</th><th>Equipos</th></tr></thead><tbody>${summaryRows}</tbody></table><table><thead><tr><th>Marca</th><th>Modelo</th><th>Equipos</th></tr></thead><tbody>${modelRows}</tbody></table></div></section>
         <section class="section"><h2>Detalle del inventario (${context.filteredRows.length.toLocaleString("es-CL")} equipos)</h2><table><thead><tr><th>Sede</th><th>Marca</th><th>Equipo</th><th>Modelo</th><th>Activo fijo</th><th>Categoría</th></tr></thead><tbody>${detailRows}</tbody></table></section><footer>Informe generado desde el panel administrador de Smart Fit.</footer><script>window.addEventListener('load',()=>setTimeout(()=>window.print(),250));<\/script></body></html>`);
       reportWindow.document.close();
@@ -2149,6 +2158,7 @@
         ["Fecha y hora", context.exportedAt],
         ["Sede", context.siteName],
         ["Marca", context.brandName],
+        ["Categoría", context.category],
         ["Búsqueda", context.search],
         [],
         [{ value: "INDICADORES", style: 1 }],
@@ -2795,6 +2805,7 @@
       }
     });
     $("adminInventoryBrandFilter").addEventListener("change", renderAdminInventory);
+    $("adminInventoryCategoryFilter").addEventListener("change", renderAdminInventory);
     $("exportAdminInventoryPdf").addEventListener("click", exportAdminInventoryPdf);
     $("exportAdminInventoryExcel").addEventListener("click", exportAdminInventoryExcel);
 
