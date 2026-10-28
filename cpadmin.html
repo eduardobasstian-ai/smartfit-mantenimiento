@@ -1706,7 +1706,7 @@
         ticket.technician = result.technician || candidate.name;
         ticket.technicianAssignment = { technicianId: ticket.technicianId, technicianName: ticket.technician, assignedById: result.assignedById || adminSession.id, assignedByName: result.assignedByName || adminSession.name, assignedAt: result.assignedAt || new Date().toISOString() };
         localStorage.setItem(TICKETS_STORAGE_KEY, JSON.stringify(tickets));
-        try { await SmartFitSupabaseData.hydrate(); } catch (error) { console.warn("La asignación se guardó, pero no se pudo actualizar la caché remota.", error); }
+        try { await SmartFitSupabaseData.hydrate({ tables: ["tickets"] }); } catch (error) { console.warn("La asignación se guardó, pero no se pudo actualizar la caché remota.", error); }
         window.dispatchEvent(new Event("smartfit:supabase-data-hydrated"));
         closeTicketAssignment();
       } catch (error) {
@@ -2846,7 +2846,7 @@
           if (block) throw new Error(block);
           await SmartFitSupabaseData.deleteSite(site.id);
           AdminStore.deleteSite(site.id);
-          await SmartFitSupabaseData.hydrate();
+          await SmartFitSupabaseData.hydrate({ tables: ["sites", "equipment", "site_assignments", "brands"] });
           render();
         } catch (error) {
           window.alert(error.message);
@@ -2870,7 +2870,7 @@
           if (block) throw new Error(block);
           await SmartFitSupabaseData.deleteBrand(brand.id);
           AdminStore.deleteBrand(brand.id);
-          await SmartFitSupabaseData.hydrate();
+          await SmartFitSupabaseData.hydrate({ tables: ["brands", "equipment"] });
           render();
         } catch (error) {
           window.alert(error.message);
@@ -2901,7 +2901,7 @@
         await SmartFitSupabaseData.manageUser({ operation: "save_user", ...fields });
         closeUserModal();
         try {
-          await SmartFitSupabaseData.hydrate();
+          await SmartFitSupabaseData.hydrate({ tables: ["profiles", "site_assignments", "admin_user_access"] });
         } catch (refreshError) {
           console.error("La cuenta se guardó, pero no se pudo actualizar la lista desde Supabase:", refreshError);
           window.alert("La cuenta se guardó en Supabase, pero la lista no pudo actualizarse. Recarga el panel para verla.");
@@ -2940,14 +2940,14 @@
         // actualice esta misma sede en vez de crear un duplicado.
         $("siteId").value = site.id;
         await SmartFitSupabaseData.persistSite(site);
-        await SmartFitSupabaseData.hydrate();
+        await SmartFitSupabaseData.hydrate({ tables: ["sites", "equipment", "site_assignments", "brands"] });
         closeSiteModal();
         render();
       } catch (error) {
         $("siteFormError").textContent = error.message;
         $("siteFormError").classList.add("visible");
         try {
-          await SmartFitSupabaseData.hydrate();
+          await SmartFitSupabaseData.hydrate({ tables: ["sites", "equipment", "site_assignments", "brands"] });
           render();
         } catch (reloadError) {
           if (previousSites === null) localStorage.removeItem("smartfit.admin.sites.v1");
@@ -2977,7 +2977,7 @@
           : AdminStore.createBrand(fields);
         $("brandId").value = brand.id;
         await SmartFitSupabaseData.persistBrand(brand);
-        await SmartFitSupabaseData.hydrate();
+        await SmartFitSupabaseData.hydrate({ tables: ["brands"] });
         closeBrandModal();
         render();
       } catch (error) {

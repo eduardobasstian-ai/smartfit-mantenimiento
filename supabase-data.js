@@ -11,6 +11,11 @@
   let realtimeRefreshTimer = null;
   let realtimeLibraryPromise = null;
   let hydrateInFlight = null;
+  let hydrationSnapshot = null;
+  let queuedHydrationTables = new Set();
+  let pendingRealtimeTables = new Set();
+  let pendingFlushInFlight = null;
+  let refreshWhenVisible = false;
 
   function auth() {
     try { return JSON.parse(sessionStorage.getItem("smartfit.supabase.auth") || "null"); }
@@ -382,16 +387,26 @@
       }
     });
     realtimeChannel = realtimeClient.channel("smartfit-live-sync", { config: { private: true } });
-    const scheduleRefresh = () => {
+    const scheduleRefresh = payload => {
+      const changedTable = String(payload?.payload?.table || "");
+      if (!changedTable || changedTable === "part_requests") return;
+      if (["admin_user_access", "audit_log"].includes(changedTable) && appSession()?.role !== "Administrador") return;
+      pendingRealtimeTables.add(changedTable);
+      if (document.hidden) {
+        refreshWhenVisible = true;
+        return;
+      }
       clearTimeout(realtimeRefreshTimer);
       realtimeRefreshTimer = setTimeout(async () => {
         try {
-          const result = await hydrate();
+          const tables = [...pendingRealtimeTables];
+          pendingRealtimeTables.clear();
+          const result = await hydrate({ tables });
           if (!result.skipped) global.dispatchEvent(new Event("smartfit:supabase-data-hydrated"));
         } catch (error) {
           console.warn("No se pudieron actualizar los datos en tiempo real.", error);
         }
-      }, 350);
+      }, 500);
     };
     // El mensaje de Broadcast solo anuncia que hubo un cambio; los datos siempre
     // se vuelven a consultar por REST, donde Supabase aplica RLS por perfil.
@@ -403,6 +418,14 @@
         console.warn("La sincronización en tiempo real no pudo conectarse.", error || status);
       }
     });
+    if (!global.__smartfitRealtimeVisibilityBound) {
+      global.__smartfitRealtimeVisibilityBound = true;
+      document.addEventListener("visibilitychange", () => {
+        if (document.hidden || !refreshWhenVisible) return;
+        refreshWhenVisible = false;
+        pendingRealtimeTables.forEach(table => scheduleRefresh({ payload: { table } }));
+      });
+    }
     return true;
   }
   async function manageUser(payload) {
@@ -699,7 +722,7 @@
       throw error;
     }
   }
-  async function flushPending() {
+  async function flushPendingNow() {
     const pending = readPending();
     const localTickets = parseLocal(TICKETS_KEY, []);
     for (const id of pending.tickets || []) {
@@ -719,6 +742,12 @@
       catch (error) { console.warn("Pendiente de sincronizar registro", recordKey, error); }
     }
     savePending(pending);
+  }
+  function flushPending() {
+    if (!pendingFlushInFlight) {
+      pendingFlushInFlight = flushPendingNow().finally(() => { pendingFlushInFlight = null; });
+    }
+    return pendingFlushInFlight;
   }
 
   function mergeById(localRows, remoteRows) {
@@ -799,12 +828,20 @@
 
   function hydrateRecords(events, mileageRows, ticketLinks, ticketUuidToLegacy, siteIdToLegacy, profileIdToLegacy) {
     const records = {};
+    const ticketIdsByEvent = new Map();
+    ticketLinks.forEach(link => {
+      const ticketId = ticketUuidToLegacy.get(link.ticket_id);
+      if (!ticketId) return;
+      const ids = ticketIdsByEvent.get(link.event_id) || [];
+      ids.push(ticketId);
+      ticketIdsByEvent.set(link.event_id, ids);
+    });
     events.forEach(row => {
       const recordKey = row.source_record_key || `${siteIdToLegacy.get(row.site_id) || ""}::`;
       if (!recordKey) return;
       const record = records[recordKey] || { maintenance: [], mileage: [] };
       const original = row.metadata && typeof row.metadata === "object" ? row.metadata : {};
-      const ticketIds = ticketLinks.filter(link => link.event_id === row.id).map(link => ticketUuidToLegacy.get(link.ticket_id)).filter(Boolean);
+      const ticketIds = ticketIdsByEvent.get(row.id) || [];
       if (!ticketIds.length && row.ticket_id && ticketUuidToLegacy.has(row.ticket_id)) ticketIds.push(ticketUuidToLegacy.get(row.ticket_id));
       record.maintenance.push(Object.assign({}, original, {
         id: original.id || String(row.legacy_id || "").split("::maintenance::").pop(),
@@ -847,42 +884,66 @@
     return records;
   }
 
-  async function hydrateNow() {
+  async function hydrateNow(refreshTables = null) {
     if (!auth()?.access_token) return { skipped: true };
     const canReadAccountEmails = appSession()?.role === "Administrador";
-    const [sites, brands, equipment, tickets, events, mileageRows, eventLinks, profiles, assignments, accountAccess, accessRows] = await Promise.all([
-      getRows("sites", "id,legacy_id,name,region,internal_code,active"),
-      getRows("brands", "id,legacy_id,name,active"),
-      getRows("equipment", "id,legacy_id,site_id,brand_id,fixed_asset,name,model,category,image_url,active,metadata"),
-      getRows("tickets", "id,legacy_id,ticket_number,ticket_type,site_id,equipment_id,fixed_asset,title,description,status,supervisor_id,supervisor_name,technician_id,technician_name,leader_id,leader_name,created_by,created_by_name,updated_by,machine_record_key,ticket_date,photos,metadata,created_at,updated_at"),
-      getRows("maintenance_events", "id,legacy_id,source_record_key,site_id,equipment_id,equipment_name,equipment_model,fixed_asset,event_type,status,details,ticket_id,technician_id,technician_name,supervisor_id,supervisor_name,registered_by,registered_by_name,photos,occurred_at,created_at,metadata"),
-      getRows("mileage_records", "id,legacy_id,source_record_key,site_id,equipment_id,equipment_name,equipment_model,fixed_asset,mileage_km,entry_date,technician_id,technician_name,supervisor_id,supervisor_name,registered_by,registered_by_name,notes,lubrication,photos,recorded_at,metadata"),
-      getRows("maintenance_event_tickets", "event_id,ticket_id"),
-      getRows("profiles", "id,legacy_id,full_name,username,role,active,password_change_required,updated_at"),
-      getRows("site_assignments", "site_id,user_id,assignment_role"),
-      canReadAccountEmails
-        ? getRows("admin_user_access", "profile_id,email").catch(error => {
-          console.warn("No se pudo consultar el directorio de correos de administración; se continúa cargando el panel.", error);
-          return [];
-        })
-        : Promise.resolve([]),
-      canReadAccountEmails
-        ? queryRows("audit_log?select=id,actor_id,action,entity_id,details,created_at&action=eq.login_success&order=created_at.desc", 15)
-        : Promise.resolve([])
-    ]);
+    const loaders = {
+      sites: () => getRows("sites", "id,legacy_id,name,region,internal_code,active"),
+      brands: () => getRows("brands", "id,legacy_id,name,active"),
+      equipment: () => getRows("equipment", "id,legacy_id,site_id,brand_id,fixed_asset,name,model,category,image_url,active,metadata"),
+      tickets: () => getRows("tickets", "id,legacy_id,ticket_number,ticket_type,site_id,equipment_id,fixed_asset,title,description,status,supervisor_id,supervisor_name,technician_id,technician_name,leader_id,leader_name,created_by,created_by_name,updated_by,machine_record_key,ticket_date,photos,metadata,created_at,updated_at"),
+      maintenance_events: () => getRows("maintenance_events", "id,legacy_id,source_record_key,site_id,equipment_id,equipment_name,equipment_model,fixed_asset,event_type,status,details,ticket_id,technician_id,technician_name,supervisor_id,supervisor_name,registered_by,registered_by_name,photos,occurred_at,created_at,metadata"),
+      mileage_records: () => getRows("mileage_records", "id,legacy_id,source_record_key,site_id,equipment_id,equipment_name,equipment_model,fixed_asset,mileage_km,entry_date,technician_id,technician_name,supervisor_id,supervisor_name,registered_by,registered_by_name,notes,lubrication,photos,recorded_at,metadata"),
+      maintenance_event_tickets: () => getRows("maintenance_event_tickets", "event_id,ticket_id"),
+      profiles: () => getRows("profiles", "id,legacy_id,full_name,username,role,active,password_change_required,updated_at"),
+      site_assignments: () => getRows("site_assignments", "site_id,user_id,assignment_role"),
+      admin_user_access: () => getRows("admin_user_access", "profile_id,email").catch(error => {
+        console.warn("No se pudo consultar el directorio de correos de administración; se continúa cargando el panel.", error);
+        return [];
+      }),
+      audit_log: () => queryRows("audit_log?select=id,actor_id,action,entity_id,details,created_at&action=eq.login_success&order=created_at.desc", 15)
+    };
+    const refreshableTables = Object.keys(loaders).filter(table => canReadAccountEmails || !["admin_user_access", "audit_log"].includes(table));
+    const useSnapshot = hydrationSnapshot && Array.isArray(refreshTables);
+    const requestedTables = useSnapshot
+      ? [...new Set(refreshTables)].filter(table => refreshableTables.includes(table))
+      : refreshableTables;
+    const loadedValues = await Promise.all(requestedTables.map(table => loaders[table]()));
+    const nextSnapshot = useSnapshot ? Object.assign({}, hydrationSnapshot) : {};
+    requestedTables.forEach((table, index) => { nextSnapshot[table] = loadedValues[index]; });
+    if (!canReadAccountEmails) {
+      nextSnapshot.admin_user_access = [];
+      nextSnapshot.audit_log = [];
+    }
+    hydrationSnapshot = nextSnapshot;
+    if (!requestedTables.length) return { skipped: true };
+    const { sites, brands, equipment, tickets, maintenance_events: events, mileage_records: mileageRows,
+      maintenance_event_tickets: eventLinks, profiles, site_assignments: assignments,
+      admin_user_access: accountAccess, audit_log: accessRows } = hydrationSnapshot;
+    const changed = new Set(requestedTables);
+    const fullHydration = !useSnapshot;
+    const refreshSites = fullHydration || ["sites", "brands", "equipment"].some(table => changed.has(table));
+    const refreshTickets = fullHydration || ["tickets", "sites", "profiles"].some(table => changed.has(table));
+    const refreshRecords = fullHydration || ["maintenance_events", "mileage_records", "maintenance_event_tickets", "tickets", "sites", "profiles"].some(table => changed.has(table));
+    const refreshUsers = fullHydration || ["profiles", "site_assignments", "sites", "tickets", "admin_user_access"].some(table => changed.has(table));
+    const refreshAccessHistory = fullHydration || changed.has("audit_log");
     const siteIdToLegacy = new Map(sites.map(row => [row.id, String(row.legacy_id || "")]));
     // La función de login devuelve asignaciones como UUID de Supabase; las vistas locales
     // trabajan con legacy_id. Traducirlas aquí conserva el alcance por sede del supervisor.
-    for (const key of ["smartfit.site.session", "smartfit.leader.session", "smartfit.admin.session"]) {
-      const session = parseLocalSession(key);
-      if (!session?.siteIds) continue;
-      session.siteIds = session.siteIds.map(id => siteIdToLegacy.get(id) || String(id));
-      sessionStorage.setItem(key, JSON.stringify(session));
+    if (refreshUsers) {
+      for (const key of ["smartfit.site.session", "smartfit.leader.session", "smartfit.admin.session"]) {
+        const session = parseLocalSession(key);
+        if (!session?.siteIds) continue;
+        session.siteIds = session.siteIds.map(id => siteIdToLegacy.get(id) || String(id));
+        sessionStorage.setItem(key, JSON.stringify(session));
+      }
     }
-    const profileIdToLegacy = new Map(profiles.map(row => [row.id, String(row.legacy_id || "")]));
-    const emailByProfileId = new Map(accountAccess.map(row => [row.profile_id, String(row.email || "")]));
+    const profileIdToLegacy = new Map(refreshTickets || refreshRecords || refreshUsers
+      ? profiles.map(row => [row.id, String(row.legacy_id || "")])
+      : []);
+    const emailByProfileId = new Map(refreshUsers ? accountAccess.map(row => [row.profile_id, String(row.email || "")]) : []);
     const assignmentSitesByUser = new Map();
-    assignments.forEach(row => {
+    if (refreshUsers) assignments.forEach(row => {
       const siteLegacyId = siteIdToLegacy.get(row.site_id);
       if (!siteLegacyId) return;
       const list = assignmentSitesByUser.get(row.user_id) || [];
@@ -892,17 +953,19 @@
     // El acceso temporal derivado de tickets se agrega solo al usuario de esta
     // sesión; nunca se mezcla con las asignaciones permanentes de los perfiles.
     const temporaryTicketSitesByUser = new Map();
-    const activeTicketStatuses = new Set(["Pendiente", "En ejecución", "Ejecutado"]);
-    tickets.forEach(ticket => {
-      if (!ticket.technician_id || !ticket.site_id || !activeTicketStatuses.has(ticket.status)) return;
-      const siteLegacyId = siteIdToLegacy.get(ticket.site_id);
-      if (!siteLegacyId) return;
-      const list = temporaryTicketSitesByUser.get(ticket.technician_id) || [];
-      if (!list.includes(siteLegacyId)) list.push(siteLegacyId);
-      temporaryTicketSitesByUser.set(ticket.technician_id, list);
-    });
+    if (refreshUsers) {
+      const activeTicketStatuses = new Set(["Pendiente", "En ejecución", "Ejecutado"]);
+      tickets.forEach(ticket => {
+        if (!ticket.technician_id || !ticket.site_id || !activeTicketStatuses.has(ticket.status)) return;
+        const siteLegacyId = siteIdToLegacy.get(ticket.site_id);
+        if (!siteLegacyId) return;
+        const list = temporaryTicketSitesByUser.get(ticket.technician_id) || [];
+        if (!list.includes(siteLegacyId)) list.push(siteLegacyId);
+        temporaryTicketSitesByUser.set(ticket.technician_id, list);
+      });
+    }
     const currentAuthUserId = appSession()?.authId || "";
-    if (currentAuthUserId) {
+    if (refreshUsers && currentAuthUserId) {
       for (const key of ["smartfit.site.session", "smartfit.leader.session", "smartfit.admin.session"]) {
         const session = parseLocalSession(key);
         if (session?.authId !== currentAuthUserId || session.role !== "Técnico") continue;
@@ -918,32 +981,34 @@
         sessionStorage.setItem(key, JSON.stringify(session));
       }
     }
-    const siteRowsForLocal = hydrateSites(sites, brands, equipment, parseLocal("smartfit.admin.sites.v1", []));
-    const brandLegacyIdByUuid = new Map(brands.map(row => [row.id, String(row.legacy_id || row.id)]));
+    const siteRowsForLocal = refreshSites
+      ? hydrateSites(sites, brands, equipment, parseLocal("smartfit.admin.sites.v1", []))
+      : null;
+    const brandLegacyIdByUuid = new Map(refreshSites ? brands.map(row => [row.id, String(row.legacy_id || row.id)]) : []);
     const equipmentCountByBrand = new Map();
-    equipment.forEach(row => {
+    if (refreshSites) equipment.forEach(row => {
       const brandId = brandLegacyIdByUuid.get(row.brand_id) || String(row.metadata?.legacyBrandId || "");
       if (brandId) equipmentCountByBrand.set(brandId, (equipmentCountByBrand.get(brandId) || 0) + 1);
     });
-    const storedBrands = parseLocal("smartfit.admin.brands.v1", []);
-    const knownBrandNames = new Set([...storedBrands, ...brands].map(row => cleanName(row.name)).filter(Boolean));
-    const catalogBrands = Object.entries(global.BRAND_EQUIPMENT_CATALOGS || {}).map(([id, items]) => ({
+    const storedBrands = refreshSites ? parseLocal("smartfit.admin.brands.v1", []) : [];
+    const knownBrandNames = new Set([...storedBrands, ...(refreshSites ? brands : [])].map(row => cleanName(row.name)).filter(Boolean));
+    const catalogBrands = refreshSites ? Object.entries(global.BRAND_EQUIPMENT_CATALOGS || {}).map(([id, items]) => ({
       id,
       name: items.find(item => item.brandName)?.brandName || id.replace(/^brand-/, "").replace(/[-_]+/g, " ").replace(/(^|\s)\S/g, letter => letter.toLocaleUpperCase("es")),
       active: true,
       equipmentCount: equipmentCountByBrand.get(id) || 0
-    })).filter(brand => !knownBrandNames.has(cleanName(brand.name)));
-    const brandRowsForLocal = mergeById(mergeById(storedBrands, catalogBrands), brands.map(row => {
+    })).filter(brand => !knownBrandNames.has(cleanName(brand.name))) : null;
+    const brandRowsForLocal = refreshSites ? mergeById(mergeById(storedBrands, catalogBrands), brands.map(row => {
       const id = String(row.legacy_id || row.id);
       return {
         id, name: row.name, active: row.active !== false,
         equipmentCount: equipmentCountByBrand.get(id) || 0
       };
-    }));
-    const siteNameByLegacy = new Map(sites.map(row => [String(row.legacy_id || ""), String(row.name || "")]));
-    const hydratedTickets = hydrateTickets(tickets, siteIdToLegacy, profileIdToLegacy, siteNameByLegacy);
-    const localUsers = parseLocal("smartfit.admin.users.v1", []);
-    const hydratedUsers = profiles.filter(row => row.legacy_id).map(row => {
+    })) : null;
+    const siteNameByLegacy = new Map(refreshTickets ? sites.map(row => [String(row.legacy_id || ""), String(row.name || "")]) : []);
+    const hydratedTickets = refreshTickets ? hydrateTickets(tickets, siteIdToLegacy, profileIdToLegacy, siteNameByLegacy) : null;
+    const localUsers = refreshUsers ? parseLocal("smartfit.admin.users.v1", []) : [];
+    const hydratedUsers = refreshUsers ? profiles.filter(row => row.legacy_id).map(row => {
       const permanentSiteIds = [...(assignmentSitesByUser.get(row.id) || [])];
       const siteIds = [...permanentSiteIds];
       let temporaryTicketSiteIds = [];
@@ -960,10 +1025,10 @@
         siteIds, permanentSiteIds, temporaryTicketSiteIds,
         updatedAt: row.updated_at || "", password: ""
       };
-    });
-    const mergedUsers = mergeById(localUsers, hydratedUsers);
-    mergedUsers.forEach(user => { if (user.authId) user.password = ""; });
-    if (canReadAccountEmails) {
+    }) : null;
+    const mergedUsers = refreshUsers ? mergeById(localUsers, hydratedUsers) : null;
+    mergedUsers?.forEach(user => { if (user.authId) user.password = ""; });
+    if (canReadAccountEmails && refreshAccessHistory) {
       const remoteAccesses = accessRows.map(row => ({
         userId: String(row.actor_id || row.entity_id || ""),
         name: String(row.details?.full_name || "Usuario"),
@@ -977,33 +1042,58 @@
         .sort((a, b) => String(b.accessedAt).localeCompare(String(a.accessedAt)));
       setLocal(ACCESS_HISTORY_KEY, mergedAccesses.slice(0, 500));
     }
-    const ticketUuidToLegacy = new Map(tickets.map(row => [row.id, String(row.legacy_id || "")]));
-    const hydratedRecords = hydrateRecords(events, mileageRows, eventLinks, ticketUuidToLegacy, siteIdToLegacy, profileIdToLegacy);
-    const localTickets = parseLocal(TICKETS_KEY, []);
-    const mergedTickets = mergeById(localTickets, hydratedTickets);
-    const localRecords = parseLocal(RECORDS_KEY, {});
-    const mergedRecords = Object.assign({}, localRecords && typeof localRecords === "object" ? localRecords : {});
-    Object.entries(hydratedRecords).forEach(([recordKey, remoteRecord]) => {
-      const localRecord = mergedRecords[recordKey] || { maintenance: [], mileage: [] };
-      mergedRecords[recordKey] = {
-        maintenance: mergeById(localRecord.maintenance, remoteRecord.maintenance),
-        mileage: mergeById(localRecord.mileage, remoteRecord.mileage)
-      };
-    });
-    setLocal("smartfit.admin.sites.v1", siteRowsForLocal);
-    setLocal("smartfit.admin.brands.v1", brandRowsForLocal);
-    setLocal(TICKETS_KEY, mergedTickets);
-    setLocal(RECORDS_KEY, mergedRecords);
-    setLocal("smartfit.admin.users.v1", mergedUsers);
-    await flushPending();
+    if (refreshTickets) {
+      const localTickets = parseLocal(TICKETS_KEY, []);
+      setLocal(TICKETS_KEY, mergeById(localTickets, hydratedTickets));
+    }
+    if (refreshRecords) {
+      const ticketUuidToLegacy = new Map(tickets.map(row => [row.id, String(row.legacy_id || "")]));
+      const hydratedRecords = hydrateRecords(events, mileageRows, eventLinks, ticketUuidToLegacy, siteIdToLegacy, profileIdToLegacy);
+      const localRecords = parseLocal(RECORDS_KEY, {});
+      const mergedRecords = Object.assign({}, localRecords && typeof localRecords === "object" ? localRecords : {});
+      Object.entries(hydratedRecords).forEach(([recordKey, remoteRecord]) => {
+        const localRecord = mergedRecords[recordKey] || { maintenance: [], mileage: [] };
+        mergedRecords[recordKey] = {
+          maintenance: mergeById(localRecord.maintenance, remoteRecord.maintenance),
+          mileage: mergeById(localRecord.mileage, remoteRecord.mileage)
+        };
+      });
+      setLocal(RECORDS_KEY, mergedRecords);
+    }
+    if (refreshSites) {
+      setLocal("smartfit.admin.sites.v1", siteRowsForLocal);
+      setLocal("smartfit.admin.brands.v1", brandRowsForLocal);
+    }
+    if (refreshUsers) setLocal("smartfit.admin.users.v1", mergedUsers);
+    if (fullHydration) setTimeout(() => {
+      flushPending().catch(error => console.warn("No se pudieron sincronizar algunos cambios pendientes.", error));
+    }, 0);
     return { sites: sites.length, brands: brands.length, equipment: equipment.length, tickets: tickets.length, events: events.length, mileage: mileageRows.length };
   }
 
-  function hydrate() {
+  function hydrate(options = {}) {
     if (!auth()?.access_token) return Promise.resolve({ skipped: true });
-    if (hydrateInFlight) return hydrateInFlight;
-    hydrateInFlight = hydrateNow().finally(() => { hydrateInFlight = null; });
-    return hydrateInFlight;
+    const requestedTables = Array.isArray(options.tables) ? options.tables : null;
+    if (hydrateInFlight) {
+      requestedTables?.forEach(table => queuedHydrationTables.add(table));
+      return hydrateInFlight;
+    }
+    const task = hydrateNow(requestedTables);
+    hydrateInFlight = task;
+    return task.finally(() => {
+      hydrateInFlight = null;
+      if (!queuedHydrationTables.size) return;
+      const tables = [...queuedHydrationTables];
+      queuedHydrationTables.clear();
+      queueMicrotask(async () => {
+        try {
+          const result = await hydrate({ tables });
+          if (!result.skipped) global.dispatchEvent(new Event("smartfit:supabase-data-hydrated"));
+        } catch (error) {
+          console.warn("No se pudieron aplicar todos los cambios recibidos durante la sincronización.", error);
+        }
+      });
+    });
   }
 
   function parseLocalSession(key) {
