@@ -1231,8 +1231,6 @@
           });
         });
       });
-      adminInventoryRows = inventory;
-
       const events = [];
       Object.entries(records).forEach(([recordKey, machineRecord]) => {
         const siteId = recordKey.split("::")[0];
@@ -1986,6 +1984,7 @@
           }));
         });
       });
+      adminInventoryRows = inventory;
 
       const selectedBrand = brandFilter.value || "*";
       const selectedCategory = categoryFilter.value || "*";
