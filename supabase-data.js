@@ -18,6 +18,7 @@
   let refreshWhenVisible = false;
   let recordMediaDbPromise = null;
   const recordMediaCache = new Map();
+  const ticketMediaCache = new Map();
 
   function auth() {
     try { return JSON.parse(sessionStorage.getItem("smartfit.supabase.auth") || "null"); }
@@ -121,6 +122,99 @@
       transaction.onerror = () => reject(transaction.error || new Error("No se pudieron conservar las fotografías."));
       transaction.onabort = () => reject(transaction.error || new Error("Se canceló el guardado de las fotografías."));
     });
+  }
+  async function putTicketMedia(tickets) {
+    const writes = [];
+    (Array.isArray(tickets) ? tickets : []).forEach(ticket => {
+      if (!ticket?.id || !Array.isArray(ticket.images)) return;
+      const key = `ticket::${ticket.id}`;
+      const images = ticket.images.slice(0, 4);
+      ticketMediaCache.set(key, images);
+      writes.push([key, images]);
+    });
+    if (!writes.length) return;
+    const database = await openRecordMediaDb();
+    await new Promise((resolve, reject) => {
+      const transaction = database.transaction("images", "readwrite");
+      const store = transaction.objectStore("images");
+      writes.forEach(([key, images]) => store.put(images, key));
+      transaction.oncomplete = resolve;
+      transaction.onerror = () => reject(transaction.error || new Error("No se pudieron conservar las fotos de los tickets."));
+      transaction.onabort = () => reject(transaction.error || new Error("Se canceló el guardado de las fotos de los tickets."));
+    });
+  }
+  function stripTicketMedia(tickets) {
+    return (Array.isArray(tickets) ? tickets : []).map(ticket =>
+      Array.isArray(ticket?.images) ? Object.assign({}, ticket, { images: [] }) : ticket
+    );
+  }
+  function getTicketsWithCachedMediaSync(tickets) {
+    return (Array.isArray(tickets) ? tickets : []).map(ticket => {
+      const images = ticketMediaCache.get(`ticket::${ticket?.id}`);
+      return images ? Object.assign({}, ticket, { images }) : ticket;
+    });
+  }
+  async function restoreTicketMedia(tickets) {
+    const restored = [];
+    for (const ticket of Array.isArray(tickets) ? tickets : []) {
+      const key = `ticket::${ticket?.id}`;
+      let images = Array.isArray(ticket?.images) ? ticket.images : null;
+      if (images?.length) {
+        ticketMediaCache.set(key, images);
+        try { await putTicketMedia([ticket]); } catch (error) { /* La copia en Supabase sigue siendo la fuente remota. */ }
+      } else {
+        images = ticketMediaCache.get(key);
+        if (!images) {
+          try {
+            const database = await openRecordMediaDb();
+            images = await new Promise((resolve, reject) => {
+              const request = database.transaction("images", "readonly").objectStore("images").get(key);
+              request.onsuccess = () => resolve(Array.isArray(request.result) ? request.result : null);
+              request.onerror = () => reject(request.error);
+            });
+            if (images) ticketMediaCache.set(key, images);
+          } catch (error) { /* El ticket puede reintentarse sin fotos si el almacenamiento no está disponible. */ }
+        }
+      }
+      restored.push(images ? Object.assign({}, ticket, { images }) : ticket);
+    }
+    return restored;
+  }
+  async function prepareTicketStorage() {
+    const tickets = parseLocal(TICKETS_KEY, []);
+    if (!Array.isArray(tickets) || !tickets.some(ticket => Array.isArray(ticket?.images) && ticket.images.length)) return false;
+    try {
+      await putTicketMedia(tickets);
+      localStorage.setItem(TICKETS_KEY, JSON.stringify(stripTicketMedia(tickets)));
+      return true;
+    } catch (error) {
+      console.warn("No se pudieron trasladar las fotos antiguas de tickets; se mantiene la copia actual.", error);
+      return false;
+    }
+  }
+  async function writeTicketCache(tickets) {
+    await prepareTicketStorage();
+    await putTicketMedia(tickets);
+    const activeKeys = new Set((Array.isArray(tickets) ? tickets : []).filter(ticket => ticket?.id).map(ticket => `ticket::${ticket.id}`));
+    try {
+      const database = await openRecordMediaDb();
+      await new Promise((resolve, reject) => {
+        const transaction = database.transaction("images", "readwrite");
+        const store = transaction.objectStore("images");
+        const request = store.getAllKeys();
+        request.onsuccess = () => request.result.forEach(key => {
+          if (String(key).startsWith("ticket::") && !activeKeys.has(String(key))) {
+            store.delete(key);
+            ticketMediaCache.delete(String(key));
+          }
+        });
+        request.onerror = () => reject(request.error || new Error("No se pudieron depurar fotos de tickets eliminados."));
+        transaction.oncomplete = resolve;
+        transaction.onerror = () => reject(transaction.error || new Error("No se pudieron depurar fotos de tickets eliminados."));
+        transaction.onabort = () => reject(transaction.error || new Error("Se canceló la depuración de fotos de tickets."));
+      });
+    } catch (error) { console.warn("No se pudieron depurar fotos de tickets eliminados.", error); }
+    localStorage.setItem(TICKETS_KEY, JSON.stringify(stripTicketMedia(tickets)));
   }
   function stripRecordMedia(record) {
     const compact = { maintenance: [], mileage: [] };
@@ -837,6 +931,7 @@
 
   async function persistTicketQueued(ticket) {
     try {
+      await putTicketMedia([ticket]);
       await persistTicket(ticket);
       const pending = readPending();
       pending.tickets = (pending.tickets || []).filter(id => String(id) !== String(ticket.id));
@@ -876,8 +971,9 @@
   async function flushPendingNow() {
     const pending = readPending();
     const localTickets = parseLocal(TICKETS_KEY, []);
+    const ticketsWithPhotos = await restoreTicketMedia(localTickets);
     for (const id of pending.tickets || []) {
-      const ticket = localTickets.find(row => String(row.id) === String(id));
+      const ticket = ticketsWithPhotos.find(row => String(row.id) === String(id));
       if (!ticket) continue;
       try { await persistTicket(ticket); pending.tickets = pending.tickets.filter(value => String(value) !== String(id)); }
       catch (error) { console.warn("Pendiente de sincronizar ticket", id, error); }
@@ -1038,6 +1134,7 @@
   async function hydrateNow(refreshTables = null) {
     if (!auth()?.access_token) return { skipped: true };
     await prepareMachineRecordStorage();
+    await prepareTicketStorage();
     const canReadAccountEmails = appSession()?.role === "Administrador";
     const loaders = {
       sites: () => getRows("sites", "id,legacy_id,name,region,internal_code,active"),
@@ -1196,7 +1293,9 @@
     }
     if (refreshTickets) {
       const localTickets = parseLocal(TICKETS_KEY, []);
-      setLocal(TICKETS_KEY, mergeById(localTickets, hydratedTickets));
+      const mergedTickets = mergeById(localTickets, hydratedTickets);
+      await putTicketMedia(mergedTickets);
+      await writeTicketCache(mergedTickets);
     }
     if (refreshRecords) {
       const ticketUuidToLegacy = new Map(tickets.map(row => [row.id, String(row.legacy_id || "")]));
@@ -1253,5 +1352,5 @@
     try { return JSON.parse(sessionStorage.getItem(key) || "null"); } catch (error) { return null; }
   }
 
-  global.SmartFitSupabaseData = { hydrate, manageUser, persistSite, persistBrand, deleteBrand, deleteSite, recordAccess, startRealtimeSync, persistTicket: persistTicketQueued, assignTicketTechnician, listAssignableTicketTechnicians, persistMachineRecord, retryPending: flushPending, prepareMachineRecordStorage, writeMachineRecordCache, getMachineRecordWithCachedMediaSync };
+  global.SmartFitSupabaseData = { hydrate, manageUser, persistSite, persistBrand, deleteBrand, deleteSite, recordAccess, startRealtimeSync, persistTicket: persistTicketQueued, assignTicketTechnician, listAssignableTicketTechnicians, persistMachineRecord, retryPending: flushPending, prepareMachineRecordStorage, writeMachineRecordCache, getMachineRecordWithCachedMediaSync, prepareTicketStorage, writeTicketCache, getTicketsWithCachedMediaSync };
 })(window);

@@ -1122,10 +1122,14 @@
     function readLeaderTickets() {
       try {
         const tickets = JSON.parse(localStorage.getItem(TICKETS_STORAGE_KEY) || "[]");
-        return Array.isArray(tickets) ? tickets.filter(ticket => ticket && typeof ticket === "object") : [];
+        return SmartFitSupabaseData.getTicketsWithCachedMediaSync(Array.isArray(tickets) ? tickets.filter(ticket => ticket && typeof ticket === "object") : []);
       } catch (error) {
         return [];
       }
+    }
+
+    async function writeLeaderTickets(tickets) {
+      await SmartFitSupabaseData.writeTicketCache(tickets);
     }
 
     function formatTicketDate(value) {
@@ -2138,12 +2142,11 @@
           createdAt: new Date().toISOString()
         };
         try {
-          const storedTickets = JSON.parse(localStorage.getItem(TICKETS_STORAGE_KEY) || "[]");
-          const tickets = Array.isArray(storedTickets) ? storedTickets : [];
+          const tickets = readLeaderTickets();
           tickets.unshift(ticket);
-          localStorage.setItem(TICKETS_STORAGE_KEY, JSON.stringify(tickets));
+          await writeLeaderTickets(tickets);
         } catch (error) {
-          window.alert("No se pudo guardar el ticket. El almacenamiento del navegador podría estar lleno; intenta reducir el tamaño de las imágenes.");
+          window.alert("No se pudo conservar una copia local del ticket. Revisa el almacenamiento disponible del navegador; los datos siguen en el formulario.");
           return;
         }
         try {
