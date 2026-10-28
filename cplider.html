@@ -1526,19 +1526,23 @@
         const image = new Image();
         image.onload = () => {
           URL.revokeObjectURL(source);
-          const scale = Math.min(1, 1280 / Math.max(image.naturalWidth, image.naturalHeight));
           const canvas = document.createElement("canvas");
-          canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
-          canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
           const context = canvas.getContext("2d");
           if (!context) {
             reject(new Error("No se pudo procesar la imagen."));
             return;
           }
+          const scale = Math.min(1, 1024 / Math.max(image.naturalWidth, image.naturalHeight));
+          canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+          canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
           context.fillStyle = "#ffffff";
           context.fillRect(0, 0, canvas.width, canvas.height);
           context.drawImage(image, 0, 0, canvas.width, canvas.height);
-          resolve(canvas.toDataURL("image/jpeg", 0.78));
+          try {
+            resolve(canvas.toDataURL("image/jpeg", 0.78));
+          } catch (error) {
+            reject(new Error("No se pudo comprimir la imagen seleccionada."));
+          }
         };
         image.onerror = () => {
           URL.revokeObjectURL(source);
