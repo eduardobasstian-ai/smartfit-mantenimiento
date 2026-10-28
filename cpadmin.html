@@ -260,6 +260,12 @@
     .history-filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(145px, 1fr)); gap: 10px; margin: 18px 0; }
     .history-filter { display: grid; gap: 6px; color: var(--muted); font-size: 11px; font-weight: 700; }
     .history-filter .form-control { min-width: 0; min-height: 38px; font-size: 12px; }
+    .inventory-site-picker { position: relative; }
+    .inventory-site-suggestions { position: absolute; z-index: 20; top: calc(100% + 5px); left: 0; right: 0; max-height: 240px; overflow-y: auto; padding: 5px; border: 1px solid #383b47; border-radius: 10px; background: #171920; box-shadow: 0 12px 28px #0008; }
+    .inventory-site-suggestions[hidden] { display: none; }
+    .inventory-site-suggestions button { display: block; width: 100%; padding: 10px 11px; border: 0; border-radius: 7px; background: transparent; color: var(--text); text-align: left; font: inherit; cursor: pointer; }
+    .inventory-site-suggestions button:hover, .inventory-site-suggestions button:focus-visible { outline: none; background: #282b35; color: var(--yellow); }
+    .inventory-site-suggestions .empty-state { padding: 12px; font-size: 12px; }
     .history-table { min-width: 1120px; }
     .event-status { display: inline-flex; padding: 5px 8px; border-radius: 20px; background: #30333d; color: #e7e7eb; font-size: 10px; font-weight: 800; white-space: nowrap; }
     .event-ticket-mark { display: inline-flex; align-items: center; gap: 5px; padding: 4px 8px; border-radius: 20px; background: #3b321d; color: var(--yellow); font-size: 10px; font-weight: 800; white-space: nowrap; }
@@ -718,7 +724,13 @@
         <section class="panel-card" aria-label="Inventario general de equipos">
           <div class="history-filters" aria-label="Filtros del inventario">
             <label class="history-filter">Buscar equipo o activo fijo<input class="form-control" id="adminInventorySearch" type="search" placeholder="Nombre, modelo o activo fijo..."></label>
-            <label class="history-filter">Sede<select class="form-control form-select" id="adminInventorySiteFilter"><option value="*">Todas las sedes</option></select></label>
+            <label class="history-filter">Sede
+              <div class="inventory-site-picker">
+                <input class="form-control" id="adminInventorySiteSearch" type="search" placeholder="Todas las sedes" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="adminInventorySiteSuggestions" autocomplete="off">
+                <input id="adminInventorySiteFilter" type="hidden" value="*">
+                <div class="inventory-site-suggestions" id="adminInventorySiteSuggestions" role="listbox" hidden></div>
+              </div>
+            </label>
             <label class="history-filter">Marca<select class="form-control form-select" id="adminInventoryBrandFilter"><option value="*">Todas las marcas</option></select></label>
           </div>
           <div class="table-tools" style="margin: 0 0 10px;"><span class="subtext" id="adminInventoryCount" aria-live="polite">0 equipos</span></div>
@@ -1937,9 +1949,11 @@
 
     function renderAdminInventory() {
       const siteFilter = $("adminInventorySiteFilter");
+      const siteSearch = $("adminInventorySiteSearch");
+      const siteSuggestions = $("adminInventorySiteSuggestions");
       const brandFilter = $("adminInventoryBrandFilter");
       const body = $("adminInventoryBody");
-      if (!siteFilter || !brandFilter || !body) return;
+      if (!siteFilter || !siteSearch || !siteSuggestions || !brandFilter || !body) return;
 
       const sites = AdminStore.listSites();
       const brands = AdminStore.listBrands();
@@ -1965,19 +1979,25 @@
         });
       });
 
-      const selectedSite = siteFilter.value || "*";
       const selectedBrand = brandFilter.value || "*";
       const siteOptions = sites.slice().sort((a, b) => String(a.name).localeCompare(String(b.name), "es"));
       const brandOptions = [...new Map(inventory.map(item => [item.brandId || item.brandName, item.brandName])).entries()]
         .sort((a, b) => String(a[1]).localeCompare(String(b[1]), "es"));
-      siteFilter.innerHTML = '<option value="*">Todas las sedes</option>' + siteOptions.map(site => `<option value="${escapeHtml(site.id)}">${escapeHtml(site.name)}</option>`).join("");
       brandFilter.innerHTML = '<option value="*">Todas las marcas</option>' + brandOptions.map(([id, name]) => `<option value="${escapeHtml(id)}">${escapeHtml(name)}</option>`).join("");
-      siteFilter.value = siteOptions.some(site => String(site.id) === selectedSite) ? selectedSite : "*";
       brandFilter.value = brandOptions.some(([id]) => id === selectedBrand) ? selectedBrand : "*";
+
+      const siteQuery = normalizeHistoryName(siteSearch.value);
+      const filteredSites = siteOptions.filter(site => !siteQuery || normalizeHistoryName(site.name).includes(siteQuery));
+      const suggestions = [
+        ...(!siteQuery || normalizeHistoryName("Todas las sedes").includes(siteQuery) ? [{ id: "*", name: "Todas las sedes" }] : []),
+        ...filteredSites
+      ];
+      siteSuggestions.innerHTML = suggestions.map(site => `<button type="button" role="option" aria-selected="${siteFilter.value === String(site.id)}" data-inventory-site="${escapeHtml(site.id)}" data-inventory-site-name="${escapeHtml(site.name)}">${escapeHtml(site.name)}</button>`).join("") || '<div class="empty-state">No se encontraron sedes.</div>';
+      siteSearch.setAttribute("aria-expanded", String(!siteSuggestions.hidden));
 
       const query = normalizeHistoryName($("adminInventorySearch").value);
       const filtered = inventory.filter(item =>
-        (siteFilter.value === "*" || item.siteId === siteFilter.value) &&
+        (siteFilter.value !== "*" ? item.siteId === siteFilter.value : (!siteQuery || normalizeHistoryName(item.siteName).includes(siteQuery))) &&
         (brandFilter.value === "*" || (item.brandId || item.brandName) === brandFilter.value) &&
         (!query || normalizeHistoryName(`${item.siteName} ${item.brandName} ${item.equipmentName} ${item.model} ${item.activeFixed ?? ""} ${item.category}`).includes(query))
       );
@@ -2556,7 +2576,46 @@
       render();
     });
     $("adminInventorySearch").addEventListener("input", renderAdminInventory);
-    $("adminInventorySiteFilter").addEventListener("change", renderAdminInventory);
+    $("adminInventorySiteSearch").addEventListener("focus", () => {
+      renderAdminInventory();
+      $("adminInventorySiteSuggestions").hidden = false;
+      $("adminInventorySiteSearch").setAttribute("aria-expanded", "true");
+    });
+    $("adminInventorySiteSearch").addEventListener("input", () => {
+      $("adminInventorySiteFilter").value = "*";
+      renderAdminInventory();
+      $("adminInventorySiteSuggestions").hidden = false;
+      $("adminInventorySiteSearch").setAttribute("aria-expanded", "true");
+    });
+    $("adminInventorySiteSearch").addEventListener("keydown", event => {
+      if (event.key === "Escape") {
+        $("adminInventorySiteSuggestions").hidden = true;
+        $("adminInventorySiteSearch").setAttribute("aria-expanded", "false");
+      }
+      if (event.key === "Enter" && !$("adminInventorySiteSuggestions").hidden) {
+        const firstOption = $("adminInventorySiteSuggestions").querySelector("[data-inventory-site]");
+        if (firstOption) {
+          event.preventDefault();
+          firstOption.click();
+        }
+      }
+    });
+    $("adminInventorySiteSuggestions").addEventListener("click", event => {
+      const option = event.target.closest("[data-inventory-site]");
+      if (!option) return;
+      $("adminInventorySiteFilter").value = option.dataset.inventorySite;
+      $("adminInventorySiteSearch").value = option.dataset.inventorySiteName === "Todas las sedes" ? "" : option.dataset.inventorySiteName;
+      $("adminInventorySiteSuggestions").hidden = true;
+      $("adminInventorySiteSearch").setAttribute("aria-expanded", "false");
+      renderAdminInventory();
+    });
+    document.addEventListener("click", event => {
+      const picker = document.querySelector(".inventory-site-picker");
+      if (picker && !picker.contains(event.target)) {
+        $("adminInventorySiteSuggestions").hidden = true;
+        $("adminInventorySiteSearch").setAttribute("aria-expanded", "false");
+      }
+    });
     $("adminInventoryBrandFilter").addEventListener("change", renderAdminInventory);
 
     $("usersBody").addEventListener("click", event => {
