@@ -354,6 +354,12 @@
     .supervisor-mobile-bar span { font-size: 12px; font-weight: 800; }
     .supervisor-shell:not(.supervisor-mode) { display: block; padding: 0; }
     .supervisor-shell:not(.supervisor-mode) .supervisor-menu { display: none; }
+    .technician-mode .topbar { display: none; }
+    .technician-mode .identity-bar { align-items: center; flex-direction: row; flex-wrap: wrap; }
+    .technician-mode .identity-user { flex: 1 1 180px; min-width: 0; }
+    .identity-actions { display: flex; align-items: center; gap: 9px; margin-left: auto; }
+    .technician-logout-slot { display: flex; }
+    .technician-mode .logout-button { min-height: 36px; }
     @media (max-width: 850px) {
       .supervisor-shell.supervisor-mode { display: block; padding: 12px 14px 36px; }
       .supervisor-shell.supervisor-mode .page { width: 100%; padding: 22px 0 20px; }
@@ -589,7 +595,10 @@
       <div class="identity-user">
         <span class="identity-item"><span class="identity-icon" aria-hidden="true">⌖</span><span id="siteSummary">Mis sedes</span></span>
       </div>
-      <span class="identity-summary" id="equipmentSummary">0 equipos</span>
+      <div class="identity-actions">
+        <span class="identity-summary" id="equipmentSummary">0 equipos</span>
+        <div class="technician-logout-slot" id="technicianLogoutSlot"></div>
+      </div>
     </section>
 
     <section class="ticket-raise-context" id="supervisorTicketContext" aria-label="Supervisor y equipos de la sede" hidden></section>
@@ -789,6 +798,7 @@
       user = Object.assign({}, session);
     }
     const supervisorMode = Boolean(user && !adminMode && user.role === "Supervisor");
+    const technicianMode = Boolean(user && !adminMode && user.role === "Técnico");
     const canManageMachineRecords = Boolean(user && (adminMode || user.role === "Supervisor"));
     const canSetMileageDate = Boolean(user && user.role === "Supervisor");
     let assignedSites = [];
@@ -863,6 +873,10 @@
       $("supervisorMobileBar").hidden = false;
       $("brandTitle").textContent = "PANEL DE SUPERVISOR";
       $("brandSubtitle").textContent = "Gestión del sistema de mantenimiento";
+    }
+    if (technicianMode) {
+      document.body.classList.add("technician-mode");
+      $("technicianLogoutSlot").appendChild($("logoutButton"));
     }
 
     if (!user) {
