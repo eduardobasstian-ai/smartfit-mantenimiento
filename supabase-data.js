@@ -906,11 +906,15 @@
       for (const key of ["smartfit.site.session", "smartfit.leader.session", "smartfit.admin.session"]) {
         const session = parseLocalSession(key);
         if (session?.authId !== currentAuthUserId || session.role !== "Técnico") continue;
-        const siteIds = [...(assignmentSitesByUser.get(currentAuthUserId) || [])];
-        (temporaryTicketSitesByUser.get(currentAuthUserId) || []).forEach(siteId => {
+        const permanentSiteIds = [...(assignmentSitesByUser.get(currentAuthUserId) || [])];
+        const temporaryTicketSiteIds = [...(temporaryTicketSitesByUser.get(currentAuthUserId) || [])];
+        const siteIds = [...permanentSiteIds];
+        temporaryTicketSiteIds.forEach(siteId => {
           if (!siteIds.includes(siteId)) siteIds.push(siteId);
         });
         session.siteIds = siteIds;
+        session.permanentSiteIds = permanentSiteIds;
+        session.temporaryTicketSiteIds = temporaryTicketSiteIds;
         sessionStorage.setItem(key, JSON.stringify(session));
       }
     }
@@ -940,9 +944,12 @@
     const hydratedTickets = hydrateTickets(tickets, siteIdToLegacy, profileIdToLegacy, siteNameByLegacy);
     const localUsers = parseLocal("smartfit.admin.users.v1", []);
     const hydratedUsers = profiles.filter(row => row.legacy_id).map(row => {
-      const siteIds = [...(assignmentSitesByUser.get(row.id) || [])];
+      const permanentSiteIds = [...(assignmentSitesByUser.get(row.id) || [])];
+      const siteIds = [...permanentSiteIds];
+      let temporaryTicketSiteIds = [];
       if (row.id === currentAuthUserId) {
-        (temporaryTicketSitesByUser.get(row.id) || []).forEach(siteId => {
+        temporaryTicketSiteIds = [...(temporaryTicketSitesByUser.get(row.id) || [])];
+        temporaryTicketSiteIds.forEach(siteId => {
           if (!siteIds.includes(siteId)) siteIds.push(siteId);
         });
       }
@@ -950,7 +957,8 @@
         id: String(row.legacy_id), authId: row.id, name: row.full_name, username: row.username,
         email: emailByProfileId.get(row.id) || "", role: row.role, active: row.active !== false,
         passwordChangeRequired: row.password_change_required === true,
-        siteIds, updatedAt: row.updated_at || "", password: ""
+        siteIds, permanentSiteIds, temporaryTicketSiteIds,
+        updatedAt: row.updated_at || "", password: ""
       };
     });
     const mergedUsers = mergeById(localUsers, hydratedUsers);

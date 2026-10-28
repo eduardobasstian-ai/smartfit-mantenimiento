@@ -736,7 +736,7 @@
     </section>
   </div>
   <script src="admin-store.js?v=20261026-ubian"></script>
-  <script src="supabase-data.js?v=20261027-speed-2"></script>
+  <script src="supabase-data.js?v=20261027-speed-3"></script>
   <script src="EQU/matrix-catalog.js"></script>
   <script src="EQU/booty-catalog.js"></script>
   <script src="EQU/other-catalogs.js?v=20261026-ubian-rack"></script>
@@ -875,19 +875,35 @@
     }
 
     function ticketBelongsToMachine(ticket, machine, siteId = currentSite?.id) {
-      if (!machine || String(ticket.siteId) !== String(siteId)) return false;
-      if (ticket.machineRecordKey) return ticket.machineRecordKey === machine.recordKey;
+      if (!machine) return false;
+      if (ticket.machineRecordKey && String(ticket.machineRecordKey) === String(machine.recordKey)) return true;
+      const expectedSiteId = String(siteId ?? machine.siteId ?? "");
+      const machineSiteId = String(machine.siteId ?? expectedSiteId);
+      const sameSite = String(ticket.siteId ?? "") === expectedSiteId && machineSiteId === expectedSiteId;
+      const normalize = value => String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLocaleLowerCase("es");
+      const sameSiteName = Boolean(ticket.siteName && (normalize(ticket.siteName) === normalize(machine.siteName) || normalize(ticket.siteName) === normalize(currentSite?.name)));
+      if (!sameSite && !sameSiteName) return false;
       const fixedNumber = machine.unit.activeFixed === "" || machine.unit.activeFixed === undefined || machine.unit.activeFixed === null
         ? "N/A"
-        : String(machine.unit.activeFixed);
-      if (String(ticket.activeFixed ?? "N/A") !== "N/A") return String(ticket.activeFixed) === fixedNumber;
-      return ticket.machineName === machine.item.name && String(ticket.machineModel || "") === String(machine.item.model || "");
+        : String(machine.unit.activeFixed).trim();
+      const ticketFixedNumber = String(ticket.activeFixed ?? "N/A").trim();
+      if (ticketFixedNumber !== "N/A" && fixedNumber !== "N/A") return ticketFixedNumber === fixedNumber;
+      return normalize(ticket.machineName) === normalize(machine.item.name) && normalize(ticket.machineModel) === normalize(machine.item.model);
     }
 
     function isAssignedTicketToCurrentTechnician(ticket) {
       if (!user || user.role !== "Técnico") return false;
-      if (ticket.technicianId) return String(ticket.technicianId) === String(user.id);
+      if (ticket.technicianId) return [user.id, user.authId].filter(Boolean).some(id => String(ticket.technicianId) === String(id));
       return String(ticket.technician || "").trim().toLocaleLowerCase("es") === String(user.name || "").trim().toLocaleLowerCase("es");
+    }
+
+    function canViewMachineTicket(ticket) {
+      if (!user || !ticket) return false;
+      if (adminMode || user.role === "Administrador") return true;
+      if (user.role === "Supervisor") return assignedSites.some(site => String(site.id) === String(ticket.siteId));
+      if (user.role !== "Técnico") return false;
+      const permanentSiteIds = Array.isArray(user.permanentSiteIds) ? user.permanentSiteIds : (user.siteIds || []);
+      return permanentSiteIds.some(id => String(id) === String(ticket.siteId)) || isAssignedTicketToCurrentTechnician(ticket);
     }
 
     function canManageMachineTicket(ticket) {
@@ -1649,7 +1665,8 @@
 
     function openSupervisorTicket(ticketId) {
       const assignedSiteIds = new Set(assignedSites.map(site => String(site.id)));
-      const ticket = readLeaderTickets().find(entry => String(entry.id) === String(ticketId) && assignedSiteIds.has(String(entry.siteId)));
+      const ticket = readLeaderTickets().find(entry => String(entry.id) === String(ticketId) &&
+        (user?.role === "Técnico" ? canViewMachineTicket(entry) : assignedSiteIds.has(String(entry.siteId))));
       if (!ticket) return;
       const photos = Array.isArray(ticket.images) ? ticket.images.slice(0, 4) : [];
       $("supervisorTicketModalTitle").textContent = `Ticket ${ticket.ticketNumber || ""}`;
@@ -1681,17 +1698,8 @@
     }
 
     function countMachineTickets(machine, tickets = readLeaderTickets(), siteId = currentSite?.id) {
-      const fixedNumber = machine.unit.activeFixed === "" || machine.unit.activeFixed === undefined || machine.unit.activeFixed === null
-        ? "N/A"
-        : String(machine.unit.activeFixed);
-      const normalize = value => String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLocaleLowerCase("es");
       return tickets.filter(ticket => {
-        if (String(ticket.siteId) !== String(siteId) || !isActiveLeaderTicket(ticket)) return false;
-        if (ticket.machineRecordKey) return ticket.machineRecordKey === machine.recordKey;
-        if (String(ticket.activeFixed ?? "N/A") !== fixedNumber) return false;
-        if (ticket.machineName && normalize(ticket.machineName) !== normalize(machine.item.name)) return false;
-        if (ticket.machineModel && normalize(ticket.machineModel) !== normalize(machine.item.model)) return false;
-        return true;
+        return isActiveLeaderTicket(ticket) && canViewMachineTicket(ticket) && ticketBelongsToMachine(ticket, machine, siteId);
       }).length;
     }
 
@@ -2458,7 +2466,7 @@
         : machine.unit.activeFixed;
       const machineTickets = readLeaderTickets().filter(ticket =>
         ticketBelongsToMachine(ticket, machine) &&
-        (user?.role !== "Técnico" || isAssignedTicketToCurrentTechnician(ticket))
+        canViewMachineTicket(ticket)
       ).sort((first, second) =>
         String(second.createdAt || second.date || "").localeCompare(String(first.createdAt || first.date || ""))
       );
@@ -2476,6 +2484,7 @@
         </tr>`).join("") || '<tr><td colspan="5" class="empty-state">Este equipo aún no tiene tickets registrados.</td></tr>';
       const machineTicketExecutionMarkup = ["Técnico", "Supervisor"].includes(user?.role)
         ? machineTickets.map(ticket => {
+          if (user?.role === "Técnico" && !canManageMachineTicket(ticket)) return "";
           const status = normalizedTicketStatus(ticket);
           if (["cerrado", "cerrada", "resuelto", "resuelta", "cancelado", "cancelada"].includes(status) || ticket.linkedMaintenanceRecordId) return "";
           const action = status === "en ejecucion"
@@ -3235,6 +3244,7 @@
         if (refreshed && user) {
           session = refreshed;
           user.siteIds = refreshed.siteIds || user.siteIds || [];
+          user.permanentSiteIds = refreshed.permanentSiteIds || user.permanentSiteIds || user.siteIds;
           const userSiteIds = new Set((user.siteIds || []).map(String));
           assignedSites = AdminStore.listSites().filter(site => adminMode || userSiteIds.has(String(site.id)));
         }
