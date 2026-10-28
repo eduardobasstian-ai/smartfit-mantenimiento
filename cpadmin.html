@@ -2059,6 +2059,7 @@
     }
 
     function exportAdminInventoryPdf() {
+      renderAdminInventory();
       const context = inventoryExportContext();
       const reportWindow = window.open("", "_blank");
       if (!reportWindow) {
@@ -2151,6 +2152,7 @@
     }
 
     function exportAdminInventoryExcel() {
+      renderAdminInventory();
       const context = inventoryExportContext();
       const summaryRows = [
         [{ value: "INFORME DE INVENTARIO", style: 1 }],
