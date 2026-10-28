@@ -733,7 +733,10 @@
             </label>
             <label class="history-filter">Marca<select class="form-control form-select" id="adminInventoryBrandFilter"><option value="*">Todas las marcas</option></select></label>
           </div>
-          <div class="table-tools" style="margin: 0 0 10px;"><span class="subtext" id="adminInventoryCount" aria-live="polite">0 equipos</span></div>
+          <div class="table-tools" style="justify-content:space-between; margin:0 0 10px;">
+            <span class="subtext" id="adminInventoryCount" aria-live="polite">0 equipos</span>
+            <div style="display:flex;gap:8px"><button class="secondary-button" id="exportAdminInventoryPdf" type="button">PDF</button><button class="secondary-button" id="exportAdminInventoryExcel" type="button">Excel</button></div>
+          </div>
           <div class="table-wrap">
             <table class="history-table">
               <thead><tr><th>Sede</th><th>Marca</th><th>Equipo</th><th>Modelo</th><th>Activo fijo</th><th>Categoría</th></tr></thead>
@@ -1130,6 +1133,8 @@
     let ticketAssignmentSelectedId = "";
     let maintenanceHistoryFilteredEvents = [];
     let mileageHistoryFilteredEntries = [];
+    let adminInventoryRows = [];
+    let adminFilteredInventoryRows = [];
     const chartColors = ["#ffb51b", "#f47721", "#ec5b68", "#ba78e5", "#7389ff", "#45b8d1", "#45c99a", "#a7c957", "#ff8fba", "#d4a373", "#7eccc1", "#a6a9b6", "#ffcf5c", "#ee8a4d"];
     const brandCatalogs = Object.assign({
       "brand-matrix": Array.isArray(window.MATRIX_CATALOG) ? window.MATRIX_CATALOG : [],
@@ -1225,6 +1230,7 @@
           });
         });
       });
+      adminInventoryRows = inventory;
 
       const events = [];
       Object.entries(records).forEach(([recordKey, machineRecord]) => {
@@ -2001,6 +2007,7 @@
         (brandFilter.value === "*" || (item.brandId || item.brandName) === brandFilter.value) &&
         (!query || normalizeHistoryName(`${item.siteName} ${item.brandName} ${item.equipmentName} ${item.model} ${item.activeFixed ?? ""} ${item.category}`).includes(query))
       );
+      adminFilteredInventoryRows = filtered;
       $("adminInventoryCount").textContent = `${filtered.length.toLocaleString("es-CL")} ${filtered.length === 1 ? "equipo" : "equipos"}`;
       body.innerHTML = filtered.map(item => `<tr>
         <td>${escapeHtml(item.siteName)}</td>
@@ -2010,6 +2017,177 @@
         <td>${item.activeFixed === "" || item.activeFixed === null || item.activeFixed === undefined ? "—" : escapeHtml(item.activeFixed)}</td>
         <td>${escapeHtml(item.category)}</td>
       </tr>`).join("") || '<tr><td colspan="6" class="empty-state">No hay equipos que coincidan con los filtros.</td></tr>';
+    }
+
+    function inventoryExportContext() {
+      const now = new Date();
+      const exportedAt = new Intl.DateTimeFormat("es-CL", { dateStyle: "long", timeStyle: "short" }).format(now);
+      const siteName = $("adminInventorySiteFilter").value !== "*"
+        ? $("adminInventorySiteSearch").value
+        : $("adminInventorySiteSearch").value.trim() || "Todas las sedes";
+      const brandId = $("adminInventoryBrandFilter").value;
+      const brandName = brandId === "*" ? "Todas las marcas" : AdminStore.listBrands().find(brand => String(brand.id) === brandId)?.name || brandId;
+      const search = $("adminInventorySearch").value.trim() || "Sin búsqueda";
+      const groupedBrands = new Map();
+      const groupedModels = new Map();
+      adminFilteredInventoryRows.forEach(item => {
+        groupedBrands.set(item.brandName, (groupedBrands.get(item.brandName) || 0) + 1);
+        const key = `${item.brandName}|||${item.model || "Sin modelo"}`;
+        groupedModels.set(key, (groupedModels.get(key) || 0) + 1);
+      });
+      return {
+        now,
+        exportedAt,
+        exportedBy: adminSession?.name || "Administrador",
+        globalCount: adminInventoryRows.length,
+        filteredRows: adminFilteredInventoryRows,
+        siteName,
+        brandName,
+        search,
+        brandCounts: [...groupedBrands.entries()].sort((a, b) => a[0].localeCompare(b[0], "es")),
+        modelCounts: [...groupedModels.entries()].map(([key, count]) => ({ brand: key.split("|||")[0], model: key.split("|||")[1], count })).sort((a, b) => a.brand.localeCompare(b.brand, "es") || a.model.localeCompare(b.model, "es"))
+      };
+    }
+
+    function exportAdminInventoryPdf() {
+      const context = inventoryExportContext();
+      const reportWindow = window.open("", "_blank");
+      if (!reportWindow) {
+        window.alert("El navegador bloqueó la ventana del informe. Permite las ventanas emergentes e inténtalo nuevamente.");
+        return;
+      }
+      const logoUrl = new URL("IMG/logo-header.png", window.location.href).href;
+      const summaryRows = context.brandCounts.map(([brand, count]) => `<tr><td>${escapeHtml(brand)}</td><td>${count.toLocaleString("es-CL")}</td></tr>`).join("") || '<tr><td colspan="2">Sin equipos para los filtros seleccionados.</td></tr>';
+      const modelRows = context.modelCounts.map(item => `<tr><td>${escapeHtml(item.brand)}</td><td>${escapeHtml(item.model)}</td><td>${item.count.toLocaleString("es-CL")}</td></tr>`).join("") || '<tr><td colspan="3">Sin modelos para los filtros seleccionados.</td></tr>';
+      const detailRows = context.filteredRows.map(item => `<tr><td>${escapeHtml(item.siteName)}</td><td>${escapeHtml(item.brandName)}</td><td>${escapeHtml(item.equipmentName)}</td><td>${escapeHtml(item.model)}</td><td>${escapeHtml(item.activeFixed === "" || item.activeFixed == null ? "—" : item.activeFixed)}</td><td>${escapeHtml(item.category)}</td></tr>`).join("") || '<tr><td colspan="6" class="empty">No hay equipos que coincidan con los filtros.</td></tr>';
+      reportWindow.document.open();
+      reportWindow.document.write(`<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Inventario general</title><style>
+        @page{size:letter landscape;margin:12mm}*{box-sizing:border-box}body{margin:0;color:#171923;font:9pt Arial,sans-serif}.header{display:flex;align-items:center;gap:20px;border-bottom:3px solid #ffb51b;padding:0 0 10px}.header img{width:120px;height:auto;background:#000;padding:4px 8px;border-radius:4px}.header-copy{flex:1;text-align:right}.header h1{font-size:19pt;margin:0 0 6px}.header p{margin:3px 0;color:#555}.section{margin-top:14px}.section h2{font-size:11pt;margin:0 0 7px;padding-bottom:4px;border-bottom:1px solid #cfd1d8}.meta{display:grid;grid-template-columns:repeat(3,1fr);gap:6px 18px}.meta p{margin:0;line-height:1.4}.stats{display:flex;gap:10px;margin:10px 0}.stat{flex:1;padding:9px;border:1px solid #cfd1d8;border-radius:7px}.stat b{display:block;font-size:8pt;color:#555}.stat strong{display:block;margin-top:3px;font-size:15pt}table{width:100%;border-collapse:collapse}th,td{padding:6px 7px;border:1px solid #d8dae0;text-align:left;vertical-align:top}th{background:#f0f1f4;font-weight:700}.summary-grid{display:grid;grid-template-columns:1fr 1.6fr;gap:14px}.empty{text-align:center;color:#666}thead{display:table-header-group}tr{break-inside:avoid}footer{margin-top:14px;border-top:1px solid #d8dae0;padding-top:6px;text-align:center;color:#555;font-size:8pt}@media print{*{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+      </style></head><body><header class="header"><img src="${escapeHtml(logoUrl)}" alt="Smart Fit"><div class="header-copy"><h1>INVENTARIO GENERAL</h1><p>Exportado por: <b>${escapeHtml(context.exportedBy)}</b></p><p>Fecha y hora: ${escapeHtml(context.exportedAt)}</p></div></header>
+        <section class="section"><h2>Alcance del informe</h2><div class="meta"><p><b>Sede:</b> ${escapeHtml(context.siteName)}</p><p><b>Marca:</b> ${escapeHtml(context.brandName)}</p><p><b>Búsqueda:</b> ${escapeHtml(context.search)}</p></div><div class="stats"><div class="stat"><b>Total global de equipos</b><strong>${context.globalCount.toLocaleString("es-CL")}</strong></div><div class="stat"><b>Equipos incluidos en este informe</b><strong>${context.filteredRows.length.toLocaleString("es-CL")}</strong></div><div class="stat"><b>Marcas incluidas</b><strong>${context.brandCounts.length.toLocaleString("es-CL")}</strong></div><div class="stat"><b>Modelos incluidos</b><strong>${context.modelCounts.length.toLocaleString("es-CL")}</strong></div></div></section>
+        <section class="section"><h2>Resumen por marca y modelo</h2><div class="summary-grid"><table><thead><tr><th>Marca</th><th>Equipos</th></tr></thead><tbody>${summaryRows}</tbody></table><table><thead><tr><th>Marca</th><th>Modelo</th><th>Equipos</th></tr></thead><tbody>${modelRows}</tbody></table></div></section>
+        <section class="section"><h2>Detalle del inventario (${context.filteredRows.length.toLocaleString("es-CL")} equipos)</h2><table><thead><tr><th>Sede</th><th>Marca</th><th>Equipo</th><th>Modelo</th><th>Activo fijo</th><th>Categoría</th></tr></thead><tbody>${detailRows}</tbody></table></section><footer>Informe generado desde el panel administrador de Smart Fit.</footer><script>window.addEventListener('load',()=>setTimeout(()=>window.print(),250));<\/script></body></html>`);
+      reportWindow.document.close();
+    }
+
+    function xmlEscape(value) {
+      return String(value ?? "").replace(/[&<>"']/g, character => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&apos;" }[character]));
+    }
+
+    function spreadsheetColumn(index) {
+      let value = index + 1;
+      let label = "";
+      while (value) {
+        const remainder = (value - 1) % 26;
+        label = String.fromCharCode(65 + remainder) + label;
+        value = Math.floor((value - 1) / 26);
+      }
+      return label;
+    }
+
+    function inventoryWorksheetXml(rows, columnWidths = [], enableFilter = true, freezeHeader = true) {
+      const maxColumns = Math.max(1, ...rows.map(row => row.length));
+      const columns = columnWidths.length ? `<cols>${columnWidths.map((width, index) => `<col min="${index + 1}" max="${index + 1}" width="${width}" customWidth="1"/>`).join("")}</cols>` : "";
+      const sheetRows = rows.map((row, rowIndex) => `<row r="${rowIndex + 1}">${row.map((cell, columnIndex) => {
+        const value = cell && typeof cell === "object" && Object.hasOwn(cell, "value") ? cell.value : cell;
+        const style = cell && typeof cell === "object" ? cell.style || 0 : 0;
+        const type = cell && typeof cell === "object" ? cell.type || "text" : "text";
+        const ref = `${spreadsheetColumn(columnIndex)}${rowIndex + 1}`;
+        return type === "number"
+          ? `<c r="${ref}" s="${style}"><v>${Number(value) || 0}</v></c>`
+          : `<c r="${ref}" s="${style}" t="inlineStr"><is><t xml:space="preserve">${xmlEscape(value)}</t></is></c>`;
+      }).join("")}</row>`).join("");
+      const lastCell = `${spreadsheetColumn(maxColumns - 1)}${rows.length}`;
+      const autoFilter = enableFilter && rows.length > 1 && rows[0].length ? `<autoFilter ref="A1:${spreadsheetColumn(rows[0].length - 1)}${rows.length}"/>` : "";
+      const pane = freezeHeader && rows.length > 1 ? '<pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/>' : "";
+      return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><dimension ref="A1:${lastCell}"/><sheetViews><sheetView workbookViewId="0">${pane}</sheetView></sheetViews>${columns}<sheetData>${sheetRows}</sheetData>${autoFilter}</worksheet>`;
+    }
+
+    function zipStoredFiles(files) {
+      const encoder = new TextEncoder();
+      const crcTable = new Uint32Array(256);
+      for (let index = 0; index < 256; index++) {
+        let crc = index;
+        for (let bit = 0; bit < 8; bit++) crc = crc & 1 ? 0xedb88320 ^ (crc >>> 1) : crc >>> 1;
+        crcTable[index] = crc >>> 0;
+      }
+      const crc32 = bytes => {
+        let crc = 0xffffffff;
+        for (const byte of bytes) crc = crcTable[(crc ^ byte) & 0xff] ^ (crc >>> 8);
+        return (crc ^ 0xffffffff) >>> 0;
+      };
+      const localParts = [];
+      const centralParts = [];
+      let localOffset = 0;
+      files.forEach(file => {
+        const name = encoder.encode(file.name);
+        const data = encoder.encode(file.content);
+        const checksum = crc32(data);
+        const local = new Uint8Array(30 + name.length + data.length);
+        const localView = new DataView(local.buffer);
+        localView.setUint32(0, 0x04034b50, true); localView.setUint16(4, 20, true); localView.setUint16(6, 0x0800, true);
+        localView.setUint32(14, checksum, true); localView.setUint32(18, data.length, true); localView.setUint32(22, data.length, true); localView.setUint16(26, name.length, true);
+        local.set(name, 30); local.set(data, 30 + name.length); localParts.push(local);
+        const central = new Uint8Array(46 + name.length);
+        const centralView = new DataView(central.buffer);
+        centralView.setUint32(0, 0x02014b50, true); centralView.setUint16(4, 20, true); centralView.setUint16(6, 20, true); centralView.setUint16(8, 0x0800, true);
+        centralView.setUint32(16, checksum, true); centralView.setUint32(20, data.length, true); centralView.setUint32(24, data.length, true); centralView.setUint16(28, name.length, true); centralView.setUint32(42, localOffset, true);
+        central.set(name, 46); centralParts.push(central); localOffset += local.length;
+      });
+      const centralSize = centralParts.reduce((sum, part) => sum + part.length, 0);
+      const end = new Uint8Array(22);
+      const endView = new DataView(end.buffer);
+      endView.setUint32(0, 0x06054b50, true); endView.setUint16(8, files.length, true); endView.setUint16(10, files.length, true); endView.setUint32(12, centralSize, true); endView.setUint32(16, localOffset, true);
+      return new Blob([...localParts, ...centralParts, end], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+    }
+
+    function exportAdminInventoryExcel() {
+      const context = inventoryExportContext();
+      const summaryRows = [
+        [{ value: "INFORME DE INVENTARIO", style: 1 }],
+        ["Exportado por", context.exportedBy],
+        ["Fecha y hora", context.exportedAt],
+        ["Sede", context.siteName],
+        ["Marca", context.brandName],
+        ["Búsqueda", context.search],
+        [],
+        [{ value: "INDICADORES", style: 1 }],
+        ["Total global de equipos", { value: context.globalCount, type: "number" }],
+        ["Equipos incluidos en este informe", { value: context.filteredRows.length, type: "number" }],
+        ["Marcas incluidas", { value: context.brandCounts.length, type: "number" }],
+        ["Modelos incluidos", { value: context.modelCounts.length, type: "number" }],
+        [],
+        [{ value: "CANTIDAD POR MARCA", style: 1 }],
+        [{ value: "Marca", style: 2 }, { value: "Equipos", style: 2 }],
+        ...context.brandCounts.map(([brand, count]) => [brand, { value: count, type: "number" }]),
+        [],
+        [{ value: "CANTIDAD POR MARCA Y MODELO", style: 1 }],
+        [{ value: "Marca", style: 2 }, { value: "Modelo", style: 2 }, { value: "Equipos", style: 2 }],
+        ...context.modelCounts.map(item => [item.brand, item.model, { value: item.count, type: "number" }])
+      ];
+      const inventoryRows = [
+        ["Sede", "Marca", "Equipo", "Modelo", "Activo fijo", "Categoría"].map(value => ({ value, style: 2 })),
+        ...context.filteredRows.map(item => [item.siteName, item.brandName, item.equipmentName, item.model, item.activeFixed === "" || item.activeFixed == null ? "—" : String(item.activeFixed), item.category])
+      ];
+      const workbookFiles = [
+        { name: "[Content_Types].xml", content: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/worksheets/sheet2.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>` },
+        { name: "_rels/.rels", content: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>` },
+        { name: "xl/workbook.xml", content: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Resumen" sheetId="1" r:id="rId1"/><sheet name="Inventario" sheetId="2" r:id="rId2"/></sheets></workbook>` },
+        { name: "xl/_rels/workbook.xml.rels", content: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet2.xml"/><Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>` },
+        { name: "xl/styles.xml", content: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="2"><font><sz val="11"/><name val="Arial"/></font><font><b/><sz val="12"/><color rgb="FFFFB51B"/><name val="Arial"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF22252E"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="3"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="1" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="1" borderId="0" xfId="0"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>` },
+        { name: "xl/worksheets/sheet1.xml", content: inventoryWorksheetXml(summaryRows, [34, 26, 20], false, false) },
+        { name: "xl/worksheets/sheet2.xml", content: inventoryWorksheetXml(inventoryRows, [30, 24, 34, 18, 18, 24]) }
+      ];
+      const blob = zipStoredFiles(workbookFiles);
+      const stamp = context.now.toISOString().slice(0, 16).replace(/[-T:]/g, "");
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `inventario-smartfit-${stamp}.xlsx`;
+      document.body.append(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
     }
 
     function renderMatrixCatalog() {
@@ -2617,6 +2795,8 @@
       }
     });
     $("adminInventoryBrandFilter").addEventListener("change", renderAdminInventory);
+    $("exportAdminInventoryPdf").addEventListener("click", exportAdminInventoryPdf);
+    $("exportAdminInventoryExcel").addEventListener("click", exportAdminInventoryExcel);
 
     $("usersBody").addEventListener("click", event => {
       const editButton = event.target.closest("[data-edit]");
