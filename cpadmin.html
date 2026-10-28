@@ -512,6 +512,7 @@
       <button class="nav-button" type="button" data-view="users">♙ &nbsp; Usuarios y accesos</button>
       <button class="nav-button" type="button" data-view="sites">⌖ &nbsp; Sedes</button>
       <button class="nav-button" type="button" data-view="equipment">⚙ &nbsp; Equipos</button>
+      <button class="nav-button" type="button" data-view="inventory">▦ &nbsp; Inventario</button>
       <button class="nav-button" type="button" data-view="tickets">▤ &nbsp; Tickets</button>
       <button class="nav-button" type="button" data-view="maintenanceHistory">▤ &nbsp; Eventos / Registros</button>
       <button class="nav-button" type="button" data-view="settings">⚙ &nbsp; Configuración</button>
@@ -703,6 +704,30 @@
             </div>
           </div>
           <div class="equipment-grid" id="equipmentGrid" aria-live="polite"></div>
+        </section>
+      </section>
+
+      <section class="view" id="inventoryView" hidden aria-labelledby="inventoryPageTitle">
+        <div class="page-heading">
+          <div>
+            <div class="eyebrow">Administración central</div>
+            <h1 id="inventoryPageTitle">Inventario</h1>
+            <p class="page-description">Vista general de equipos y activos fijos registrados en todas las sedes.</p>
+          </div>
+        </div>
+        <section class="panel-card" aria-label="Inventario general de equipos">
+          <div class="history-filters" aria-label="Filtros del inventario">
+            <label class="history-filter">Buscar equipo o activo fijo<input class="form-control" id="adminInventorySearch" type="search" placeholder="Nombre, modelo o activo fijo..."></label>
+            <label class="history-filter">Sede<select class="form-control form-select" id="adminInventorySiteFilter"><option value="*">Todas las sedes</option></select></label>
+            <label class="history-filter">Marca<select class="form-control form-select" id="adminInventoryBrandFilter"><option value="*">Todas las marcas</option></select></label>
+          </div>
+          <div class="table-tools" style="margin: 0 0 10px;"><span class="subtext" id="adminInventoryCount" aria-live="polite">0 equipos</span></div>
+          <div class="table-wrap">
+            <table class="history-table">
+              <thead><tr><th>Sede</th><th>Marca</th><th>Equipo</th><th>Modelo</th><th>Activo fijo</th><th>Categoría</th></tr></thead>
+              <tbody id="adminInventoryBody"></tbody>
+            </table>
+          </div>
         </section>
       </section>
 
@@ -1907,6 +1932,64 @@
         </article>`;
       }).join("") || '<div class="empty-state">No hay marcas registradas todavía.</div>';
       renderMatrixCatalog();
+      renderAdminInventory();
+    }
+
+    function renderAdminInventory() {
+      const siteFilter = $("adminInventorySiteFilter");
+      const brandFilter = $("adminInventoryBrandFilter");
+      const body = $("adminInventoryBody");
+      if (!siteFilter || !brandFilter || !body) return;
+
+      const sites = AdminStore.listSites();
+      const brands = AdminStore.listBrands();
+      const brandNames = new Map(brands.map(brand => [String(brand.id), brand.name]));
+      const inventory = [];
+      sites.forEach(site => {
+        (Array.isArray(site.equipment) ? site.equipment : []).forEach(item => {
+          const brandName = item.brandName || brandNames.get(String(item.brandId)) || "Sin marca";
+          const quantity = Math.max(0, Number(item.quantity) || 0);
+          const units = Array.isArray(item.units) && item.units.length
+            ? item.units
+            : Array.from({ length: quantity }, () => ({}));
+          units.forEach(unit => inventory.push({
+            siteId: String(site.id),
+            siteName: site.name || "Sede sin nombre",
+            brandId: String(item.brandId || ""),
+            brandName,
+            equipmentName: item.name || "Equipo",
+            model: item.model || "—",
+            activeFixed: unit.activeFixed,
+            category: item.category || "—"
+          }));
+        });
+      });
+
+      const selectedSite = siteFilter.value || "*";
+      const selectedBrand = brandFilter.value || "*";
+      const siteOptions = sites.slice().sort((a, b) => String(a.name).localeCompare(String(b.name), "es"));
+      const brandOptions = [...new Map(inventory.map(item => [item.brandId || item.brandName, item.brandName])).entries()]
+        .sort((a, b) => String(a[1]).localeCompare(String(b[1]), "es"));
+      siteFilter.innerHTML = '<option value="*">Todas las sedes</option>' + siteOptions.map(site => `<option value="${escapeHtml(site.id)}">${escapeHtml(site.name)}</option>`).join("");
+      brandFilter.innerHTML = '<option value="*">Todas las marcas</option>' + brandOptions.map(([id, name]) => `<option value="${escapeHtml(id)}">${escapeHtml(name)}</option>`).join("");
+      siteFilter.value = siteOptions.some(site => String(site.id) === selectedSite) ? selectedSite : "*";
+      brandFilter.value = brandOptions.some(([id]) => id === selectedBrand) ? selectedBrand : "*";
+
+      const query = normalizeHistoryName($("adminInventorySearch").value);
+      const filtered = inventory.filter(item =>
+        (siteFilter.value === "*" || item.siteId === siteFilter.value) &&
+        (brandFilter.value === "*" || (item.brandId || item.brandName) === brandFilter.value) &&
+        (!query || normalizeHistoryName(`${item.siteName} ${item.brandName} ${item.equipmentName} ${item.model} ${item.activeFixed ?? ""} ${item.category}`).includes(query))
+      );
+      $("adminInventoryCount").textContent = `${filtered.length.toLocaleString("es-CL")} ${filtered.length === 1 ? "equipo" : "equipos"}`;
+      body.innerHTML = filtered.map(item => `<tr>
+        <td>${escapeHtml(item.siteName)}</td>
+        <td>${escapeHtml(item.brandName)}</td>
+        <td><span class="user-name">${escapeHtml(item.equipmentName)}</span></td>
+        <td>${escapeHtml(item.model)}</td>
+        <td>${item.activeFixed === "" || item.activeFixed === null || item.activeFixed === undefined ? "—" : escapeHtml(item.activeFixed)}</td>
+        <td>${escapeHtml(item.category)}</td>
+      </tr>`).join("") || '<tr><td colspan="6" class="empty-state">No hay equipos que coincidan con los filtros.</td></tr>';
     }
 
     function renderMatrixCatalog() {
@@ -1970,6 +2053,7 @@
       document.querySelectorAll(".nav-button").forEach(button => button.classList.toggle("active", button.dataset.view === name));
       if (name === "users") $("userSearch").focus({ preventScroll: true });
       if (name === "tickets") renderTickets();
+      if (name === "inventory") renderAdminInventory();
       if (name === "maintenanceHistory" && !$("maintenanceHistoryBlank").hidden) renderMaintenanceHistory();
     }
 
@@ -2471,6 +2555,9 @@
       siteSearchTerm = event.target.value.trim().toLocaleLowerCase("es");
       render();
     });
+    $("adminInventorySearch").addEventListener("input", renderAdminInventory);
+    $("adminInventorySiteFilter").addEventListener("change", renderAdminInventory);
+    $("adminInventoryBrandFilter").addEventListener("change", renderAdminInventory);
 
     $("usersBody").addEventListener("click", event => {
       const editButton = event.target.closest("[data-edit]");
