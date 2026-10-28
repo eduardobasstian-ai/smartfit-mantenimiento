@@ -1968,6 +1968,8 @@
       sites.forEach(site => {
         (Array.isArray(site.equipment) ? site.equipment : []).forEach(item => {
           const brandName = item.brandName || brandNames.get(String(item.brandId)) || "Sin marca";
+          const catalogItem = catalogEquipment.find(entry => entry.catalogId === item.catalogId) ||
+            catalogEquipment.find(entry => entry.brandId === item.brandId && normalizeHistoryName(entry.name) === normalizeHistoryName(item.name) && normalizeHistoryName(entry.model) === normalizeHistoryName(item.model));
           const quantity = Math.max(0, Number(item.quantity) || 0);
           const units = Array.isArray(item.units) && item.units.length
             ? item.units
@@ -1980,7 +1982,7 @@
             equipmentName: item.name || "Equipo",
             model: item.model || "—",
             activeFixed: unit.activeFixed,
-            category: item.category || "—"
+            category: catalogItem?.category || item.category || "—"
           }));
         });
       });
@@ -2438,7 +2440,7 @@
             <td>${image ? `<img class="inventory-thumb" src="${escapeHtml(image)}" alt="${escapeHtml(item.name)}" data-inventory-image>` : "—"}</td>
             <td><span class="user-name">${escapeHtml(item.name)}</span></td>
             <td>${escapeHtml(item.model || "—")}</td>
-            <td>${escapeHtml(item.category || "—")}</td>
+            <td>${escapeHtml(catalogItem?.category || item.category || "—")}</td>
             <td><input class="form-control inventory-fixed-input" type="number" min="0" step="1" value="${unit.activeFixed === "" ? "" : escapeHtml(unit.activeFixed)}" data-inventory-fixed="${escapeHtml(unit.unitId)}" aria-label="Número de activo fijo para ${escapeHtml(item.name)}" ${isEditing ? "" : "readonly"}></td>
             <td><div class="inventory-actions">
               <button class="secondary-button" type="button" data-edit-fixed="${escapeHtml(unit.unitId)}">${isEditing ? "Guardar" : "Editar"}</button>

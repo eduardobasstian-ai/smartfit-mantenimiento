@@ -777,6 +777,14 @@
       return catalog?.image || item.image || "";
     }
 
+    function catalogCategoryForEquipment(item) {
+      const brand = brandDirectory.find(entry => entry.id === item.brandId) || brandDirectory.find(entry => normalizeChartLabel(entry.name) === normalizeChartLabel(item.brandName));
+      const brandId = item.brandId || String(item.catalogId || "").split(":")[0] || brand?.id || "";
+      const catalog = (window.BRAND_EQUIPMENT_CATALOGS?.[brandId] || []).find((entry, index) => `${brandId}:${index}` === item.catalogId) ||
+        (window.BRAND_EQUIPMENT_CATALOGS?.[brandId] || []).find(entry => normalizeChartLabel(entry.name) === normalizeChartLabel(item.name) && normalizeChartLabel(entry.model) === normalizeChartLabel(item.model));
+      return catalog?.category || item.category || "Sin sector";
+    }
+
     function formatSupervisorRegion(value) {
       return ({
         Tarapaca: "Tarapacá", Valparaiso: "Valparaíso", Nuble: "Ñuble", Biobio: "Biobío",
@@ -1029,7 +1037,7 @@
         const units = Array.isArray(item.units) && item.units.length ? item.units : Array.from({ length: Math.max(0, Number(item.quantity) || 0) }, () => ({}));
         units.forEach(unit => rows.push({
           siteId: String(site.id), siteName: site.name || "Sede sin nombre", brandId: String(item.brandId || brand?.id || brandName), brandName,
-          equipmentName: item.name || "Equipo", model: item.model || "—", activeFixed: unit.activeFixed, category: item.category || "—"
+          equipmentName: item.name || "Equipo", model: item.model || "—", activeFixed: unit.activeFixed, category: catalogCategoryForEquipment(item)
         }));
       }));
       const brandSelect = $("profileInventoryBrand"), previousBrand = brandSelect.value || "*";
@@ -1398,7 +1406,7 @@
           <div class="machine-info">
             <div class="machine-title-row"><h3>${escapeHtml(item.name || "Equipo")}</h3><span class="machine-active-fixed">AF: ${unit.activeFixed === "" || unit.activeFixed === undefined || unit.activeFixed === null ? "N/A" : escapeHtml(unit.activeFixed)}</span></div>
             <p>Modelo: ${escapeHtml(item.model || "—")}</p>
-            <span class="machine-sector">${escapeHtml(item.category || "Sin sector")}</span>
+            <span class="machine-sector">${escapeHtml(catalogCategoryForEquipment(item))}</span>
             ${leaderMaintenanceMode ? `<p>${escapeHtml(siteName || "Sede sin nombre")} · ${escapeHtml(brandName || "Sin marca")}</p>` : ""}
           </div>
         </article>`).join("") || `<div class="empty-state">${search ? "No se encontraron equipos con ese activo fijo." : leaderMaintenanceMode ? "No hay equipos detallados en las sedes habilitadas para este Líder." : "No hay equipos de esta marca registrados para la sede seleccionada."}</div>`;

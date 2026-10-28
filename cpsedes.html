@@ -848,6 +848,14 @@
       return catalog?.image || item.image || "";
     }
 
+    function supervisorCatalogCategory(item) {
+      const brand = brandDirectory.find(entry => entry.id === item.brandId) || brandDirectory.find(entry => normalizeChartLabel(entry.name) === normalizeChartLabel(item.brandName));
+      const brandId = item.brandId || String(item.catalogId || "").split(":")[0] || brand?.id || "";
+      const catalog = (supervisorEquipmentCatalogs[brandId] || []).find((entry, index) => `${brandId}:${index}` === item.catalogId) ||
+        (supervisorEquipmentCatalogs[brandId] || []).find(entry => normalizeChartLabel(entry.name) === normalizeChartLabel(item.name) && normalizeChartLabel(entry.model) === normalizeChartLabel(item.model));
+      return catalog?.category || item.category || "Sin sector";
+    }
+
     if (supervisorMode) {
       document.title = "Panel supervisor | Mantenimiento";
       $("supervisorShell").classList.add("supervisor-mode");
@@ -1105,7 +1113,7 @@
             const imageMarkup = image
               ? `<button class="machine-image-button" type="button" data-enlarge-image="${escapeHtml(image)}" data-image-alt="${escapeHtml(equipment.machineName)} ${escapeHtml(equipment.machineModel)}" aria-label="Ampliar imagen de ${escapeHtml(equipment.machineName)}"><img src="${escapeHtml(image)}" alt="${escapeHtml(equipment.machineName)}" loading="lazy"><span class="zoom-indicator" aria-hidden="true">⌕</span></button>`
               : '<span class="image-placeholder">Sin imagen</span>';
-            cards.push(`<article class="machine-card ticket-equipment-card">${imageMarkup}<button class="machine-info ticket-machine-open" type="button" data-supervisor-ticket-equipment="${escapeHtml(encodeURIComponent(JSON.stringify(equipment)))}"><span class="machine-title-row"><h3>${escapeHtml(equipment.machineName)}</h3><span class="machine-active-fixed">AF: ${escapeHtml(fixed)}</span></span><p>Modelo: ${escapeHtml(equipment.machineModel || "—")}</p><span class="machine-sector">${escapeHtml(item.category || "Sin sector")}</span><p>${escapeHtml(site.name)} · ${escapeHtml(displayBrandName)}</p></button></article>`);
+            cards.push(`<article class="machine-card ticket-equipment-card">${imageMarkup}<button class="machine-info ticket-machine-open" type="button" data-supervisor-ticket-equipment="${escapeHtml(encodeURIComponent(JSON.stringify(equipment)))}"><span class="machine-title-row"><h3>${escapeHtml(equipment.machineName)}</h3><span class="machine-active-fixed">AF: ${escapeHtml(fixed)}</span></span><p>Modelo: ${escapeHtml(equipment.machineModel || "—")}</p><span class="machine-sector">${escapeHtml(supervisorCatalogCategory(item))}</span><p>${escapeHtml(site.name)} · ${escapeHtml(displayBrandName)}</p></button></article>`);
           });
         });
       }
@@ -1930,7 +1938,7 @@
         const units = Array.isArray(item.units) && item.units.length ? item.units : Array.from({ length: Math.max(0, Number(item.quantity) || 0) }, () => ({}));
         units.forEach(unit => rows.push({
           siteId: String(site.id), siteName: site.name || "Sede sin nombre", brandId: String(item.brandId || brand?.id || brandName), brandName,
-          equipmentName: item.name || "Equipo", model: item.model || "—", activeFixed: unit.activeFixed, category: item.category || "—"
+          equipmentName: item.name || "Equipo", model: item.model || "—", activeFixed: unit.activeFixed, category: supervisorCatalogCategory(item)
         }));
       }));
       const brandSelect = $("profileInventoryBrand"), previousBrand = brandSelect.value || "*";
@@ -2163,7 +2171,7 @@
           <div class="machine-info">
             <div class="machine-title-row"><h3>${escapeHtml(item.name || "Equipo")}</h3><span class="machine-active-fixed">AF: ${unit.activeFixed === "" || unit.activeFixed === undefined || unit.activeFixed === null ? "N/A" : escapeHtml(unit.activeFixed)}</span></div>
             <p>Modelo: ${escapeHtml(item.model || "—")}</p>
-            <span class="machine-sector">${escapeHtml(item.category || "Sin sector")}</span>
+            <span class="machine-sector">${escapeHtml(supervisorCatalogCategory(item))}</span>
             ${ticketCount > 0 ? `<span class="site-ticket-badge"><span class="site-ticket-badge-icon" aria-hidden="true">✓</span>Tickets <strong>${ticketCount}</strong></span>` : ""}
           </div>
         </article>`;
