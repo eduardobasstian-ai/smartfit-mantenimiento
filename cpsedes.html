@@ -764,7 +764,7 @@
     </section>
   </div>
   <script src="admin-store.js?v=20261026-ubian"></script>
-  <script src="supabase-data.js?v=20261028-media-cache-4"></script>
+  <script src="supabase-data.js?v=20261027-speed-3"></script>
   <script src="EQU/matrix-catalog.js"></script>
   <script src="EQU/booty-catalog.js"></script>
   <script src="EQU/other-catalogs.js?v=20261026-ubian-rack"></script>
@@ -899,14 +899,10 @@
     function readLeaderTickets() {
       try {
         const tickets = JSON.parse(localStorage.getItem(TICKETS_STORAGE_KEY) || "[]");
-        return SmartFitSupabaseData.getTicketsWithCachedMediaSync(Array.isArray(tickets) ? tickets.filter(ticket => ticket && typeof ticket === "object") : []);
+        return Array.isArray(tickets) ? tickets.filter(ticket => ticket && typeof ticket === "object") : [];
       } catch (error) {
         return [];
       }
-    }
-
-    async function writeLeaderTickets(tickets) {
-      await SmartFitSupabaseData.writeTicketCache(tickets);
     }
 
     function ticketStatus(ticket) {
@@ -967,7 +963,7 @@
       ticket.statusUpdatedAt = new Date().toISOString();
       ticket.statusUpdatedBy = user.id;
       try {
-        await writeLeaderTickets(tickets);
+        localStorage.setItem(TICKETS_STORAGE_KEY, JSON.stringify(tickets));
         await SmartFitSupabaseData.persistTicket(ticket);
         if (currentMachine) renderMachineDetail(currentMachine);
       } catch (error) {
@@ -994,7 +990,7 @@
         ticket.linkedMaintenanceDate = maintenanceEntry.date;
       });
       maintenanceEntry.ticketIds = [...new Set([...(maintenanceEntry.ticketIds || []), ...matchingTickets.map(ticket => ticket.id)])];
-      await writeLeaderTickets(tickets);
+      localStorage.setItem(TICKETS_STORAGE_KEY, JSON.stringify(tickets));
       for (const ticket of matchingTickets) await SmartFitSupabaseData.persistTicket(ticket);
       return matchingTickets;
     }
@@ -1329,7 +1325,7 @@
         ticket.technicianId = result.technicianId || candidate.id;
         ticket.technician = result.technician || candidate.name;
         ticket.technicianAssignment = { technicianId: ticket.technicianId, technicianName: ticket.technician, assignedById: result.assignedById || user.id, assignedByName: result.assignedByName || user.name, assignedAt: result.assignedAt || new Date().toISOString() };
-        await writeLeaderTickets(tickets);
+        localStorage.setItem(TICKETS_STORAGE_KEY, JSON.stringify(tickets));
         try { await SmartFitSupabaseData.hydrate({ tables: ["tickets"] }); } catch (error) { console.warn("La asignación se guardó, pero no se pudo actualizar la caché remota.", error); }
         window.dispatchEvent(new Event("smartfit:supabase-data-hydrated"));
         closeSupervisorTicketAssignment();
@@ -1344,8 +1340,8 @@
       }
     }
 
-    async function exportSupervisorTicketsPdf() {
-      return exportTicketsReport(supervisorFilteredTickets, "INFORME DE TICKETS");
+    function exportSupervisorTicketsPdf() {
+      exportTicketsReport(supervisorFilteredTickets, "INFORME DE TICKETS");
     }
 
     function supervisorTicketEquipmentImage(ticket) {
@@ -1360,24 +1356,13 @@
       return supervisorCatalogImage(item);
     }
 
-    async function exportTicketsReport(tickets, reportTitle) {
+    function exportTicketsReport(tickets, reportTitle) {
       if (!tickets.length) { window.alert("No hay tickets para generar el PDF con los filtros seleccionados."); return; }
       const reportWindow = window.open("", "_blank");
       if (!reportWindow) { window.alert("El navegador bloqueó la ventana del informe. Permite las ventanas emergentes e inténtalo nuevamente."); return; }
-      reportWindow.document.write("<!doctype html><title>Preparando informe</title><p style=\"font:16px Arial;padding:24px\">Cargando fotografías del informe…</p>");
-      let reportTickets;
-      try {
-        const media = await SmartFitSupabaseData.getReportImages({ ticketLegacyIds: tickets.map(ticket => ticket.id) });
-        reportTickets = tickets.map(ticket => ({ ...ticket, images: media.tickets[String(ticket.id)]?.length ? media.tickets[String(ticket.id)].slice(0, 4) : ticket.images }));
-      } catch (error) {
-        console.error("No se pudieron cargar las fotografías del informe de tickets.", error);
-        reportWindow.close();
-        window.alert("No se pudieron cargar las fotografías desde Supabase. Comprueba la conexión y vuelve a generar el PDF.");
-        return;
-      }
       const logoUrl = new URL("IMG/logo-header.png", window.location.href).href;
       const issuedAt = new Intl.DateTimeFormat("es-CL", { dateStyle: "long" }).format(new Date());
-      const pages = reportTickets.map((ticket, index) => {
+      const pages = tickets.map((ticket, index) => {
         const equipmentImage = supervisorTicketEquipmentImage(ticket);
         const equipmentPhoto = equipmentImage
           ? `<figure class="equipment-picture"><img src="${escapeHtml(new URL(equipmentImage, window.location.href).href)}" alt="${escapeHtml(ticket.machineName || "Equipo")}"><figcaption>Fotografía del equipo</figcaption></figure>`
@@ -1385,7 +1370,7 @@
         const photos = Array.isArray(ticket.images) && ticket.images.length
           ? `<section class="section"><h2>Registro fotográfico</h2><div class="photos" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px">${ticket.images.slice(0, 4).map((image, photoIndex) => `<figure style="width:auto"><img style="height:38mm" src="${escapeHtml(image)}" alt="Adjunto ${photoIndex + 1} del ticket"><figcaption>Adjunto ${photoIndex + 1}</figcaption></figure>`).join("")}</div></section>`
           : `<section class="section"><h2>Registro fotográfico</h2><p class="muted">Sin imágenes adjuntas.</p></section>`;
-        return `<article class="report-page"><header class="report-header"><img src="${escapeHtml(logoUrl)}" alt="Smart Fit"><div><h1>${escapeHtml(reportTitle)}</h1><p>Fecha de emisión: ${escapeHtml(issuedAt)} · Registro ${index + 1} de ${reportTickets.length}</p></div></header><section class="section"><h2>Datos del ticket</h2><div class="event-info-layout"><div class="data-grid"><p><b>Número:</b> ${escapeHtml(ticket.ticketNumber || "—")}</p><p><b>Fecha:</b> ${escapeHtml(formatTicketDate(ticket.date))}</p><p><b>Sede:</b> ${escapeHtml(ticket.siteName || "—")}</p><p><b>Solicitante:</b> ${escapeHtml(ticket.createdByName || ticket.leaderName || "—")}</p><p><b>Supervisor:</b> ${escapeHtml(ticket.supervisor || "—")}</p><p><b>Técnico:</b> ${escapeHtml(ticket.technician || "—")}</p><p><b>Activo fijo:</b> ${escapeHtml(ticket.activeFixed || "N/A")}</p><p><b>Equipo:</b> ${escapeHtml(ticket.machineName || "—")}${ticket.machineModel ? ` · ${escapeHtml(ticket.machineModel)}` : ""}</p><p><b>Tipo:</b> ${escapeHtml(ticket.type || "—")}</p><p><b>Estado:</b> ${escapeHtml(ticket.status || "Pendiente")}</p><p class="wide"><b>Título:</b> ${escapeHtml(ticket.title || "—")}</p><p class="wide"><b>Descripción:</b> ${escapeHtml(ticket.description || "Sin descripción")}</p></div>${equipmentPhoto}</div></section>${photos}<footer>se genera el informe para lo que se estime conveniente.</footer></article>`;
+        return `<article class="report-page"><header class="report-header"><img src="${escapeHtml(logoUrl)}" alt="Smart Fit"><div><h1>${escapeHtml(reportTitle)}</h1><p>Fecha de emisión: ${escapeHtml(issuedAt)} · Registro ${index + 1} de ${tickets.length}</p></div></header><section class="section"><h2>Datos del ticket</h2><div class="event-info-layout"><div class="data-grid"><p><b>Número:</b> ${escapeHtml(ticket.ticketNumber || "—")}</p><p><b>Fecha:</b> ${escapeHtml(formatTicketDate(ticket.date))}</p><p><b>Sede:</b> ${escapeHtml(ticket.siteName || "—")}</p><p><b>Solicitante:</b> ${escapeHtml(ticket.createdByName || ticket.leaderName || "—")}</p><p><b>Supervisor:</b> ${escapeHtml(ticket.supervisor || "—")}</p><p><b>Técnico:</b> ${escapeHtml(ticket.technician || "—")}</p><p><b>Activo fijo:</b> ${escapeHtml(ticket.activeFixed || "N/A")}</p><p><b>Equipo:</b> ${escapeHtml(ticket.machineName || "—")}${ticket.machineModel ? ` · ${escapeHtml(ticket.machineModel)}` : ""}</p><p><b>Tipo:</b> ${escapeHtml(ticket.type || "—")}</p><p><b>Estado:</b> ${escapeHtml(ticket.status || "Pendiente")}</p><p class="wide"><b>Título:</b> ${escapeHtml(ticket.title || "—")}</p><p class="wide"><b>Descripción:</b> ${escapeHtml(ticket.description || "Sin descripción")}</p></div>${equipmentPhoto}</div></section>${photos}<footer>se genera el informe para lo que se estime conveniente.</footer></article>`;
       }).join("");
       reportWindow.document.open();
       reportWindow.document.write(`<!doctype html><html lang="es"><head><meta charset="utf-8"><title>${escapeHtml(reportTitle)}</title><style>@page{size:letter;margin:14mm}*{box-sizing:border-box}body{margin:0;color:#171923;font:10pt Arial,sans-serif}.report-page{min-height:250mm;position:relative;page-break-after:always;break-after:page;display:flex;flex-direction:column}.report-page:last-child{page-break-after:auto;break-after:auto}.report-header{display:flex;align-items:center;gap:18px;border-bottom:3px solid #ffb51b;padding:0 0 12px}.report-header img{width:125px;height:auto;object-fit:contain;background:#000!important;padding:4px 8px;border-radius:4px}.report-header div{flex:1;text-align:right}.report-header h1{font-size:18pt;margin:0 0 6px}.report-header p,.muted{color:#5e6370;margin:0}.section{margin-top:16px}.section h2{font-size:11pt;margin:0 0 9px;padding-bottom:5px;border-bottom:1px solid #d8dae0}.section p{margin:0;line-height:1.5;text-align:justify;white-space:pre-wrap;overflow-wrap:anywhere}.event-info-layout{display:grid;grid-template-columns:minmax(0,1fr) 58mm;gap:10px;align-items:start}.data-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px 20px}.data-grid .wide{grid-column:1/-1}.equipment-picture{margin:0;text-align:center;font-size:8pt;color:#555}.equipment-picture img{width:100%;height:58mm;object-fit:contain}.equipment-picture-empty{height:58mm;display:grid;place-items:center;border:1px dashed #c5c8d0;color:#777}.photos{display:flex;gap:12px;align-items:flex-start}.photos figure{margin:0;width:48%;text-align:center}.photos img{width:100%;height:65mm;object-fit:contain;border:1px solid #d8dae0}.photos figcaption{font-size:8pt;color:#555;margin-top:4px}footer{margin-top:auto;padding-top:10px;border-top:1px solid #cfd1d8;text-align:center;font-size:8pt;color:#555}@media print{*{-webkit-print-color-adjust:exact;print-color-adjust:exact}}</style></head><body>${pages}<script>window.addEventListener('load',()=>{const imgs=[...document.images];Promise.all(imgs.map(img=>img.decode?.().catch(()=>{})||Promise.resolve())).then(()=>setTimeout(()=>window.print(),250));});<\\/script></body></html>`);
@@ -1488,7 +1473,6 @@
           );
           events.push({
             id: entry.id || `${recordKey}:${entry.date || entry.recordedAt || events.length}`,
-            recordKey,
             date: String(entry.date || entry.recordedAt || "").slice(0, 10),
             recordedAt: entry.recordedAt || "",
             siteId,
@@ -1668,44 +1652,15 @@
       }).join("") || '<tr><td colspan="9" class="empty-state">No hay eventos de mantenimiento para los filtros seleccionados.</td></tr>';
     }
 
-    async function exportSupervisorMaintenanceHistoryPdf() {
+    function exportSupervisorMaintenanceHistoryPdf() {
       const events = supervisorHistoryFilteredEvents;
       if (!events.length) {
         window.alert("No hay registros para generar el informe con los filtros seleccionados.");
         return;
       }
-      const reportWindow = window.open("", "_blank");
-      if (!reportWindow) {
-        window.alert("El navegador bloqueó la ventana del informe. Permite las ventanas emergentes e inténtalo nuevamente.");
-        return;
-      }
-      reportWindow.document.write("<!doctype html><title>Preparando informe</title><p style=\"font:16px Arial;padding:24px\">Cargando fotografías del informe…</p>");
-      let reportEvents;
-      try {
-        const media = await SmartFitSupabaseData.getReportImages({
-          maintenanceLegacyIds: events.map(event => `${event.recordKey}::maintenance::${event.id}`),
-          ticketLegacyIds: events.flatMap(event => event.tickets.map(ticket => ticket.id))
-        });
-        reportEvents = events.map(event => {
-          const maintenanceId = `${event.recordKey}::maintenance::${event.id}`;
-          return {
-            ...event,
-            images: media.maintenance[maintenanceId]?.length ? media.maintenance[maintenanceId].slice(0, 4) : event.images,
-            tickets: event.tickets.map(ticket => ({
-              ...ticket,
-              images: media.tickets[String(ticket.id)]?.length ? media.tickets[String(ticket.id)].slice(0, 4) : ticket.images
-            }))
-          };
-        });
-      } catch (error) {
-        console.error("No se pudieron cargar las fotografías del informe de mantenimiento.", error);
-        reportWindow.close();
-        window.alert("No se pudieron cargar las fotografías desde Supabase. Comprueba la conexión y vuelve a generar el PDF.");
-        return;
-      }
       const issuedAt = new Intl.DateTimeFormat("es-CL", { dateStyle: "long" }).format(new Date());
       const logoUrl = new URL("IMG/logo-header.png", window.location.href).href;
-      const pages = reportEvents.map((event, index) => {
+      const pages = events.map((event, index) => {
         const photos = event.images.length
           ? `<section class="section"><h2>Registro fotográfico</h2><div class="photos" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px">${event.images.map((image, photoIndex) => `<figure style="width:auto"><img src="${escapeHtml(image)}" alt="Fotografía ${photoIndex + 1}"><figcaption>Fotografía ${photoIndex + 1}</figcaption></figure>`).join("")}</div></section>`
           : `<section class="section"><h2>Registro fotográfico</h2><p class="muted">Sin fotografías adjuntas.</p></section>`;
@@ -1723,7 +1678,7 @@
             <p class="wide"><b>Título:</b> ${escapeHtml(ticket.title || "—")}</p><p class="wide"><b>Descripción:</b> ${escapeHtml(ticket.description || "—")}</p>
           </div>${Array.isArray(ticket.images) && ticket.images.length ? `<div class="ticket-photos" style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px">${ticket.images.slice(0, 4).map((image, photoIndex) => `<figure style="width:auto"><img src="${escapeHtml(image)}" alt="Foto ${photoIndex + 1} del ticket"><figcaption>Adjunto del ticket ${photoIndex + 1}</figcaption></figure>`).join("")}</div>` : ""}</div>`).join("")}</section>` : "";
         return `<article class="report-page">
-          <header class="report-header"><img src="${escapeHtml(logoUrl)}" alt="Smart Fit" style="background:#000;padding:4px 8px;border-radius:4px"><div><h1>INFORME DE EVENTO</h1><p>Fecha de emisión: ${escapeHtml(issuedAt)} · Registro ${index + 1} de ${reportEvents.length}</p></div></header>
+          <header class="report-header"><img src="${escapeHtml(logoUrl)}" alt="Smart Fit" style="background:#000;padding:4px 8px;border-radius:4px"><div><h1>INFORME DE EVENTO</h1><p>Fecha de emisión: ${escapeHtml(issuedAt)} · Registro ${index + 1} de ${events.length}</p></div></header>
           <section class="section"><h2>Datos del evento</h2><div class="event-info-layout"><div class="data-grid">
             <p><b>Fecha:</b> ${escapeHtml(formatTicketDate(event.date))}</p><p><b>Estado:</b> ${escapeHtml(displaySupervisorHistoryStatus(event.status))}</p>
             <p><b>Sede:</b> ${escapeHtml(event.siteName)}</p><p><b>Equipo:</b> ${escapeHtml(event.equipmentName)}${event.model ? ` · ${escapeHtml(event.model)}` : ""}</p>
@@ -1738,6 +1693,11 @@
           ${photos}<footer>se genera el informe para lo que se estime conveniente.</footer>
         </article>`;
       }).join("");
+      const reportWindow = window.open("", "_blank");
+      if (!reportWindow) {
+        window.alert("El navegador bloqueó la ventana del informe. Permite las ventanas emergentes e inténtalo nuevamente.");
+        return;
+      }
       reportWindow.document.open();
       reportWindow.document.write(`<!doctype html><html lang="es"><head><meta charset="utf-8"><title>informe</title><style>
         @page{size:letter;margin:14mm}*{box-sizing:border-box}body{margin:0;color:#171923;font:10pt Arial,sans-serif}.report-page{height:250mm;position:relative;page-break-after:always;break-after:page;display:flex;flex-direction:column}.report-page:last-child{page-break-after:auto;break-after:auto}.report-header{display:flex;align-items:center;gap:18px;border-bottom:2px solid #ffb51b;padding:0 0 12px}.report-header img{width:125px;height:auto;object-fit:contain}.report-header div{flex:1;text-align:right}.report-header h1{font-size:18pt;margin:0 0 6px}.report-header p,.muted{color:#5e6370;margin:0}.filters{font-size:8pt;color:#454956;padding:8px 0;border-bottom:1px solid #cfd1d8;line-height:1.7}.filters span{display:inline-block;margin-right:7px}.section{margin-top:13px}.section h2{font-size:11pt;margin:0 0 7px;padding-bottom:4px;border-bottom:1px solid #d8dae0}.section p{margin:0;line-height:1.5;text-align:justify;white-space:pre-wrap;overflow-wrap:anywhere}.data-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px 18px}.data-grid p{line-height:1.35}.data-grid .wide{grid-column:1/-1}.photos{display:flex;gap:12px;align-items:flex-start}.photos figure{margin:0;width:48%;text-align:center}.photos img{width:100%;height:76mm;object-fit:contain;border:1px solid #d8dae0}.photos figcaption{font-size:8pt;color:#555;margin-top:4px}footer{margin-top:auto;padding-top:10px;border-top:1px solid #cfd1d8;text-align:center;font-size:8pt;color:#555}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
@@ -2322,18 +2282,25 @@
       try {
         const records = JSON.parse(localStorage.getItem(MACHINE_RECORDS_KEY) || "{}");
         const record = records[recordKey] || {};
-        const normalized = {
+        return {
           maintenance: Array.isArray(record.maintenance) ? record.maintenance : [],
           mileage: Array.isArray(record.mileage) ? record.mileage : []
         };
-        return SmartFitSupabaseData.getMachineRecordWithCachedMediaSync(recordKey, normalized);
       } catch (error) {
         return { maintenance: [], mileage: [] };
       }
     }
 
-    async function writeMachineRecord(recordKey, record) {
-      await SmartFitSupabaseData.writeMachineRecordCache(recordKey, record);
+    function writeMachineRecord(recordKey, record) {
+      let records = {};
+      try {
+        records = JSON.parse(localStorage.getItem(MACHINE_RECORDS_KEY) || "{}");
+        if (!records || Array.isArray(records) || typeof records !== "object") records = {};
+      } catch (error) {
+        records = {};
+      }
+      records[recordKey] = record;
+      localStorage.setItem(MACHINE_RECORDS_KEY, JSON.stringify(records));
     }
 
     function makeRecordId() {
@@ -2360,23 +2327,19 @@
         const image = new Image();
         image.onload = () => {
           URL.revokeObjectURL(source);
+          const scale = Math.min(1, 1280 / Math.max(image.naturalWidth, image.naturalHeight));
           const canvas = document.createElement("canvas");
+          canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+          canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
           const context = canvas.getContext("2d");
           if (!context) {
             reject(new Error("No se pudo procesar la imagen."));
             return;
           }
-          canvas.width = Math.max(1, image.naturalWidth);
-          canvas.height = Math.max(1, image.naturalHeight);
           context.fillStyle = "#ffffff";
           context.fillRect(0, 0, canvas.width, canvas.height);
           context.drawImage(image, 0, 0, canvas.width, canvas.height);
-          try {
-            const webp = canvas.toDataURL("image/webp", 0.9);
-            resolve(webp.startsWith("data:image/webp") ? webp : canvas.toDataURL("image/jpeg", 0.78));
-          } catch (error) {
-            reject(new Error("No se pudo comprimir la imagen seleccionada."));
-          }
+          resolve(canvas.toDataURL("image/jpeg", 0.78));
         };
         image.onerror = () => {
           URL.revokeObjectURL(source);
@@ -2939,8 +2902,8 @@
       try {
         const tickets = readLeaderTickets();
         tickets.unshift(ticket);
-        await writeLeaderTickets(tickets);
-      } catch (error) { window.alert("No se pudo conservar una copia local del ticket. Revisa el almacenamiento disponible del navegador; los datos siguen en el formulario."); return; }
+        localStorage.setItem(TICKETS_STORAGE_KEY, JSON.stringify(tickets));
+      } catch (error) { window.alert("No se pudo guardar el ticket. Reduce el tamaño de las imágenes e inténtalo nuevamente."); return; }
       try {
         await SmartFitSupabaseData.persistTicket(ticket);
       } catch (error) {
@@ -3131,7 +3094,7 @@
         const record = readMachineRecord(currentMachine.recordKey);
         const collection = deleteRecord.dataset.deleteMachineRecord;
         record[collection] = record[collection].filter(entry => entry.id !== deleteRecord.dataset.recordId);
-        await writeMachineRecord(currentMachine.recordKey, record);
+        writeMachineRecord(currentMachine.recordKey, record);
         try {
           await SmartFitSupabaseData.persistMachineRecord(currentMachine.recordKey, previous, record);
         } catch (error) {
@@ -3207,7 +3170,7 @@
           } else record.maintenance.unshift(entry);
         } else record.maintenance.unshift(entry);
         try {
-          await writeMachineRecord(currentMachine.recordKey, record);
+          writeMachineRecord(currentMachine.recordKey, record);
           const savedRecord = readMachineRecord(currentMachine.recordKey);
           if (!savedRecord.maintenance.some(savedEntry => savedEntry.id === entry.id)) {
             throw new Error("El navegador no confirmó el registro guardado.");
@@ -3215,32 +3178,17 @@
           document.dispatchEvent(new CustomEvent("smartfit:form-draft-clear", { detail: { key: event.target.dataset.smartfitDraftKey } }));
         } catch (error) {
           console.error("Error al guardar mantenimiento:", error);
-          window.alert("No se pudo guardar una copia local del mantenimiento. Revisa el espacio disponible del navegador; los datos y fotos siguen en el formulario.");
+          window.alert("No se pudo guardar el mantenimiento. Revisa el espacio disponible del navegador e inténtalo nuevamente; tus datos siguen en el formulario.");
           return;
         }
-        let ticketSyncError = null;
-        if (!(editingMachineRecord?.type === "maintenance" && canManageMachineRecords)) {
-          try {
-            await completeAndLinkMachineTickets(currentMachine, entry);
-          } catch (error) {
-            // La sincronización del ticket no debe impedir que el evento y sus fotos
-            // se envíen a Supabase. Ambos registros tienen reintentos independientes.
-            ticketSyncError = error;
-          }
-        }
-        if (entry.ticketIds.length) await writeMachineRecord(currentMachine.recordKey, record);
-        let maintenanceSyncError = null;
         try {
+          if (!(editingMachineRecord?.type === "maintenance" && canManageMachineRecords)) {
+            await completeAndLinkMachineTickets(currentMachine, entry);
+          }
+          if (entry.ticketIds.length) writeMachineRecord(currentMachine.recordKey, record);
           await SmartFitSupabaseData.persistMachineRecord(currentMachine.recordKey, previousRecord, record);
         } catch (error) {
-          maintenanceSyncError = error;
-        }
-        if (maintenanceSyncError || ticketSyncError) {
-          const messages = [
-            maintenanceSyncError ? `El evento quedó guardado en este dispositivo y se reintentará sincronizar. ${maintenanceSyncError.message || ""}` : "El evento y sus fotografías se sincronizaron.",
-            ticketSyncError ? `No se pudo actualizar el ticket asociado. ${ticketSyncError.message || ""}` : ""
-          ].filter(Boolean).join("\n");
-          window.alert(messages);
+          window.alert(`El mantenimiento quedó guardado localmente y se reintentará sincronizar con Supabase al volver a iniciar sesión. ${error.message || ""}`);
         }
         editingMachineRecord = null;
         maintenanceDraft = null;
@@ -3275,7 +3223,7 @@
           } else record.mileage.unshift(entry);
         } else record.mileage.unshift(entry);
         record.mileage = sortMileageRecords(record.mileage);
-        await writeMachineRecord(currentMachine.recordKey, record);
+        writeMachineRecord(currentMachine.recordKey, record);
         document.dispatchEvent(new CustomEvent("smartfit:form-draft-clear", { detail: { key: event.target.dataset.smartfitDraftKey } }));
         try {
           await SmartFitSupabaseData.persistMachineRecord(currentMachine.recordKey, previousRecord, record);

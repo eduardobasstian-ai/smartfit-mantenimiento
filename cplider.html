@@ -614,7 +614,7 @@
     </section>
   </div>
   <script src="admin-store.js?v=20261026-ubian"></script>
-  <script src="supabase-data.js?v=20261028-media-cache-4"></script>
+  <script src="supabase-data.js?v=20261027-speed-3"></script>
   <script src="EQU/other-catalogs.js?v=20261026-ubian-rack"></script>
   <script src="inventory-export.js?v=20261027-profile1"></script>
   <script>
@@ -1122,14 +1122,10 @@
     function readLeaderTickets() {
       try {
         const tickets = JSON.parse(localStorage.getItem(TICKETS_STORAGE_KEY) || "[]");
-        return SmartFitSupabaseData.getTicketsWithCachedMediaSync(Array.isArray(tickets) ? tickets.filter(ticket => ticket && typeof ticket === "object") : []);
+        return Array.isArray(tickets) ? tickets.filter(ticket => ticket && typeof ticket === "object") : [];
       } catch (error) {
         return [];
       }
-    }
-
-    async function writeLeaderTickets(tickets) {
-      await SmartFitSupabaseData.writeTicketCache(tickets);
     }
 
     function formatTicketDate(value) {
@@ -1502,18 +1498,25 @@
       try {
         const records = JSON.parse(localStorage.getItem(MACHINE_RECORDS_KEY) || "{}");
         const record = records[recordKey] || {};
-        const normalized = {
+        return {
           maintenance: Array.isArray(record.maintenance) ? record.maintenance : [],
           mileage: Array.isArray(record.mileage) ? record.mileage : []
         };
-        return SmartFitSupabaseData.getMachineRecordWithCachedMediaSync(recordKey, normalized);
       } catch (error) {
         return { maintenance: [], mileage: [] };
       }
     }
 
-    async function writeMachineRecord(recordKey, record) {
-      await SmartFitSupabaseData.writeMachineRecordCache(recordKey, record);
+    function writeMachineRecord(recordKey, record) {
+      let records = {};
+      try {
+        records = JSON.parse(localStorage.getItem(MACHINE_RECORDS_KEY) || "{}");
+        if (!records || Array.isArray(records) || typeof records !== "object") records = {};
+      } catch (error) {
+        records = {};
+      }
+      records[recordKey] = record;
+      localStorage.setItem(MACHINE_RECORDS_KEY, JSON.stringify(records));
     }
 
     function makeRecordId() {
@@ -1526,23 +1529,19 @@
         const image = new Image();
         image.onload = () => {
           URL.revokeObjectURL(source);
+          const scale = Math.min(1, 1280 / Math.max(image.naturalWidth, image.naturalHeight));
           const canvas = document.createElement("canvas");
+          canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+          canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
           const context = canvas.getContext("2d");
           if (!context) {
             reject(new Error("No se pudo procesar la imagen."));
             return;
           }
-          canvas.width = Math.max(1, image.naturalWidth);
-          canvas.height = Math.max(1, image.naturalHeight);
           context.fillStyle = "#ffffff";
           context.fillRect(0, 0, canvas.width, canvas.height);
           context.drawImage(image, 0, 0, canvas.width, canvas.height);
-          try {
-            const webp = canvas.toDataURL("image/webp", 0.9);
-            resolve(webp.startsWith("data:image/webp") ? webp : canvas.toDataURL("image/jpeg", 0.78));
-          } catch (error) {
-            reject(new Error("No se pudo comprimir la imagen seleccionada."));
-          }
+          resolve(canvas.toDataURL("image/jpeg", 0.78));
         };
         image.onerror = () => {
           URL.revokeObjectURL(source);
@@ -2008,7 +2007,7 @@
         renderSiteList();
       }
     });
-    $("siteGrid").addEventListener("click", async event => {
+    $("siteGrid").addEventListener("click", event => {
       const leaderBrandCard = event.target.closest("[data-leader-brand]");
       if (leaderBrandCard && leaderMode) {
         leaderTicketBrandId = leaderBrandCard.dataset.leaderBrand;
@@ -2072,7 +2071,7 @@
         const record = readMachineRecord(currentMachine.recordKey);
         const collection = deleteRecord.dataset.deleteMachineRecord;
         record[collection] = record[collection].filter(entry => entry.id !== deleteRecord.dataset.recordId);
-        await writeMachineRecord(currentMachine.recordKey, record);
+        writeMachineRecord(currentMachine.recordKey, record);
         if (editingMachineRecord?.id === deleteRecord.dataset.recordId) editingMachineRecord = null;
         renderMachineDetail(currentMachine);
         return;
@@ -2146,11 +2145,12 @@
           createdAt: new Date().toISOString()
         };
         try {
-          const tickets = readLeaderTickets();
+          const storedTickets = JSON.parse(localStorage.getItem(TICKETS_STORAGE_KEY) || "[]");
+          const tickets = Array.isArray(storedTickets) ? storedTickets : [];
           tickets.unshift(ticket);
-          await writeLeaderTickets(tickets);
+          localStorage.setItem(TICKETS_STORAGE_KEY, JSON.stringify(tickets));
         } catch (error) {
-          window.alert("No se pudo conservar una copia local del ticket. Revisa el almacenamiento disponible del navegador; los datos siguen en el formulario.");
+          window.alert("No se pudo guardar el ticket. El almacenamiento del navegador podría estar lleno; intenta reducir el tamaño de las imágenes.");
           return;
         }
         try {
@@ -2198,10 +2198,10 @@
           } else record.maintenance.unshift(entry);
         } else record.maintenance.unshift(entry);
         try {
-          await writeMachineRecord(currentMachine.recordKey, record);
+          writeMachineRecord(currentMachine.recordKey, record);
           document.dispatchEvent(new CustomEvent("smartfit:form-draft-clear", { detail: { key: event.target.dataset.smartfitDraftKey } }));
         } catch (error) {
-          window.alert("No se pudo guardar una copia local del registro. Revisa el espacio disponible del navegador; tus datos siguen en el formulario.");
+          window.alert("No se pudo guardar el registro en este navegador. El almacenamiento podría estar lleno; reduce el tamaño de las imágenes e inténtalo nuevamente.");
           return;
         }
         try {
@@ -2241,7 +2241,7 @@
           } else record.mileage.unshift(entry);
         } else record.mileage.unshift(entry);
         record.mileage = sortMileageRecords(record.mileage);
-        await writeMachineRecord(currentMachine.recordKey, record);
+        writeMachineRecord(currentMachine.recordKey, record);
         document.dispatchEvent(new CustomEvent("smartfit:form-draft-clear", { detail: { key: event.target.dataset.smartfitDraftKey } }));
         try {
           await SmartFitSupabaseData.persistMachineRecord(currentMachine.recordKey, previousRecord, record);

@@ -16,9 +16,6 @@
   let pendingRealtimeTables = new Set();
   let pendingFlushInFlight = null;
   let refreshWhenVisible = false;
-  let recordMediaDbPromise = null;
-  const recordMediaCache = new Map();
-  const ticketMediaCache = new Map();
 
   function auth() {
     try { return JSON.parse(sessionStorage.getItem("smartfit.supabase.auth") || "null"); }
@@ -82,247 +79,6 @@
   function parseLocal(key, fallback) {
     try { const value = JSON.parse(localStorage.getItem(key) || ""); return value ?? fallback; }
     catch (error) { return fallback; }
-  }
-  function recordMediaKey(recordKey, kind, entryId) {
-    return `${recordKey}::${kind}::${entryId}`;
-  }
-  function openRecordMediaDb() {
-    if (!global.indexedDB) return Promise.reject(new Error("IndexedDB no está disponible en este navegador."));
-    if (!recordMediaDbPromise) {
-      recordMediaDbPromise = new Promise((resolve, reject) => {
-        const request = global.indexedDB.open("smartfit-record-media", 1);
-        request.onupgradeneeded = () => {
-          if (!request.result.objectStoreNames.contains("images")) request.result.createObjectStore("images");
-        };
-        request.onsuccess = () => resolve(request.result);
-        request.onerror = () => reject(request.error || new Error("No se pudo abrir el almacenamiento de fotografías."));
-        request.onblocked = () => reject(new Error("El almacenamiento de fotografías está ocupado."));
-      }).catch(error => { recordMediaDbPromise = null; throw error; });
-    }
-    return recordMediaDbPromise;
-  }
-  async function putRecordMedia(recordKey, record) {
-    const writes = [];
-    for (const kind of ["maintenance", "mileage"]) {
-      for (const entry of Array.isArray(record?.[kind]) ? record[kind] : []) {
-        if (!entry?.id || !Array.isArray(entry.images)) continue;
-        const key = recordMediaKey(recordKey, kind, entry.id);
-        const images = entry.images.slice(0, 4);
-        recordMediaCache.set(key, images);
-        writes.push([key, images]);
-      }
-    }
-    if (!writes.length) return;
-    const database = await openRecordMediaDb();
-    await new Promise((resolve, reject) => {
-      const transaction = database.transaction("images", "readwrite");
-      const store = transaction.objectStore("images");
-      writes.forEach(([key, images]) => store.put(images, key));
-      transaction.oncomplete = resolve;
-      transaction.onerror = () => reject(transaction.error || new Error("No se pudieron conservar las fotografías."));
-      transaction.onabort = () => reject(transaction.error || new Error("Se canceló el guardado de las fotografías."));
-    });
-  }
-  async function putTicketMedia(tickets) {
-    const writes = [];
-    (Array.isArray(tickets) ? tickets : []).forEach(ticket => {
-      if (!ticket?.id || !Array.isArray(ticket.images)) return;
-      const key = `ticket::${ticket.id}`;
-      const images = ticket.images.slice(0, 4);
-      ticketMediaCache.set(key, images);
-      writes.push([key, images]);
-    });
-    if (!writes.length) return;
-    const database = await openRecordMediaDb();
-    await new Promise((resolve, reject) => {
-      const transaction = database.transaction("images", "readwrite");
-      const store = transaction.objectStore("images");
-      writes.forEach(([key, images]) => store.put(images, key));
-      transaction.oncomplete = resolve;
-      transaction.onerror = () => reject(transaction.error || new Error("No se pudieron conservar las fotos de los tickets."));
-      transaction.onabort = () => reject(transaction.error || new Error("Se canceló el guardado de las fotos de los tickets."));
-    });
-  }
-  function stripTicketMedia(tickets) {
-    return (Array.isArray(tickets) ? tickets : []).map(ticket =>
-      Array.isArray(ticket?.images) ? Object.assign({}, ticket, { images: [] }) : ticket
-    );
-  }
-  function getTicketsWithCachedMediaSync(tickets) {
-    return (Array.isArray(tickets) ? tickets : []).map(ticket => {
-      const images = ticketMediaCache.get(`ticket::${ticket?.id}`);
-      return images ? Object.assign({}, ticket, { images }) : ticket;
-    });
-  }
-  async function restoreTicketMedia(tickets) {
-    const restored = [];
-    for (const ticket of Array.isArray(tickets) ? tickets : []) {
-      const key = `ticket::${ticket?.id}`;
-      let images = Array.isArray(ticket?.images) ? ticket.images : null;
-      if (images?.length) {
-        ticketMediaCache.set(key, images);
-        try { await putTicketMedia([ticket]); } catch (error) { /* La copia en Supabase sigue siendo la fuente remota. */ }
-      } else {
-        images = ticketMediaCache.get(key);
-        if (!images) {
-          try {
-            const database = await openRecordMediaDb();
-            images = await new Promise((resolve, reject) => {
-              const request = database.transaction("images", "readonly").objectStore("images").get(key);
-              request.onsuccess = () => resolve(Array.isArray(request.result) ? request.result : null);
-              request.onerror = () => reject(request.error);
-            });
-            if (images) ticketMediaCache.set(key, images);
-          } catch (error) { /* El ticket puede reintentarse sin fotos si el almacenamiento no está disponible. */ }
-        }
-      }
-      restored.push(images ? Object.assign({}, ticket, { images }) : ticket);
-    }
-    return restored;
-  }
-  async function prepareTicketStorage() {
-    const tickets = parseLocal(TICKETS_KEY, []);
-    if (!Array.isArray(tickets) || !tickets.some(ticket => Array.isArray(ticket?.images) && ticket.images.length)) return false;
-    try {
-      await putTicketMedia(tickets);
-      localStorage.setItem(TICKETS_KEY, JSON.stringify(stripTicketMedia(tickets)));
-      return true;
-    } catch (error) {
-      console.warn("No se pudieron trasladar las fotos antiguas de tickets; se mantiene la copia actual.", error);
-      return false;
-    }
-  }
-  async function writeTicketCache(tickets) {
-    await prepareTicketStorage();
-    await putTicketMedia(tickets);
-    const activeKeys = new Set((Array.isArray(tickets) ? tickets : []).filter(ticket => ticket?.id).map(ticket => `ticket::${ticket.id}`));
-    try {
-      const database = await openRecordMediaDb();
-      await new Promise((resolve, reject) => {
-        const transaction = database.transaction("images", "readwrite");
-        const store = transaction.objectStore("images");
-        const request = store.getAllKeys();
-        request.onsuccess = () => request.result.forEach(key => {
-          if (String(key).startsWith("ticket::") && !activeKeys.has(String(key))) {
-            store.delete(key);
-            ticketMediaCache.delete(String(key));
-          }
-        });
-        request.onerror = () => reject(request.error || new Error("No se pudieron depurar fotos de tickets eliminados."));
-        transaction.oncomplete = resolve;
-        transaction.onerror = () => reject(transaction.error || new Error("No se pudieron depurar fotos de tickets eliminados."));
-        transaction.onabort = () => reject(transaction.error || new Error("Se canceló la depuración de fotos de tickets."));
-      });
-    } catch (error) { console.warn("No se pudieron depurar fotos de tickets eliminados.", error); }
-    localStorage.setItem(TICKETS_KEY, JSON.stringify(stripTicketMedia(tickets)));
-  }
-  function stripRecordMedia(record) {
-    const compact = { maintenance: [], mileage: [] };
-    for (const kind of ["maintenance", "mileage"]) {
-      compact[kind] = (Array.isArray(record?.[kind]) ? record[kind] : []).map(entry =>
-        Array.isArray(entry?.images) ? Object.assign({}, entry, { images: [] }) : entry
-      );
-    }
-    return compact;
-  }
-  function stripRecordsMedia(records) {
-    const compact = {};
-    Object.entries(records && typeof records === "object" ? records : {}).forEach(([key, record]) => {
-      compact[key] = stripRecordMedia(record);
-    });
-    return compact;
-  }
-  function getMachineRecordWithCachedMediaSync(recordKey, record) {
-    const hydrated = stripRecordMedia(record);
-    for (const kind of ["maintenance", "mileage"]) {
-      hydrated[kind] = hydrated[kind].map(entry => {
-        const key = recordMediaKey(recordKey, kind, entry.id);
-        const images = recordMediaCache.get(key);
-        return images ? Object.assign({}, entry, { images }) : entry;
-      });
-    }
-    return hydrated;
-  }
-  async function prepareMachineRecordStorage() {
-    const records = parseLocal(RECORDS_KEY, {});
-    let changed = false;
-    for (const [recordKey, record] of Object.entries(records && typeof records === "object" ? records : {})) {
-      const hasImages = ["maintenance", "mileage"].some(kind =>
-        (Array.isArray(record?.[kind]) ? record[kind] : []).some(entry => Array.isArray(entry?.images) && entry.images.length)
-      );
-      if (!hasImages) continue;
-      try {
-        await putRecordMedia(recordKey, record);
-        records[recordKey] = stripRecordMedia(record);
-        changed = true;
-      } catch (error) {
-        console.warn("No se pudo mover las fotografías al almacenamiento local ampliado; se conserva la copia actual.", error);
-      }
-    }
-    if (changed) {
-      try { localStorage.setItem(RECORDS_KEY, JSON.stringify(records)); }
-      catch (error) { console.warn("No se pudo compactar el almacenamiento local de registros.", error); }
-    }
-    return changed;
-  }
-  async function writeMachineRecordCache(recordKey, record) {
-    await prepareMachineRecordStorage();
-    await putRecordMedia(recordKey, record);
-    const activeMediaKeys = new Set();
-    for (const kind of ["maintenance", "mileage"]) {
-      for (const entry of Array.isArray(record?.[kind]) ? record[kind] : []) {
-        if (entry?.id) activeMediaKeys.add(recordMediaKey(recordKey, kind, entry.id));
-      }
-    }
-    try {
-      const database = await openRecordMediaDb();
-      await new Promise((resolve, reject) => {
-        const transaction = database.transaction("images", "readwrite");
-        const store = transaction.objectStore("images");
-        const request = store.getAllKeys();
-        request.onsuccess = () => request.result.forEach(key => {
-          if (String(key).startsWith(`${recordKey}::`) && !activeMediaKeys.has(String(key))) {
-            store.delete(key);
-            recordMediaCache.delete(String(key));
-          }
-        });
-        request.onerror = () => reject(request.error || new Error("No se pudieron depurar fotos antiguas."));
-        transaction.oncomplete = resolve;
-        transaction.onerror = () => reject(transaction.error || new Error("No se pudieron depurar fotos antiguas."));
-        transaction.onabort = () => reject(transaction.error || new Error("Se canceló la depuración de fotos antiguas."));
-      });
-    } catch (error) { console.warn("No se pudieron depurar las fotografías eliminadas del registro.", error); }
-    const records = parseLocal(RECORDS_KEY, {});
-    records[recordKey] = stripRecordMedia(record);
-    localStorage.setItem(RECORDS_KEY, JSON.stringify(records));
-  }
-  async function restoreRecordMedia(recordKey, record) {
-    const restored = { maintenance: [], mileage: [] };
-    for (const kind of ["maintenance", "mileage"]) {
-      for (const entry of Array.isArray(record?.[kind]) ? record[kind] : []) {
-        let images = Array.isArray(entry?.images) ? entry.images : null;
-        const key = recordMediaKey(recordKey, kind, entry?.id);
-        if (images?.length) {
-          recordMediaCache.set(key, images);
-          try { await putRecordMedia(recordKey, { [kind]: [entry] }); } catch (error) { /* Supabase is still the durable copy. */ }
-        } else {
-          images = recordMediaCache.get(key);
-          if (!images) {
-            try {
-              const database = await openRecordMediaDb();
-              images = await new Promise((resolve, reject) => {
-                const request = database.transaction("images", "readonly").objectStore("images").get(key);
-                request.onsuccess = () => resolve(Array.isArray(request.result) ? request.result : null);
-                request.onerror = () => reject(request.error);
-              });
-              if (images) recordMediaCache.set(key, images);
-            } catch (error) { /* La entrada se puede sincronizar sin fotografías locales. */ }
-          }
-        }
-        restored[kind].push(images ? Object.assign({}, entry, { images }) : entry);
-      }
-    }
-    return restored;
   }
   // Mantiene el tamaño por debajo del límite máximo de filas que puede fijar
   // Supabase REST; así la paginación no confunde una página truncada con el final.
@@ -904,7 +660,6 @@
   }
 
   async function persistMachineRecordNow(recordKey, before, after) {
-    after = await restoreRecordMedia(recordKey, after);
     const errors = [];
     for (const kind of ["maintenance", "mileage"]) {
       const previous = new Map((before?.[kind] || []).map(entry => [String(entry.id), entry]));
@@ -931,7 +686,6 @@
 
   async function persistTicketQueued(ticket) {
     try {
-      await putTicketMedia([ticket]);
       await persistTicket(ticket);
       const pending = readPending();
       pending.tickets = (pending.tickets || []).filter(id => String(id) !== String(ticket.id));
@@ -971,9 +725,8 @@
   async function flushPendingNow() {
     const pending = readPending();
     const localTickets = parseLocal(TICKETS_KEY, []);
-    const ticketsWithPhotos = await restoreTicketMedia(localTickets);
     for (const id of pending.tickets || []) {
-      const ticket = ticketsWithPhotos.find(row => String(row.id) === String(id));
+      const ticket = localTickets.find(row => String(row.id) === String(id));
       if (!ticket) continue;
       try { await persistTicket(ticket); pending.tickets = pending.tickets.filter(value => String(value) !== String(id)); }
       catch (error) { console.warn("Pendiente de sincronizar ticket", id, error); }
@@ -995,35 +748,6 @@
       pendingFlushInFlight = flushPendingNow().finally(() => { pendingFlushInFlight = null; });
     }
     return pendingFlushInFlight;
-  }
-  async function getReportImages({ maintenanceLegacyIds = [], ticketLegacyIds = [] } = {}) {
-    if (!auth()?.access_token) throw new Error("No hay una sesión autenticada de Supabase.");
-    const readImages = async (table, values) => {
-      const ids = [...new Set((Array.isArray(values) ? values : []).map(value => String(value || "")).filter(Boolean))];
-      const imagesByLegacyId = {};
-      for (let offset = 0; offset < ids.length; offset += 10) {
-        const chunk = ids.slice(offset, offset + 10);
-        const filterValues = chunk.map(value => `"${value.replace(/\\/g, "\\\\").replace(/"/g, "\\\"")}"`).join(",");
-        const filter = encodeURIComponent(`in.(${filterValues})`);
-        const rows = await queryRows(`${table}?select=legacy_id,photos&legacy_id=${filter}`);
-        rows.forEach(row => {
-          if (row.legacy_id) imagesByLegacyId[String(row.legacy_id)] = Array.isArray(row.photos) ? row.photos : [];
-        });
-      }
-      return imagesByLegacyId;
-    };
-    const [maintenance, tickets] = await Promise.all([
-      readImages("maintenance_events", maintenanceLegacyIds),
-      readImages("tickets", ticketLegacyIds)
-    ]);
-    return { maintenance, tickets };
-  }
-  if (!global.__smartfitPendingOnlineBound) {
-    global.__smartfitPendingOnlineBound = true;
-    global.addEventListener("online", () => {
-      if (!auth()?.access_token) return;
-      flushPending().catch(error => console.warn("No se pudieron sincronizar los cambios al recuperar la conexión.", error));
-    });
   }
 
   function mergeById(localRows, remoteRows) {
@@ -1162,8 +886,6 @@
 
   async function hydrateNow(refreshTables = null) {
     if (!auth()?.access_token) return { skipped: true };
-    await prepareMachineRecordStorage();
-    await prepareTicketStorage();
     const canReadAccountEmails = appSession()?.role === "Administrador";
     const loaders = {
       sites: () => getRows("sites", "id,legacy_id,name,region,internal_code,active"),
@@ -1321,96 +1043,29 @@
       setLocal(ACCESS_HISTORY_KEY, mergedAccesses.slice(0, 500));
     }
     if (refreshTickets) {
-      const localTickets = await restoreTicketMedia(parseLocal(TICKETS_KEY, []));
-      const localById = new Map(localTickets.map(ticket => [String(ticket.id), ticket]));
-      const pending = readPending();
-      pending.tickets = Array.isArray(pending.tickets) ? pending.tickets : [];
-      const remoteTicketsWithRecoveredMedia = hydratedTickets.map(ticket => {
-        const localTicket = localById.get(String(ticket.id));
-        const remoteHasPhotos = Array.isArray(ticket.images) && ticket.images.length > 0;
-        const localHasPhotos = Array.isArray(localTicket?.images) && localTicket.images.length > 0;
-        if (!remoteHasPhotos && localHasPhotos) {
-          pending.tickets = [...new Set([...pending.tickets, String(ticket.id)])];
-          return Object.assign({}, ticket, { images: localTicket.images });
-        }
-        return ticket;
-      });
-      const remoteTicketIds = new Set(remoteTicketsWithRecoveredMedia.map(ticket => String(ticket.id)));
-      for (const ticket of localTickets) {
-        if (!remoteTicketIds.has(String(ticket.id)) && Array.isArray(ticket.images) && ticket.images.length) {
-          pending.tickets = [...new Set([...pending.tickets, String(ticket.id)])];
-        }
-      }
-      const mergedTickets = mergeById(localTickets, remoteTicketsWithRecoveredMedia);
-      await putTicketMedia(mergedTickets);
-      await writeTicketCache(mergedTickets);
-      savePending(pending);
+      const localTickets = parseLocal(TICKETS_KEY, []);
+      setLocal(TICKETS_KEY, mergeById(localTickets, hydratedTickets));
     }
     if (refreshRecords) {
       const ticketUuidToLegacy = new Map(tickets.map(row => [row.id, String(row.legacy_id || "")]));
       const hydratedRecords = hydrateRecords(events, mileageRows, eventLinks, ticketUuidToLegacy, siteIdToLegacy, profileIdToLegacy);
       const localRecords = parseLocal(RECORDS_KEY, {});
       const mergedRecords = Object.assign({}, localRecords && typeof localRecords === "object" ? localRecords : {});
-      const pending = readPending();
-      pending.records = Object.assign({}, pending.records || {});
-      const queueRecordEntry = (recordKey, kind, id) => {
-        if (!id) return;
-        const queued = pending.records[recordKey] || { maintenance: [], mileage: [] };
-        queued[kind] = [...new Set([...(queued[kind] || []), String(id)])];
-        pending.records[recordKey] = queued;
-      };
-      for (const [recordKey, remoteRecord] of Object.entries(hydratedRecords)) {
+      Object.entries(hydratedRecords).forEach(([recordKey, remoteRecord]) => {
         const localRecord = mergedRecords[recordKey] || { maintenance: [], mileage: [] };
-        // Los registros remotos pueden tener photos=[] cuando una sincronización
-        // anterior subió el evento, pero no sus adjuntos. Recupera los originales
-        // de IndexedDB antes de reemplazar la caché local con la respuesta remota.
-        const localWithMedia = await restoreRecordMedia(recordKey, localRecord);
-        const remoteWithRecoveredMedia = { maintenance: [], mileage: [] };
-        for (const kind of ["maintenance", "mileage"]) {
-          const localById = new Map((localWithMedia[kind] || []).map(item => [String(item.id), item]));
-          const remoteItems = (remoteRecord[kind] || []).map(item => {
-            const localItem = localById.get(String(item.id));
-            const remoteHasImages = Array.isArray(item.images) && item.images.length > 0;
-            const localHasImages = Array.isArray(localItem?.images) && localItem.images.length > 0;
-            if (!remoteHasImages && localHasImages) {
-              queueRecordEntry(recordKey, kind, item.id);
-              return Object.assign({}, item, { images: localItem.images });
-            }
-            return item;
-          });
-          remoteWithRecoveredMedia[kind] = remoteItems;
-          const remoteIds = new Set(remoteItems.map(item => String(item.id)));
-          // A local entry missing remotely can be a save interrupted before its
-          // Supabase call. Queue it so the next flush can restore text and photos.
-          for (const localItem of localWithMedia[kind] || []) {
-            if (!remoteIds.has(String(localItem.id))) queueRecordEntry(recordKey, kind, localItem.id);
-          }
-        }
-        await putRecordMedia(recordKey, remoteWithRecoveredMedia);
         mergedRecords[recordKey] = {
-          maintenance: mergeById(localWithMedia.maintenance, remoteWithRecoveredMedia.maintenance),
-          mileage: mergeById(localWithMedia.mileage, remoteWithRecoveredMedia.mileage)
+          maintenance: mergeById(localRecord.maintenance, remoteRecord.maintenance),
+          mileage: mergeById(localRecord.mileage, remoteRecord.mileage)
         };
-      }
-      // También reintenta copias locales de sedes que todavía no aparecen entre
-      // los eventos remotos para esta cuenta.
-      for (const [recordKey, localRecord] of Object.entries(mergedRecords)) {
-        if (hydratedRecords[recordKey]) continue;
-        const localWithMedia = await restoreRecordMedia(recordKey, localRecord);
-        for (const kind of ["maintenance", "mileage"]) {
-          for (const item of localWithMedia[kind] || []) queueRecordEntry(recordKey, kind, item.id);
-        }
-        mergedRecords[recordKey] = localWithMedia;
-      }
-      savePending(pending);
-      setLocal(RECORDS_KEY, stripRecordsMedia(mergedRecords));
+      });
+      setLocal(RECORDS_KEY, mergedRecords);
     }
     if (refreshSites) {
       setLocal("smartfit.admin.sites.v1", siteRowsForLocal);
       setLocal("smartfit.admin.brands.v1", brandRowsForLocal);
     }
     if (refreshUsers) setLocal("smartfit.admin.users.v1", mergedUsers);
-    if (fullHydration || refreshTickets || refreshRecords) setTimeout(() => {
+    if (fullHydration) setTimeout(() => {
       flushPending().catch(error => console.warn("No se pudieron sincronizar algunos cambios pendientes.", error));
     }, 0);
     return { sites: sites.length, brands: brands.length, equipment: equipment.length, tickets: tickets.length, events: events.length, mileage: mileageRows.length };
@@ -1445,5 +1100,5 @@
     try { return JSON.parse(sessionStorage.getItem(key) || "null"); } catch (error) { return null; }
   }
 
-  global.SmartFitSupabaseData = { hydrate, manageUser, persistSite, persistBrand, deleteBrand, deleteSite, recordAccess, startRealtimeSync, persistTicket: persistTicketQueued, assignTicketTechnician, listAssignableTicketTechnicians, persistMachineRecord, retryPending: flushPending, getReportImages, prepareMachineRecordStorage, writeMachineRecordCache, getMachineRecordWithCachedMediaSync, prepareTicketStorage, writeTicketCache, getTicketsWithCachedMediaSync };
+  global.SmartFitSupabaseData = { hydrate, manageUser, persistSite, persistBrand, deleteBrand, deleteSite, recordAccess, startRealtimeSync, persistTicket: persistTicketQueued, assignTicketTechnician, listAssignableTicketTechnicians, persistMachineRecord, retryPending: flushPending };
 })(window);
