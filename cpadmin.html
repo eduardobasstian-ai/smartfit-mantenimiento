@@ -1091,7 +1091,7 @@
     </div>
   </div>
   <script src="admin-store.js?v=20261026-ubian"></script>
-  <script src="supabase-data.js?v=20261027-speed-3"></script>
+  <script src="supabase-data.js?v=20261028-media-cache-1"></script>
   <script src="EQU/matrix-catalog.js"></script>
   <script src="EQU/booty-catalog.js"></script>
   <script src="EQU/other-catalogs.js?v=20261026-ubian-rack"></script>
@@ -1176,7 +1176,9 @@
     function readMachineRecords() {
       try {
         const records = JSON.parse(localStorage.getItem(MACHINE_RECORDS_KEY) || "{}");
-        return records && typeof records === "object" && !Array.isArray(records) ? records : {};
+        return records && typeof records === "object" && !Array.isArray(records)
+          ? Object.fromEntries(Object.entries(records).map(([recordKey, record]) => [recordKey, SmartFitSupabaseData.getMachineRecordWithCachedMediaSync(recordKey, record)]))
+          : {};
       } catch (error) {
         return {};
       }

@@ -755,7 +755,7 @@
     </section>
   </div>
   <script src="admin-store.js?v=20261026-ubian"></script>
-  <script src="supabase-data.js?v=20261027-speed-3"></script>
+  <script src="supabase-data.js?v=20261028-media-cache-1"></script>
   <script src="EQU/matrix-catalog.js"></script>
   <script src="EQU/booty-catalog.js"></script>
   <script src="EQU/other-catalogs.js?v=20261026-ubian-rack"></script>
@@ -2268,25 +2268,18 @@
       try {
         const records = JSON.parse(localStorage.getItem(MACHINE_RECORDS_KEY) || "{}");
         const record = records[recordKey] || {};
-        return {
+        const normalized = {
           maintenance: Array.isArray(record.maintenance) ? record.maintenance : [],
           mileage: Array.isArray(record.mileage) ? record.mileage : []
         };
+        return SmartFitSupabaseData.getMachineRecordWithCachedMediaSync(recordKey, normalized);
       } catch (error) {
         return { maintenance: [], mileage: [] };
       }
     }
 
-    function writeMachineRecord(recordKey, record) {
-      let records = {};
-      try {
-        records = JSON.parse(localStorage.getItem(MACHINE_RECORDS_KEY) || "{}");
-        if (!records || Array.isArray(records) || typeof records !== "object") records = {};
-      } catch (error) {
-        records = {};
-      }
-      records[recordKey] = record;
-      localStorage.setItem(MACHINE_RECORDS_KEY, JSON.stringify(records));
+    async function writeMachineRecord(recordKey, record) {
+      await SmartFitSupabaseData.writeMachineRecordCache(recordKey, record);
     }
 
     function makeRecordId() {
@@ -3080,7 +3073,7 @@
         const record = readMachineRecord(currentMachine.recordKey);
         const collection = deleteRecord.dataset.deleteMachineRecord;
         record[collection] = record[collection].filter(entry => entry.id !== deleteRecord.dataset.recordId);
-        writeMachineRecord(currentMachine.recordKey, record);
+        await writeMachineRecord(currentMachine.recordKey, record);
         try {
           await SmartFitSupabaseData.persistMachineRecord(currentMachine.recordKey, previous, record);
         } catch (error) {
@@ -3156,7 +3149,7 @@
           } else record.maintenance.unshift(entry);
         } else record.maintenance.unshift(entry);
         try {
-          writeMachineRecord(currentMachine.recordKey, record);
+          await writeMachineRecord(currentMachine.recordKey, record);
           const savedRecord = readMachineRecord(currentMachine.recordKey);
           if (!savedRecord.maintenance.some(savedEntry => savedEntry.id === entry.id)) {
             throw new Error("El navegador no confirmó el registro guardado.");
@@ -3164,14 +3157,14 @@
           document.dispatchEvent(new CustomEvent("smartfit:form-draft-clear", { detail: { key: event.target.dataset.smartfitDraftKey } }));
         } catch (error) {
           console.error("Error al guardar mantenimiento:", error);
-          window.alert("No se pudo guardar el mantenimiento. Revisa el espacio disponible del navegador e inténtalo nuevamente; tus datos siguen en el formulario.");
+          window.alert("No se pudo guardar una copia local del mantenimiento. Revisa el espacio disponible del navegador; los datos y fotos siguen en el formulario.");
           return;
         }
         try {
           if (!(editingMachineRecord?.type === "maintenance" && canManageMachineRecords)) {
             await completeAndLinkMachineTickets(currentMachine, entry);
           }
-          if (entry.ticketIds.length) writeMachineRecord(currentMachine.recordKey, record);
+          if (entry.ticketIds.length) await writeMachineRecord(currentMachine.recordKey, record);
           await SmartFitSupabaseData.persistMachineRecord(currentMachine.recordKey, previousRecord, record);
         } catch (error) {
           window.alert(`El mantenimiento quedó guardado localmente y se reintentará sincronizar con Supabase al volver a iniciar sesión. ${error.message || ""}`);
@@ -3209,7 +3202,7 @@
           } else record.mileage.unshift(entry);
         } else record.mileage.unshift(entry);
         record.mileage = sortMileageRecords(record.mileage);
-        writeMachineRecord(currentMachine.recordKey, record);
+        await writeMachineRecord(currentMachine.recordKey, record);
         document.dispatchEvent(new CustomEvent("smartfit:form-draft-clear", { detail: { key: event.target.dataset.smartfitDraftKey } }));
         try {
           await SmartFitSupabaseData.persistMachineRecord(currentMachine.recordKey, previousRecord, record);
