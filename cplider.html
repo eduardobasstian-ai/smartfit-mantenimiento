@@ -85,6 +85,17 @@
       background: linear-gradient(145deg, #1d1f27, #17191f);
       box-shadow: 0 24px 70px #0005;
     }
+    .inventory-filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin: 18px 0; }
+    .inventory-filter { display: grid; gap: 6px; color: var(--muted); font-size: 11px; font-weight: 700; }
+    .inventory-filter input, .inventory-filter select { width: 100%; min-height: 38px; padding: 0 10px; border: 1px solid #383b47; border-radius: 9px; background: #111319; color: var(--text); font: inherit; font-size: 11px; }
+    .inventory-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin: 0 0 10px; }
+    .inventory-export-actions { display: flex; gap: 8px; }
+    .inventory-table-wrap { overflow-x: auto; border: 1px solid #343743; border-radius: 10px; }
+    .inventory-table { width: 100%; min-width: 650px; border-collapse: collapse; }
+    .inventory-table th, .inventory-table td { padding: 11px 10px; border-bottom: 1px solid #30323c; text-align: left; font-size: 11px; }
+    .inventory-table th { color: var(--muted); font-weight: 750; }
+    .inventory-table tr:last-child td { border-bottom: 0; }
+    .inventory-count { color: var(--muted); font-size: 11px; }
     .panel-heading { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 16px; }
     .panel-heading h2 { margin: 0; font-size: 17px; }
     .panel-heading p { margin: 6px 0 0; color: var(--muted); font-size: 11px; }
@@ -556,8 +567,15 @@
 
     <section class="sites-panel" id="inventoryPanel" aria-labelledby="inventoryTitle" hidden>
       <div class="panel-heading">
-        <div><h2 id="inventoryTitle">Inventario</h2></div>
+        <div><h2 id="inventoryTitle">Inventario</h2><p>Equipos registrados en tus sedes asignadas.</p></div>
       </div>
+      <div class="inventory-filters" aria-label="Filtros del inventario">
+        <label class="inventory-filter">Buscar equipo o activo fijo<input id="profileInventorySearch" type="search" placeholder="Nombre, modelo o activo fijo..."></label>
+        <label class="inventory-filter">Sede<input id="profileInventorySite" type="search" list="profileInventorySiteOptions" placeholder="Todas las sedes" autocomplete="off"><datalist id="profileInventorySiteOptions"></datalist></label>
+        <label class="inventory-filter">Marca<select id="profileInventoryBrand"><option value="*">Todas las marcas</option></select></label>
+      </div>
+      <div class="inventory-toolbar"><span class="inventory-count" id="profileInventoryCount">0 equipos</span><div class="inventory-export-actions"><button class="back-button" id="profileInventoryPdf" type="button">PDF</button><button class="back-button" id="profileInventoryExcel" type="button">Excel</button></div></div>
+      <div class="inventory-table-wrap"><table class="inventory-table"><thead><tr><th>Sede</th><th>Marca</th><th>Equipo</th><th>Modelo</th><th>Activo fijo</th><th>Categoría</th></tr></thead><tbody id="profileInventoryBody"></tbody></table></div>
     </section>
 
     <section class="sites-panel" id="sitesPanel" aria-labelledby="sitesTitle">
@@ -597,6 +615,7 @@
   <script src="admin-store.js?v=20261026-ubian"></script>
   <script src="supabase-data.js?v=20261027-speed-3"></script>
   <script src="EQU/other-catalogs.js?v=20261026-ubian-rack"></script>
+  <script src="inventory-export.js?v=20261027-profile1"></script>
   <script>
     "use strict";
     const $ = id => document.getElementById(id);
@@ -1001,6 +1020,47 @@
       }
     }
 
+    function renderProfileInventory() {
+      const rows = [];
+      assignedSites.forEach(site => (Array.isArray(site.equipment) ? site.equipment : []).forEach(item => {
+        const brand = brandDirectory.find(entry => String(entry.id) === String(item.brandId)) || brandDirectory.find(entry => normalizeChartLabel(entry.name) === normalizeChartLabel(item.brandName));
+        const brandName = item.brandName || brand?.name || "Sin marca";
+        const units = Array.isArray(item.units) && item.units.length ? item.units : Array.from({ length: Math.max(0, Number(item.quantity) || 0) }, () => ({}));
+        units.forEach(unit => rows.push({
+          siteId: String(site.id), siteName: site.name || "Sede sin nombre", brandId: String(item.brandId || brand?.id || brandName), brandName,
+          equipmentName: item.name || "Equipo", model: item.model || "—", activeFixed: unit.activeFixed, category: item.category || "—"
+        }));
+      }));
+      const brandSelect = $("profileInventoryBrand"), previousBrand = brandSelect.value || "*";
+      const brands = [...new Map(rows.map(row => [row.brandId, row.brandName])).entries()].sort((a, b) => a[1].localeCompare(b[1], "es"));
+      brandSelect.innerHTML = '<option value="*">Todas las marcas</option>' + brands.map(([id, name]) => `<option value="${escapeHtml(id)}">${escapeHtml(name)}</option>`).join("");
+      brandSelect.value = brands.some(([id]) => id === previousBrand) ? previousBrand : "*";
+      const siteNames = [...new Set(assignedSites.map(site => site.name).filter(Boolean))].sort((a, b) => a.localeCompare(b, "es"));
+      $("profileInventorySiteOptions").innerHTML = siteNames.map(name => `<option value="${escapeHtml(name)}"></option>`).join("");
+      const query = normalizeChartLabel($("profileInventorySearch").value);
+      const siteQuery = normalizeChartLabel($("profileInventorySite").value);
+      const visible = rows.filter(row =>
+        (!siteQuery || normalizeChartLabel(row.siteName).includes(siteQuery)) &&
+        (brandSelect.value === "*" || row.brandId === brandSelect.value) &&
+        (!query || normalizeChartLabel(`${row.siteName} ${row.brandName} ${row.equipmentName} ${row.model} ${row.activeFixed ?? ""} ${row.category}`).includes(query))
+      );
+      $("profileInventoryCount").textContent = `${visible.length.toLocaleString("es-CL")} ${visible.length === 1 ? "equipo" : "equipos"}`;
+      $("profileInventoryBody").innerHTML = visible.map(row => `<tr><td>${escapeHtml(row.siteName)}</td><td>${escapeHtml(row.brandName)}</td><td><strong>${escapeHtml(row.equipmentName)}</strong></td><td>${escapeHtml(row.model)}</td><td>${row.activeFixed === "" || row.activeFixed == null ? "—" : escapeHtml(row.activeFixed)}</td><td>${escapeHtml(row.category)}</td></tr>`).join("") || '<tr><td colspan="6" class="empty-state">No hay equipos que coincidan con los filtros en tus sedes.</td></tr>';
+      window.profileInventoryExport = { rows: visible, globalRows: rows };
+    }
+
+    function exportProfileInventory(format) {
+      renderProfileInventory();
+      const data = window.profileInventoryExport || { rows: [], globalRows: [] };
+      const siteFilter = $("profileInventorySite").value.trim() || "Todas las sedes asignadas";
+      const selectedBrand = $("profileInventoryBrand");
+      const brandFilter = selectedBrand.value === "*" ? "Todas las marcas" : selectedBrand.selectedOptions[0]?.textContent || "Todas las marcas";
+      const search = $("profileInventorySearch").value.trim() || "Sin búsqueda";
+      const payload = { rows: data.rows, globalCount: data.globalRows.length, exportedBy: user.name, siteFilter, brandFilter, search };
+      if (format === "pdf") window.SmartFitInventoryExport.exportPdf(payload);
+      else window.SmartFitInventoryExport.exportExcel(payload);
+    }
+
     function renderInventory() {
       if (!supervisorMode) return;
       leaderMaintenanceMode = false;
@@ -1020,6 +1080,7 @@
         user.role + " " + user.name + " — " + assignedSites.length + (assignedSites.length === 1 ? " sede" : " sedes"),
         assignedSites.reduce((total, site) => total + (Number(site.machineCount) || 0), 0)
       );
+      renderProfileInventory();
       setSupervisorActiveView("inventory");
     }
 
@@ -2183,6 +2244,10 @@
       else if (currentBrandId && !currentMachine) renderMachineCards();
       else renderSiteList();
     });
+    ["profileInventorySearch", "profileInventorySite"].forEach(id => $(id).addEventListener("input", renderProfileInventory));
+    $("profileInventoryBrand").addEventListener("change", renderProfileInventory);
+    $("profileInventoryPdf").addEventListener("click", () => exportProfileInventory("pdf"));
+    $("profileInventoryExcel").addEventListener("click", () => exportProfileInventory("excel"));
     $("siteGrid").addEventListener("click", event => {
       const imageButton = event.target.closest("[data-enlarge-image]");
       if (imageButton) openEquipmentImage(imageButton.dataset.enlargeImage, imageButton.dataset.imageAlt);
@@ -2232,6 +2297,7 @@
       if (!$('supervisorSummary').hidden) renderSupervisorSummary();
       if (!$('leaderTicketsPanel').hidden) renderLeaderTickets();
       if (!$('ticketHistoryPanel').hidden) renderTicketHistory();
+      if (!$('inventoryPanel').hidden) renderInventory();
       if (!$('sitesPanel').hidden) {
         if ($('siteGrid').classList.contains('site-grid')) renderSiteList();
         else if (currentSite && $('siteGrid').classList.contains('brand-grid')) renderSiteBrands(currentSite);
