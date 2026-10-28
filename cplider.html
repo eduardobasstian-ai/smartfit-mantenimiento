@@ -1532,14 +1532,14 @@
             reject(new Error("No se pudo procesar la imagen."));
             return;
           }
-          const scale = Math.min(1, 1024 / Math.max(image.naturalWidth, image.naturalHeight));
-          canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
-          canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+          canvas.width = Math.max(1, image.naturalWidth);
+          canvas.height = Math.max(1, image.naturalHeight);
           context.fillStyle = "#ffffff";
           context.fillRect(0, 0, canvas.width, canvas.height);
           context.drawImage(image, 0, 0, canvas.width, canvas.height);
           try {
-            resolve(canvas.toDataURL("image/jpeg", 0.78));
+            const webp = canvas.toDataURL("image/webp", 0.9);
+            resolve(webp.startsWith("data:image/webp") ? webp : canvas.toDataURL("image/jpeg", 0.78));
           } catch (error) {
             reject(new Error("No se pudo comprimir la imagen seleccionada."));
           }
