@@ -136,7 +136,7 @@
     .site-card:hover, .site-card:focus-visible { border-color: var(--yellow); background: #292a30; transform: translateY(-1px); }
     .site-name { display: block; color: var(--text); font-size: 13px; font-weight: 800; line-height: 1.45; }
     .site-count { display: block; margin-top: 5px; color: var(--muted); font-size: 11px; }
-    .supervisor-summary[hidden], #sitesPanel[hidden], #leaderTicketsPanel[hidden], #ticketHistoryPanel[hidden] { display: none !important; }
+    .supervisor-summary[hidden], #sitesPanel[hidden], #leaderTicketsPanel[hidden], #ticketHistoryPanel[hidden], #inventoryPanel[hidden] { display: none !important; }
     .leader-ticket-card { cursor: default; }
     .leader-ticket-card:hover { border-color: #343743; background: #22252e; transform: none; }
     .leader-ticket-card[data-open-leader-ticket] { cursor: pointer; font: inherit; text-align: left; }
@@ -444,6 +444,7 @@
       <button class="supervisor-nav-item" type="button" data-supervisor-view="summary">◈ &nbsp; Resumen</button>
       <button class="supervisor-nav-item" type="button" data-supervisor-view="tickets">♙ &nbsp; Elevar Ticket</button>
       <button class="supervisor-nav-item" type="button" data-supervisor-view="ticket-history">⌖ &nbsp; Historial tickets</button>
+      <button class="supervisor-nav-item" id="leaderInventoryNav" type="button" data-supervisor-view="inventory" hidden>▦ &nbsp; Inventario</button>
       <button class="supervisor-nav-item" type="button" disabled aria-disabled="true">⚙ &nbsp; Configuración</button>
     </aside>
 
@@ -553,6 +554,12 @@
       </table></div>
     </section>
 
+    <section class="sites-panel" id="inventoryPanel" aria-labelledby="inventoryTitle" hidden>
+      <div class="panel-heading">
+        <div><h2 id="inventoryTitle">Inventario</h2></div>
+      </div>
+    </section>
+
     <section class="sites-panel" id="sitesPanel" aria-labelledby="sitesTitle">
       <div class="panel-heading">
         <div>
@@ -660,6 +667,7 @@
       $("supervisorShell").classList.add("supervisor-mode");
       $("supervisorMenu").hidden = false;
       $("supervisorMobileBar").hidden = false;
+      $("leaderInventoryNav").hidden = !leaderMode;
       $("brandTitle").textContent = leaderMode ? "PANEL DE LÍDER" : "PANEL DE SUPERVISOR";
       $("brandSubtitle").textContent = "Gestión del sistema de mantenimiento";
     }
@@ -691,6 +699,7 @@
         $("sitesPanel").hidden = false;
         $("leaderTicketsPanel").hidden = true;
         $("ticketHistoryPanel").hidden = true;
+        $("inventoryPanel").hidden = true;
         $("notice").hidden = true;
         setSupervisorActiveView("sites");
       }
@@ -925,6 +934,7 @@
       $("sitesPanel").hidden = true;
       $("leaderTicketsPanel").hidden = true;
       $("ticketHistoryPanel").hidden = true;
+      $("inventoryPanel").hidden = true;
       $("pageHeading").hidden = true;
       $("notice").hidden = true;
       setSupervisorActiveView("summary");
@@ -991,6 +1001,28 @@
       }
     }
 
+    function renderInventory() {
+      if (!supervisorMode) return;
+      leaderMaintenanceMode = false;
+      currentSite = null;
+      currentBrandId = "";
+      currentMachine = null;
+      $("supervisorSummary").hidden = true;
+      $("sitesPanel").hidden = true;
+      $("leaderTicketsPanel").hidden = true;
+      $("ticketHistoryPanel").hidden = true;
+      $("inventoryPanel").hidden = false;
+      $("pageHeading").hidden = true;
+      $("notice").hidden = true;
+      $("siteFilter").hidden = true;
+      $("backToSites").hidden = true;
+      updateLeaderIdentity(
+        user.role + " " + user.name + " — " + assignedSites.length + (assignedSites.length === 1 ? " sede" : " sedes"),
+        assignedSites.reduce((total, site) => total + (Number(site.machineCount) || 0), 0)
+      );
+      setSupervisorActiveView("inventory");
+    }
+
     function renderLeaderTickets() {
       if (!leaderMode) return;
       leaderMaintenanceMode = false;
@@ -1002,6 +1034,7 @@
       $("supervisorSummary").hidden = true;
       $("sitesPanel").hidden = true;
       $("ticketHistoryPanel").hidden = true;
+      $("inventoryPanel").hidden = true;
       $("leaderTicketsPanel").hidden = false;
       $("pageHeading").hidden = true;
       $("notice").hidden = true;
@@ -1050,6 +1083,7 @@
       $("supervisorSummary").hidden = true;
       $("sitesPanel").hidden = true;
       $("leaderTicketsPanel").hidden = true;
+      $("inventoryPanel").hidden = true;
       $("ticketHistoryPanel").hidden = false;
       $("pageHeading").hidden = true;
       $("notice").hidden = true;
@@ -1149,6 +1183,7 @@
       $("supervisorSummary").hidden = true;
       $("leaderTicketsPanel").hidden = true;
       $("ticketHistoryPanel").hidden = true;
+      $("inventoryPanel").hidden = true;
       $("sitesPanel").hidden = false;
       $("pageHeading").hidden = true;
       $("notice").hidden = true;
@@ -1772,6 +1807,7 @@
       else if (navButton.dataset.supervisorView === "sites") renderSiteList();
       else if (navButton.dataset.supervisorView === "tickets") renderLeaderTickets();
       else if (navButton.dataset.supervisorView === "ticket-history") renderTicketHistory();
+      else if (navButton.dataset.supervisorView === "inventory") renderInventory();
       $("supervisorMenu").classList.remove("open");
       $("supervisorMenuToggle").setAttribute("aria-expanded", "false");
       $("supervisorMenuToggle").setAttribute("aria-label", "Abrir menú");
@@ -1835,6 +1871,7 @@
           renderLeaderBrandEquipment({ resetFilter: false });
         }
       }
+      else if (!$("inventoryPanel").hidden) renderInventory();
       else if (leaderMode) renderLeaderTickets();
       else renderSiteList();
     });

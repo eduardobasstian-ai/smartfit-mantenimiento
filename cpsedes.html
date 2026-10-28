@@ -117,7 +117,7 @@
     .site-ticket-badge-icon { color: var(--yellow); font-size: 12px; }
     .site-ticket-badge strong { display: inline-grid; min-width: 18px; height: 18px; place-items: center; padding: 0 5px; border-radius: 50px; background: var(--yellow); color: #171717; font-size: 10px; }
     .brand-card .site-ticket-badge, .machine-info .site-ticket-badge { display: flex; width: fit-content; margin-top: 8px; }
-    .supervisor-summary[hidden], #sitesPanel[hidden], #supervisorTicketsPanel[hidden], #supervisorRaiseTicketPanel[hidden], #supervisorEventsPanel[hidden] { display: none !important; }
+    .supervisor-summary[hidden], #sitesPanel[hidden], #supervisorTicketsPanel[hidden], #supervisorRaiseTicketPanel[hidden], #supervisorEventsPanel[hidden], #inventoryPanel[hidden] { display: none !important; }
     .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
     .supervisor-summary { display: grid; gap: 18px; }
     .supervisor-summary-heading { margin: 0; }
@@ -497,6 +497,7 @@
       <button class="supervisor-nav-item" type="button" data-supervisor-view="raise-ticket">▤ &nbsp; Elevar Ticket</button>
       <button class="supervisor-nav-item" type="button" data-supervisor-view="tickets">▤ &nbsp; Tickets</button>
       <button class="supervisor-nav-item" type="button" data-supervisor-view="events">▤ &nbsp; Eventos / Registros</button>
+      <button class="supervisor-nav-item" type="button" data-supervisor-view="inventory">▦ &nbsp; Inventario</button>
       <button class="supervisor-nav-item" type="button" disabled aria-disabled="true">⚙ &nbsp; Configuración</button>
     </aside>
 
@@ -694,6 +695,12 @@
         </div>
       </div>
       <div class="site-grid" id="siteGrid" aria-live="polite"></div>
+    </section>
+
+    <section class="sites-panel" id="inventoryPanel" aria-labelledby="inventoryTitle" hidden>
+      <div class="panel-heading">
+        <div><h2 id="inventoryTitle">Inventario</h2></div>
+      </div>
     </section>
 
     <p class="notice" id="notice">Las sedes y cantidades se actualizan desde el panel de administración.</p>
@@ -951,6 +958,7 @@
       currentSite = null; currentBrandId = ""; currentMachine = null;
       $("supervisorSummary").hidden = true; $("sitesPanel").hidden = true;
       $("supervisorTicketsPanel").hidden = true; $("supervisorEventsPanel").hidden = true;
+      $("inventoryPanel").hidden = true;
       $("supervisorRaiseTicketPanel").hidden = false; $("pageHeading").hidden = true; $("notice").hidden = true;
       renderSupervisorTicketContext();
       $("supervisorRaiseTicketPanel").querySelector(":scope > .panel-heading").hidden = false;
@@ -1114,6 +1122,7 @@
       $("sitesPanel").hidden = true;
       $("supervisorRaiseTicketPanel").hidden = true;
       $("supervisorEventsPanel").hidden = true;
+      $("inventoryPanel").hidden = true;
       $("supervisorTicketsPanel").hidden = false;
       $("pageHeading").hidden = true;
       $("notice").hidden = true;
@@ -1319,6 +1328,7 @@
       $("sitesPanel").hidden = true;
       $("supervisorTicketsPanel").hidden = true;
       $("supervisorRaiseTicketPanel").hidden = true;
+      $("inventoryPanel").hidden = true;
       $("supervisorEventsPanel").hidden = false;
       $("pageHeading").hidden = true;
       $("notice").hidden = true;
@@ -1694,6 +1704,7 @@
         $("supervisorTicketsPanel").hidden = true;
         $("supervisorRaiseTicketPanel").hidden = true;
         $("supervisorEventsPanel").hidden = true;
+        $("inventoryPanel").hidden = true;
         $("sitesPanel").hidden = false;
         $("notice").hidden = true;
         setSupervisorActiveView("sites");
@@ -1882,6 +1893,26 @@
       return select.value === "*" ? sites : sites.filter(site => String(site.region || "").trim() === select.value);
     }
 
+    function renderSupervisorInventory() {
+      if (!supervisorMode) return;
+      $("supervisorTicketContext").hidden = true;
+      currentSite = null;
+      currentBrandId = "";
+      currentMachine = null;
+      $("supervisorSummary").hidden = true;
+      $("sitesPanel").hidden = true;
+      $("supervisorTicketsPanel").hidden = true;
+      $("supervisorRaiseTicketPanel").hidden = true;
+      $("supervisorEventsPanel").hidden = true;
+      $("inventoryPanel").hidden = false;
+      $("pageHeading").hidden = true;
+      $("notice").hidden = true;
+      $("siteFilter").hidden = true;
+      $("requestPartsFromBrands").hidden = true;
+      $("backToSites").hidden = true;
+      setSupervisorActiveView("inventory");
+    }
+
     function renderSupervisorSummary() {
       if (!supervisorMode) return;
       $("supervisorTicketContext").hidden = true;
@@ -1892,6 +1923,7 @@
       $("supervisorTicketsPanel").hidden = true;
       $("supervisorRaiseTicketPanel").hidden = true;
       $("supervisorEventsPanel").hidden = true;
+      $("inventoryPanel").hidden = true;
       $("sitesPanel").hidden = true;
       $("pageHeading").hidden = true;
       $("notice").hidden = true;
@@ -2794,6 +2826,7 @@
       if (navButton.dataset.supervisorView === "summary") renderSupervisorSummary();
       else if (navButton.dataset.supervisorView === "sites") renderSiteList();
       else if (navButton.dataset.supervisorView === "tickets") renderSupervisorTickets();
+      else if (navButton.dataset.supervisorView === "inventory") renderSupervisorInventory();
       else if (navButton.dataset.supervisorView === "raise-ticket") renderSupervisorRaiseTicket();
       else if (navButton.dataset.supervisorView === "events") {
         renderSupervisorEvents();
@@ -2873,7 +2906,8 @@
         const showHistory = !$("supervisorMaintenanceHistoryBlank").hidden;
         renderSupervisorEvents();
         if (showHistory) renderSupervisorMaintenanceHistory();
-      } else renderSiteList();
+      } else if (!$("inventoryPanel").hidden) renderSupervisorInventory();
+      else renderSiteList();
     });
     document.addEventListener("click", event => {
       if (!supervisorMode || !window.matchMedia("(max-width: 850px)").matches) return;
