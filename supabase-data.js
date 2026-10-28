@@ -342,7 +342,13 @@
     }
     return rows;
   }
-  async function getRows(table, select = "*") { return queryRows(`${table}?select=${encodeURIComponent(select)}`); }
+  async function getRows(table, select = "*", pageSize = 1000) {
+    try {
+      return await queryRows(`${table}?select=${encodeURIComponent(select)}`, pageSize);
+    } catch (error) {
+      throw new Error(`No se pudo cargar la tabla ${table}. ${error.message || "Revisa la conexión con Supabase."}`);
+    }
+  }
   async function postRow(table, row, conflict = "legacy_id") {
     const token = auth()?.access_token;
     if (!token) throw new Error("No hay una sesión autenticada de Supabase.");
@@ -1147,9 +1153,11 @@
       sites: () => getRows("sites", "id,legacy_id,name,region,internal_code,active"),
       brands: () => getRows("brands", "id,legacy_id,name,active"),
       equipment: () => getRows("equipment", "id,legacy_id,site_id,brand_id,fixed_asset,name,model,category,image_url,active,metadata"),
-      tickets: () => getRows("tickets", "id,legacy_id,ticket_number,ticket_type,site_id,equipment_id,fixed_asset,title,description,status,supervisor_id,supervisor_name,technician_id,technician_name,leader_id,leader_name,created_by,created_by_name,updated_by,machine_record_key,ticket_date,photos,metadata,created_at,updated_at"),
-      maintenance_events: () => getRows("maintenance_events", "id,legacy_id,source_record_key,site_id,equipment_id,equipment_name,equipment_model,fixed_asset,event_type,status,details,ticket_id,technician_id,technician_name,supervisor_id,supervisor_name,registered_by,registered_by_name,photos,occurred_at,created_at,metadata"),
-      mileage_records: () => getRows("mileage_records", "id,legacy_id,source_record_key,site_id,equipment_id,equipment_name,equipment_model,fixed_asset,mileage_km,entry_date,technician_id,technician_name,supervisor_id,supervisor_name,registered_by,registered_by_name,notes,lubrication,photos,recorded_at,metadata"),
+      // Las columnas photos pueden contener varias imágenes en base64 por fila.
+      // Cargarlas en lotes pequeños evita que Postgres cancele la consulta por timeout.
+      tickets: () => getRows("tickets", "id,legacy_id,ticket_number,ticket_type,site_id,equipment_id,fixed_asset,title,description,status,supervisor_id,supervisor_name,technician_id,technician_name,leader_id,leader_name,created_by,created_by_name,updated_by,machine_record_key,ticket_date,photos,metadata,created_at,updated_at", 20),
+      maintenance_events: () => getRows("maintenance_events", "id,legacy_id,source_record_key,site_id,equipment_id,equipment_name,equipment_model,fixed_asset,event_type,status,details,ticket_id,technician_id,technician_name,supervisor_id,supervisor_name,registered_by,registered_by_name,photos,occurred_at,created_at,metadata", 8),
+      mileage_records: () => getRows("mileage_records", "id,legacy_id,source_record_key,site_id,equipment_id,equipment_name,equipment_model,fixed_asset,mileage_km,entry_date,technician_id,technician_name,supervisor_id,supervisor_name,registered_by,registered_by_name,notes,lubrication,photos,recorded_at,metadata", 50),
       maintenance_event_tickets: () => getRows("maintenance_event_tickets", "event_id,ticket_id"),
       profiles: () => getRows("profiles", "id,legacy_id,full_name,username,role,active,password_change_required,updated_at"),
       site_assignments: () => getRows("site_assignments", "site_id,user_id,assignment_role"),
