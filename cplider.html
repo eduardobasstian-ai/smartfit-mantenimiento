@@ -677,7 +677,8 @@
     } else {
       $("userName").textContent = user.name;
       $("technicianHeading").textContent = user.name;
-      assignedSites = AdminStore.listSites().filter(site => adminMode || (user.siteIds || []).includes(site.id));
+      const userSiteIds = new Set((user.siteIds || []).map(String));
+      assignedSites = AdminStore.listSites().filter(site => adminMode || userSiteIds.has(String(site.id)));
       if (leaderMode) updateLeaderIdentity(`Líder ${user.name} — ${assignedSites.length} ${assignedSites.length === 1 ? "sede" : "sedes"}`, assignedSites.reduce((total, site) => total + (Number(site.machineCount) || 0), 0));
       if (supervisorMode) renderSupervisorSummary();
       else renderSiteList();
@@ -1067,9 +1068,26 @@
     }
 
     function visibleHistoryTickets() {
-      const siteIds = new Set(assignedSites.map(site => site.id));
+      const siteIds = new Set(assignedSites.map(site => String(site.id)));
+      const siteNames = new Set(assignedSites.map(site => normalizeChartLabel(site.name)).filter(Boolean));
+      const siteRecordPrefixes = assignedSites.map(site => `${site.id}::`);
+      const siteAssets = new Set();
+      assignedSites.forEach(site => (Array.isArray(site.equipment) ? site.equipment : []).forEach(group => {
+        (Array.isArray(group.units) ? group.units : []).forEach(unit => {
+          const asset = String(unit.activeFixed ?? "").trim();
+          if (asset) siteAssets.add(asset);
+        });
+      }));
       return readLeaderTickets()
-        .filter(ticket => siteIds.has(ticket.siteId) && (!leaderMode || ticket.leaderId === user.id))
+        // El alcance del líder es la sede asignada, no quién creó el ticket.
+        // Los tickets del supervisor o del técnico también deben figurar aquí.
+        .filter(ticket => {
+          if (siteIds.has(String(ticket.siteId || ""))) return true;
+          if (ticket.siteName && siteNames.has(normalizeChartLabel(ticket.siteName))) return true;
+          if (ticket.machineRecordKey && siteRecordPrefixes.some(prefix => String(ticket.machineRecordKey).startsWith(prefix))) return true;
+          const asset = String(ticket.activeFixed ?? "").trim();
+          return Boolean(asset && asset !== "N/A" && siteAssets.has(asset));
+        })
         .sort((first, second) => String(second.createdAt || second.date || "").localeCompare(String(first.createdAt || first.date || "")));
     }
 
@@ -1090,9 +1108,8 @@
       $("siteFilter").hidden = true;
       $("backToSites").hidden = true;
       setSupervisorActiveView("ticket-history");
-      $("ticketHistoryDescription").textContent = leaderMode
-        ? "Tickets registrados por ti en tus sedes asignadas."
-        : "Tickets registrados en tus sedes asignadas.";
+      updateLeaderIdentity("", assignedSites.reduce((total, site) => total + (Number(site.machineCount) || 0), 0));
+      $("ticketHistoryDescription").textContent = "Tickets registrados en tus sedes asignadas.";
       const tickets = visibleHistoryTickets();
       $("ticketHistoryBody").innerHTML = tickets.map(ticket => `
         <tr>
@@ -1105,8 +1122,7 @@
     }
 
     function openTicketHistoryDetail(ticketId) {
-      const siteIds = new Set(assignedSites.map(site => site.id));
-      const ticket = visibleHistoryTickets().find(entry => entry.id === ticketId && siteIds.has(entry.siteId) && (!leaderMode || entry.leaderId === user.id));
+      const ticket = visibleHistoryTickets().find(entry => String(entry.id) === String(ticketId));
       if (!ticket) return;
       const photos = Array.isArray(ticket.images) ? ticket.images.slice(0, 4) : [];
       $("ticketHistoryModalTitle").textContent = `Ticket ${ticket.ticketNumber || ""}`;
@@ -1130,6 +1146,14 @@
     }
 
     function updateLeaderIdentity(label, equipmentCount) {
+      if (leaderMode && user) {
+        const selectedSite = currentSite && assignedSites.find(site => String(site.id) === String(currentSite.id));
+        const siteNames = selectedSite
+          ? [selectedSite.name]
+          : assignedSites.map(site => site.name).filter(Boolean);
+        const siteLabel = siteNames.length ? siteNames.join(" · ") : "Sin sede asignada";
+        label = `Líder ${user.name} — ${siteLabel}`;
+      }
       $("siteSummary").textContent = label;
       $("equipmentSummary").textContent = `${equipmentCount} ${equipmentCount === 1 ? "equipo" : "equipos"}`;
       $("leaderSummaryLabel").textContent = label;
@@ -1862,7 +1886,8 @@
         window.location.replace("index.html");
         return;
       }
-      assignedSites = AdminStore.listSites().filter(site => (user.siteIds || []).includes(site.id));
+      const userSiteIds = new Set((user.siteIds || []).map(String));
+      assignedSites = AdminStore.listSites().filter(site => userSiteIds.has(String(site.id)));
       if (!$("supervisorSummary").hidden) renderSupervisorSummary();
       else if (leaderMode && leaderMaintenanceMode) {
         renderLeaderMaintenanceEquipment({ resetFilter: false });
@@ -2201,7 +2226,8 @@
         if (refreshed && user) {
           session = refreshed;
           user.siteIds = refreshed.siteIds || user.siteIds || [];
-          assignedSites = AdminStore.listSites().filter(site => adminMode || user.siteIds.includes(site.id));
+          const userSiteIds = new Set((user.siteIds || []).map(String));
+          assignedSites = AdminStore.listSites().filter(site => adminMode || userSiteIds.has(String(site.id)));
         }
       } catch (error) { /* mantiene el alcance ya cargado si falta la sesión */ }
       if (!$('supervisorSummary').hidden) renderSupervisorSummary();

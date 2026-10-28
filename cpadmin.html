@@ -1505,15 +1505,16 @@
       const tickets = readLeaderTickets();
       const users = AdminStore.listUsers();
       const sites = AdminStore.listSites();
-      const siteById = new Map(sites.map(site => [site.id, site]));
+      const siteById = new Map(sites.map(site => [String(site.id), site]));
       const supervisorKey = ticket => {
-        const site = siteById.get(ticket.siteId);
-        const assigned = users.find(candidate => candidate.id === site?.supervisorUserId && candidate.role === "Supervisor");
-        if (assigned) return assigned.id;
+        const site = siteById.get(String(ticket.siteId));
+        const assigned = users.find(candidate => String(candidate.id) === String(site?.supervisorUserId) && candidate.role === "Supervisor");
+        if (assigned) return String(assigned.id);
         const name = ticket.supervisor || site?.supervisor || "Sin supervisor asignado";
-        return users.find(candidate => candidate.role === "Supervisor" && normalizeHistoryName(candidate.name) === normalizeHistoryName(name))?.id || `name:${normalizeHistoryName(name)}`;
+        const namedSupervisor = users.find(candidate => candidate.role === "Supervisor" && normalizeHistoryName(candidate.name) === normalizeHistoryName(name));
+        return namedSupervisor ? String(namedSupervisor.id) : `name:${normalizeHistoryName(name)}`;
       };
-      const supervisorOptions = users.filter(candidate => candidate.role === "Supervisor").map(candidate => ({ value: candidate.id, label: candidate.name }));
+      const supervisorOptions = users.filter(candidate => candidate.role === "Supervisor").map(candidate => ({ value: String(candidate.id), label: candidate.name }));
       tickets.forEach(ticket => {
         if (supervisorKey(ticket).startsWith("name:")) supervisorOptions.push({ value: supervisorKey(ticket), label: ticket.supervisor || "Sin supervisor asignado" });
       });
@@ -1523,22 +1524,22 @@
       setHistorySelectOptions($("ticketsSupervisor"), supervisorOptions, "Todos", supervisorSelectValue);
       const activeSupervisor = $("ticketsSupervisor").value;
       const scopedTickets = tickets.filter(ticket => activeSupervisor === "*" || supervisorKey(ticket) === activeSupervisor);
-      const scopedSiteIds = new Set(scopedTickets.map(ticket => ticket.siteId).filter(Boolean));
-      const sitesForSupervisor = sites.filter(site => scopedSiteIds.has(site.id));
-      const techOptions = users.filter(candidate => candidate.role === "Técnico" && (candidate.siteIds || []).some(id => scopedSiteIds.has(id)))
-        .map(candidate => ({ value: candidate.id || `name:${normalizeHistoryName(candidate.name)}`, label: candidate.name }));
-      scopedTickets.forEach(ticket => techOptions.push({ value: ticket.technicianId || `name:${normalizeHistoryName(ticket.technician || "")}`, label: ticket.technician || "Sin técnico asignado" }));
-      const selectedSiteIsValid = siteSelectValue === "*" || sitesForSupervisor.some(site => site.id === siteSelectValue);
+      const scopedSiteIds = new Set(scopedTickets.map(ticket => String(ticket.siteId || "")).filter(Boolean));
+      const sitesForSupervisor = sites.filter(site => scopedSiteIds.has(String(site.id)));
+      const techOptions = users.filter(candidate => candidate.role === "Técnico" && (candidate.siteIds || []).some(id => scopedSiteIds.has(String(id))))
+        .map(candidate => ({ value: String(candidate.id || `name:${normalizeHistoryName(candidate.name)}`), label: candidate.name }));
+      scopedTickets.forEach(ticket => techOptions.push({ value: String(ticket.technicianId || `name:${normalizeHistoryName(ticket.technician || "")}`), label: ticket.technician || "Sin técnico asignado" }));
+      const selectedSiteIsValid = siteSelectValue === "*" || sitesForSupervisor.some(site => String(site.id) === String(siteSelectValue));
       const technicianSiteId = selectedSiteIsValid && siteSelectValue !== "*" ? siteSelectValue : "*";
       const filteredTechOptions = technicianSiteId === "*" ? techOptions : techOptions.filter(option => {
-        const assigned = users.find(candidate => (candidate.id || `name:${normalizeHistoryName(candidate.name)}`) === option.value);
-        return (assigned?.siteIds || []).includes(technicianSiteId) || scopedTickets.some(ticket => ticket.siteId === technicianSiteId && (ticket.technicianId || `name:${normalizeHistoryName(ticket.technician || "")}`) === option.value);
+        const assigned = users.find(candidate => String(candidate.id || `name:${normalizeHistoryName(candidate.name)}`) === String(option.value));
+        return (assigned?.siteIds || []).some(id => String(id) === String(technicianSiteId)) || scopedTickets.some(ticket => String(ticket.siteId) === String(technicianSiteId) && String(ticket.technicianId || `name:${normalizeHistoryName(ticket.technician || "")}`) === String(option.value));
       });
       setHistorySelectOptions($("ticketsTechnician"), filteredTechOptions, "Todos", technicianSelectValue);
       const activeTechnician = $("ticketsTechnician").value;
       const sitesForTechnician = activeTechnician === "*" ? sitesForSupervisor : sitesForSupervisor.filter(site =>
-        users.some(candidate => (candidate.id || `name:${normalizeHistoryName(candidate.name)}`) === activeTechnician && candidate.role === "Técnico" && (candidate.siteIds || []).includes(site.id)) ||
-        scopedTickets.some(ticket => ticket.siteId === site.id && (ticket.technicianId || `name:${normalizeHistoryName(ticket.technician || "")}`) === activeTechnician)
+        users.some(candidate => String(candidate.id || `name:${normalizeHistoryName(candidate.name)}`) === String(activeTechnician) && candidate.role === "Técnico" && (candidate.siteIds || []).some(id => String(id) === String(site.id))) ||
+        scopedTickets.some(ticket => String(ticket.siteId) === String(site.id) && String(ticket.technicianId || `name:${normalizeHistoryName(ticket.technician || "")}`) === String(activeTechnician))
       );
       setHistorySelectOptions($("ticketsSite"), sitesForTechnician.map(site => ({ value: site.id, label: site.name })), "Todas", selectedSiteIsValid ? siteSelectValue : "*");
       const statusOptions = Array.from(new Set(tickets.map(ticket => ticket.status || "Pendiente"))).map(status => ({ value: status, label: status }));
@@ -1551,10 +1552,10 @@
       const fixedQuery = normalizeHistoryName($("ticketsActiveFixed").value);
       const filtered = scopedTickets.filter(ticket => {
         const date = String(ticket.date || ticket.createdAt || "").slice(0, 10);
-        const techKey = ticket.technicianId || `name:${normalizeHistoryName(ticket.technician || "")}`;
+        const techKey = String(ticket.technicianId || `name:${normalizeHistoryName(ticket.technician || "")}`);
         return (!from || date >= from) && (!to || date <= to) &&
           (technician === "*" || techKey === technician) &&
-          (site === "*" || ticket.siteId === site) &&
+          (site === "*" || String(ticket.siteId) === String(site)) &&
           (status === "*" || (ticket.status || "Pendiente") === status) &&
           (!fixedQuery || normalizeHistoryName(ticket.activeFixed ?? "").includes(fixedQuery));
       }).sort((first, second) => String(second.createdAt || second.date || "").localeCompare(String(first.createdAt || first.date || "")));

@@ -739,15 +739,16 @@
     return [...merged.values()];
   }
 
-  function hydrateTickets(rows, siteIdToLegacy, profileIdToLegacy) {
+  function hydrateTickets(rows, siteIdToLegacy, profileIdToLegacy, siteNameByLegacy) {
     return rows.map(row => {
       const original = row.metadata && typeof row.metadata === "object" ? row.metadata : {};
+      const siteLegacyId = siteIdToLegacy.get(row.site_id) || original.siteId || "";
       return Object.assign({}, original, {
         id: row.legacy_id || original.id,
         ticketNumber: row.ticket_number || original.ticketNumber,
         type: row.ticket_type || original.type,
-        siteId: siteIdToLegacy.get(row.site_id) || original.siteId || "",
-        siteName: original.siteName || "",
+        siteId: siteLegacyId,
+        siteName: original.siteName || siteNameByLegacy.get(String(siteLegacyId)) || "",
         activeFixed: row.fixed_asset ?? original.activeFixed ?? "N/A",
         status: row.status || original.status || "Pendiente",
         date: row.ticket_date || original.date || dateOnly(row.created_at),
@@ -908,7 +909,8 @@
         equipmentCount: equipmentCountByBrand.get(id) || 0
       };
     }));
-    const hydratedTickets = hydrateTickets(tickets, siteIdToLegacy, profileIdToLegacy);
+    const siteNameByLegacy = new Map(sites.map(row => [String(row.legacy_id || ""), String(row.name || "")]));
+    const hydratedTickets = hydrateTickets(tickets, siteIdToLegacy, profileIdToLegacy, siteNameByLegacy);
     const localUsers = parseLocal("smartfit.admin.users.v1", []);
     const hydratedUsers = profiles.filter(row => row.legacy_id).map(row => {
       const siteIds = [...(assignmentSitesByUser.get(row.id) || [])];
