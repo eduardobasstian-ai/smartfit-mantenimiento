@@ -1091,7 +1091,7 @@
     </div>
   </div>
   <script src="admin-store.js?v=20261026-ubian"></script>
-  <script src="supabase-data.js?v=20261028-media-cache-3"></script>
+  <script src="supabase-data.js?v=20261028-media-cache-4"></script>
   <script src="EQU/matrix-catalog.js"></script>
   <script src="EQU/booty-catalog.js"></script>
   <script src="EQU/other-catalogs.js?v=20261026-ubian-rack"></script>
@@ -1495,15 +1495,44 @@
       }).join("") || '<tr><td colspan="9" class="empty-state">No hay eventos de mantenimiento para los filtros seleccionados.</td></tr>';
     }
 
-    function exportMaintenanceHistoryPdf() {
+    async function exportMaintenanceHistoryPdf() {
       const events = maintenanceHistoryFilteredEvents;
       if (!events.length) {
         window.alert("No hay registros para generar el informe con los filtros seleccionados.");
         return;
       }
+      const reportWindow = window.open("", "_blank");
+      if (!reportWindow) {
+        window.alert("El navegador bloqueó la ventana del informe. Permite las ventanas emergentes e inténtalo nuevamente.");
+        return;
+      }
+      reportWindow.document.write("<!doctype html><title>Preparando informe</title><p style=\"font:16px Arial;padding:24px\">Cargando fotografías del informe…</p>");
+      let reportEvents;
+      try {
+        const media = await SmartFitSupabaseData.getReportImages({
+          maintenanceLegacyIds: events.map(event => `${event.recordKey}::maintenance::${event.id}`),
+          ticketLegacyIds: events.flatMap(event => event.tickets.map(ticket => ticket.id))
+        });
+        reportEvents = events.map(event => {
+          const maintenanceId = `${event.recordKey}::maintenance::${event.id}`;
+          return {
+            ...event,
+            images: media.maintenance[maintenanceId]?.length ? media.maintenance[maintenanceId].slice(0, 4) : event.images,
+            tickets: event.tickets.map(ticket => ({
+              ...ticket,
+              images: media.tickets[String(ticket.id)]?.length ? media.tickets[String(ticket.id)].slice(0, 4) : ticket.images
+            }))
+          };
+        });
+      } catch (error) {
+        console.error("No se pudieron cargar las fotografías del informe de mantenimiento.", error);
+        reportWindow.close();
+        window.alert("No se pudieron cargar las fotografías desde Supabase. Comprueba la conexión y vuelve a generar el PDF.");
+        return;
+      }
       const issuedAt = new Intl.DateTimeFormat("es-CL", { dateStyle: "long" }).format(new Date());
       const logoUrl = new URL("IMG/logo-header.png", window.location.href).href;
-      const pages = events.map((event, index) => {
+      const pages = reportEvents.map((event, index) => {
         const photos = event.images.length
           ? `<section class="section"><h2>Registro fotográfico</h2><div class="photos" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px">${event.images.map((image, photoIndex) => `<figure style="width:auto"><img src="${escapeHtml(image)}" alt="Fotografía ${photoIndex + 1}"><figcaption>Fotografía ${photoIndex + 1}</figcaption></figure>`).join("")}</div></section>`
           : `<section class="section"><h2>Registro fotográfico</h2><p class="muted">Sin fotografías adjuntas.</p></section>`;
@@ -1521,7 +1550,7 @@
             <p class="wide"><b>Título:</b> ${escapeHtml(ticket.title || "—")}</p><p class="wide"><b>Descripción:</b> ${escapeHtml(ticket.description || "—")}</p>
           </div>${Array.isArray(ticket.images) && ticket.images.length ? `<div class="ticket-photos" style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px">${ticket.images.slice(0, 4).map((image, photoIndex) => `<figure style="width:auto"><img src="${escapeHtml(image)}" alt="Foto ${photoIndex + 1} del ticket"><figcaption>Adjunto del ticket ${photoIndex + 1}</figcaption></figure>`).join("")}</div>` : ""}</div>`).join("")}</section>` : "";
         return `<article class="report-page">
-          <header class="report-header"><img src="${escapeHtml(logoUrl)}" alt="Smart Fit" style="background:#000;padding:4px 8px;border-radius:4px"><div><h1>INFORME DE EVENTO</h1><p>Fecha de emisión: ${escapeHtml(issuedAt)} · Registro ${index + 1} de ${events.length}</p></div></header>
+          <header class="report-header"><img src="${escapeHtml(logoUrl)}" alt="Smart Fit" style="background:#000;padding:4px 8px;border-radius:4px"><div><h1>INFORME DE EVENTO</h1><p>Fecha de emisión: ${escapeHtml(issuedAt)} · Registro ${index + 1} de ${reportEvents.length}</p></div></header>
           <section class="section"><h2>Datos del evento</h2><div class="event-info-layout"><div class="data-grid">
             <p><b>Fecha:</b> ${escapeHtml(formatTicketDate(event.date))}</p><p><b>Estado:</b> ${escapeHtml(displayHistoryStatus(event.status))}</p>
             <p><b>Sede:</b> ${escapeHtml(event.siteName)}</p><p><b>Equipo:</b> ${escapeHtml(event.equipmentName)}${event.model ? ` · ${escapeHtml(event.model)}` : ""}</p>
@@ -1536,11 +1565,6 @@
           ${photos}<footer>se genera el informe para lo que se estime conveniente.</footer>
         </article>`;
       }).join("");
-      const reportWindow = window.open("", "_blank");
-      if (!reportWindow) {
-        window.alert("El navegador bloqueó la ventana del informe. Permite las ventanas emergentes e inténtalo nuevamente.");
-        return;
-      }
       reportWindow.document.open();
       reportWindow.document.write(`<!doctype html><html lang="es"><head><meta charset="utf-8"><title>informe</title><style>
         @page{size:letter;margin:14mm}*{box-sizing:border-box}body{margin:0;color:#171923;font:10pt Arial,sans-serif}.report-page{height:250mm;position:relative;page-break-after:always;break-after:page;display:flex;flex-direction:column}.report-page:last-child{page-break-after:auto;break-after:auto}.report-header{display:flex;align-items:center;gap:18px;border-bottom:2px solid #ffb51b;padding:0 0 12px}.report-header img{width:125px;height:auto;object-fit:contain}.report-header div{flex:1;text-align:right}.report-header h1{font-size:18pt;margin:0 0 6px}.report-header p,.muted{color:#5e6370;margin:0}.section{margin-top:13px}.section h2{font-size:11pt;margin:0 0 7px;padding-bottom:4px;border-bottom:1px solid #d8dae0}.section p{margin:0;line-height:1.5;text-align:justify;white-space:pre-wrap;overflow-wrap:anywhere}.event-info-layout{display:grid;grid-template-columns:minmax(0,1fr) 58mm;gap:10px;align-items:start}.data-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px 18px}.data-grid p,.ticket-report-grid p{line-height:1.35}.data-grid .wide,.ticket-report-grid .wide{grid-column:1/-1}.equipment-picture{margin:0;text-align:center;font-size:8pt;color:#555}.equipment-picture img{width:100%;height:58mm;object-fit:contain}.equipment-picture-empty{height:58mm;display:grid;place-items:center;border:1px dashed #c5c8d0}.ticket-report{padding:7px 0;border-bottom:1px solid #d8dae0}.ticket-report-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px 14px}.ticket-photos{display:flex;gap:8px;margin-top:6px}.ticket-photos figure{margin:0;width:36mm;text-align:center;font-size:7pt;color:#555}.ticket-photos img{width:100%;height:28mm;object-fit:contain;border:1px solid #d8dae0}.photos{display:flex;gap:12px;align-items:flex-start}.photos figure{margin:0;width:48%;text-align:center}.photos img{width:100%;height:60mm;object-fit:contain;border:1px solid #d8dae0}.photos figcaption{font-size:8pt;color:#555;margin-top:4px}footer{margin-top:auto;padding-top:10px;border-top:1px solid #cfd1d8;text-align:center;font-size:8pt;color:#555}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
@@ -1636,13 +1660,24 @@
       return catalogItem?.image || item.image || "";
     }
 
-    function exportTicketsPdf(tickets, reportTitle) {
+    async function exportTicketsPdf(tickets, reportTitle) {
       if (!tickets.length) { window.alert("No hay tickets para generar el PDF con los filtros seleccionados."); return; }
       const reportWindow = window.open("", "_blank");
       if (!reportWindow) { window.alert("El navegador bloqueó la ventana del informe. Permite las ventanas emergentes e inténtalo nuevamente."); return; }
+      reportWindow.document.write("<!doctype html><title>Preparando informe</title><p style=\"font:16px Arial;padding:24px\">Cargando fotografías del informe…</p>");
+      let reportTickets;
+      try {
+        const media = await SmartFitSupabaseData.getReportImages({ ticketLegacyIds: tickets.map(ticket => ticket.id) });
+        reportTickets = tickets.map(ticket => ({ ...ticket, images: media.tickets[String(ticket.id)]?.length ? media.tickets[String(ticket.id)].slice(0, 4) : ticket.images }));
+      } catch (error) {
+        console.error("No se pudieron cargar las fotografías del informe de tickets.", error);
+        reportWindow.close();
+        window.alert("No se pudieron cargar las fotografías desde Supabase. Comprueba la conexión y vuelve a generar el PDF.");
+        return;
+      }
       const logoUrl = new URL("IMG/logo-header.png", window.location.href).href;
       const issuedAt = new Intl.DateTimeFormat("es-CL", { dateStyle: "long" }).format(new Date());
-      const pages = tickets.map((ticket, index) => {
+      const pages = reportTickets.map((ticket, index) => {
         const equipmentImage = ticketEquipmentImage(ticket);
         const equipmentPhoto = equipmentImage
           ? `<figure class="equipment-picture"><img src="${escapeHtml(new URL(equipmentImage, window.location.href).href)}" alt="${escapeHtml(ticket.machineName || "Equipo")}"><figcaption>Fotografía del equipo</figcaption></figure>`
@@ -1650,7 +1685,7 @@
         const photos = Array.isArray(ticket.images) && ticket.images.length
           ? `<section class="section"><h2>Registro fotográfico</h2><div class="photos" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px">${ticket.images.slice(0, 4).map((image, photoIndex) => `<figure style="width:auto"><img style="height:38mm" src="${escapeHtml(image)}" alt="Adjunto ${photoIndex + 1} del ticket"><figcaption>Adjunto ${photoIndex + 1}</figcaption></figure>`).join("")}</div></section>`
           : `<section class="section"><h2>Registro fotográfico</h2><p class="muted">Sin imágenes adjuntas.</p></section>`;
-        return `<article class="report-page"><header class="report-header"><img src="${escapeHtml(logoUrl)}" alt="Smart Fit"><div><h1>${escapeHtml(reportTitle)}</h1><p>Fecha de emisión: ${escapeHtml(issuedAt)} · Registro ${index + 1} de ${tickets.length}</p></div></header><section class="section"><h2>Datos del ticket</h2><div class="event-info-layout"><div class="data-grid"><p><b>Número:</b> ${escapeHtml(ticket.ticketNumber || "—")}</p><p><b>Fecha:</b> ${escapeHtml(formatTicketDate(ticket.date))}</p><p><b>Sede:</b> ${escapeHtml(ticket.siteName || "—")}</p><p><b>Solicitante:</b> ${escapeHtml(ticket.createdByName || ticket.leaderName || "—")}</p><p><b>Supervisor:</b> ${escapeHtml(ticket.supervisor || "—")}</p><p><b>Técnico:</b> ${escapeHtml(ticket.technician || "—")}</p><p><b>Activo fijo:</b> ${escapeHtml(ticket.activeFixed || "N/A")}</p><p><b>Equipo:</b> ${escapeHtml(ticket.machineName || "—")}${ticket.machineModel ? ` · ${escapeHtml(ticket.machineModel)}` : ""}</p><p><b>Tipo:</b> ${escapeHtml(ticket.type || "—")}</p><p><b>Estado:</b> ${escapeHtml(ticket.status || "Pendiente")}</p><p class="wide"><b>Título:</b> ${escapeHtml(ticket.title || "—")}</p><p class="wide"><b>Descripción:</b> ${escapeHtml(ticket.description || "Sin descripción")}</p></div>${equipmentPhoto}</div></section>${photos}<footer>se genera el informe para lo que se estime conveniente.</footer></article>`;
+        return `<article class="report-page"><header class="report-header"><img src="${escapeHtml(logoUrl)}" alt="Smart Fit"><div><h1>${escapeHtml(reportTitle)}</h1><p>Fecha de emisión: ${escapeHtml(issuedAt)} · Registro ${index + 1} de ${reportTickets.length}</p></div></header><section class="section"><h2>Datos del ticket</h2><div class="event-info-layout"><div class="data-grid"><p><b>Número:</b> ${escapeHtml(ticket.ticketNumber || "—")}</p><p><b>Fecha:</b> ${escapeHtml(formatTicketDate(ticket.date))}</p><p><b>Sede:</b> ${escapeHtml(ticket.siteName || "—")}</p><p><b>Solicitante:</b> ${escapeHtml(ticket.createdByName || ticket.leaderName || "—")}</p><p><b>Supervisor:</b> ${escapeHtml(ticket.supervisor || "—")}</p><p><b>Técnico:</b> ${escapeHtml(ticket.technician || "—")}</p><p><b>Activo fijo:</b> ${escapeHtml(ticket.activeFixed || "N/A")}</p><p><b>Equipo:</b> ${escapeHtml(ticket.machineName || "—")}${ticket.machineModel ? ` · ${escapeHtml(ticket.machineModel)}` : ""}</p><p><b>Tipo:</b> ${escapeHtml(ticket.type || "—")}</p><p><b>Estado:</b> ${escapeHtml(ticket.status || "Pendiente")}</p><p class="wide"><b>Título:</b> ${escapeHtml(ticket.title || "—")}</p><p class="wide"><b>Descripción:</b> ${escapeHtml(ticket.description || "Sin descripción")}</p></div>${equipmentPhoto}</div></section>${photos}<footer>se genera el informe para lo que se estime conveniente.</footer></article>`;
       }).join("");
       reportWindow.document.open();
       reportWindow.document.write(`<!doctype html><html lang="es"><head><meta charset="utf-8"><title>${escapeHtml(reportTitle)}</title><style>@page{size:letter;margin:14mm}*{box-sizing:border-box}body{margin:0;color:#171923;font:10pt Arial,sans-serif}.report-page{min-height:250mm;position:relative;page-break-after:always;break-after:page;display:flex;flex-direction:column}.report-page:last-child{page-break-after:auto;break-after:auto}.report-header{display:flex;align-items:center;gap:18px;border-bottom:3px solid #ffb51b;padding:0 0 12px}.report-header img{width:125px;height:auto;object-fit:contain;background:#000!important;padding:4px 8px;border-radius:4px}.report-header div{flex:1;text-align:right}.report-header h1{font-size:18pt;margin:0 0 6px}.report-header p,.muted{color:#5e6370;margin:0}.section{margin-top:16px}.section h2{font-size:11pt;margin:0 0 9px;padding-bottom:5px;border-bottom:1px solid #d8dae0}.section p{margin:0;line-height:1.5;text-align:justify;white-space:pre-wrap;overflow-wrap:anywhere}.event-info-layout{display:grid;grid-template-columns:minmax(0,1fr) 58mm;gap:10px;align-items:start}.data-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px 20px}.data-grid .wide{grid-column:1/-1}.equipment-picture{margin:0;text-align:center;font-size:8pt;color:#555}.equipment-picture img{width:100%;height:58mm;object-fit:contain}.equipment-picture-empty{height:58mm;display:grid;place-items:center;border:1px dashed #c5c8d0;color:#777}.photos{display:flex;gap:12px;align-items:flex-start}.photos figure{margin:0;width:48%;text-align:center}.photos img{width:100%;height:65mm;object-fit:contain;border:1px solid #d8dae0}.photos figcaption{font-size:8pt;color:#555;margin-top:4px}footer{margin-top:auto;padding-top:10px;border-top:1px solid #cfd1d8;text-align:center;font-size:8pt;color:#555}@media print{*{-webkit-print-color-adjust:exact;print-color-adjust:exact}}</style></head><body>${pages}<script>window.addEventListener('load',()=>{const imgs=[...document.images];Promise.all(imgs.map(img=>img.decode?.().catch(()=>{})||Promise.resolve())).then(()=>setTimeout(()=>window.print(),250));});<\/script></body></html>`);

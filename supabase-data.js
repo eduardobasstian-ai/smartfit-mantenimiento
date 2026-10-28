@@ -996,6 +996,28 @@
     }
     return pendingFlushInFlight;
   }
+  async function getReportImages({ maintenanceLegacyIds = [], ticketLegacyIds = [] } = {}) {
+    if (!auth()?.access_token) throw new Error("No hay una sesión autenticada de Supabase.");
+    const readImages = async (table, values) => {
+      const ids = [...new Set((Array.isArray(values) ? values : []).map(value => String(value || "")).filter(Boolean))];
+      const imagesByLegacyId = {};
+      for (let offset = 0; offset < ids.length; offset += 10) {
+        const chunk = ids.slice(offset, offset + 10);
+        const filterValues = chunk.map(value => `"${value.replace(/\\/g, "\\\\").replace(/"/g, "\\\"")}"`).join(",");
+        const filter = encodeURIComponent(`in.(${filterValues})`);
+        const rows = await queryRows(`${table}?select=legacy_id,photos&legacy_id=${filter}`);
+        rows.forEach(row => {
+          if (row.legacy_id) imagesByLegacyId[String(row.legacy_id)] = Array.isArray(row.photos) ? row.photos : [];
+        });
+      }
+      return imagesByLegacyId;
+    };
+    const [maintenance, tickets] = await Promise.all([
+      readImages("maintenance_events", maintenanceLegacyIds),
+      readImages("tickets", ticketLegacyIds)
+    ]);
+    return { maintenance, tickets };
+  }
   if (!global.__smartfitPendingOnlineBound) {
     global.__smartfitPendingOnlineBound = true;
     global.addEventListener("online", () => {
@@ -1423,5 +1445,5 @@
     try { return JSON.parse(sessionStorage.getItem(key) || "null"); } catch (error) { return null; }
   }
 
-  global.SmartFitSupabaseData = { hydrate, manageUser, persistSite, persistBrand, deleteBrand, deleteSite, recordAccess, startRealtimeSync, persistTicket: persistTicketQueued, assignTicketTechnician, listAssignableTicketTechnicians, persistMachineRecord, retryPending: flushPending, prepareMachineRecordStorage, writeMachineRecordCache, getMachineRecordWithCachedMediaSync, prepareTicketStorage, writeTicketCache, getTicketsWithCachedMediaSync };
+  global.SmartFitSupabaseData = { hydrate, manageUser, persistSite, persistBrand, deleteBrand, deleteSite, recordAccess, startRealtimeSync, persistTicket: persistTicketQueued, assignTicketTechnician, listAssignableTicketTechnicians, persistMachineRecord, retryPending: flushPending, getReportImages, prepareMachineRecordStorage, writeMachineRecordCache, getMachineRecordWithCachedMediaSync, prepareTicketStorage, writeTicketCache, getTicketsWithCachedMediaSync };
 })(window);
