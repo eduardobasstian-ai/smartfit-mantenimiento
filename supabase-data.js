@@ -996,6 +996,13 @@
     }
     return pendingFlushInFlight;
   }
+  if (!global.__smartfitPendingOnlineBound) {
+    global.__smartfitPendingOnlineBound = true;
+    global.addEventListener("online", () => {
+      if (!auth()?.access_token) return;
+      flushPending().catch(error => console.warn("No se pudieron sincronizar los cambios al recuperar la conexión.", error));
+    });
+  }
 
   function mergeById(localRows, remoteRows) {
     const map = new Map((Array.isArray(localRows) ? localRows : []).filter(Boolean).map(row => [String(row.id), row]));
@@ -1302,14 +1309,58 @@
       const hydratedRecords = hydrateRecords(events, mileageRows, eventLinks, ticketUuidToLegacy, siteIdToLegacy, profileIdToLegacy);
       const localRecords = parseLocal(RECORDS_KEY, {});
       const mergedRecords = Object.assign({}, localRecords && typeof localRecords === "object" ? localRecords : {});
+      const pending = readPending();
+      pending.records = Object.assign({}, pending.records || {});
+      const queueRecordEntry = (recordKey, kind, id) => {
+        if (!id) return;
+        const queued = pending.records[recordKey] || { maintenance: [], mileage: [] };
+        queued[kind] = [...new Set([...(queued[kind] || []), String(id)])];
+        pending.records[recordKey] = queued;
+      };
       for (const [recordKey, remoteRecord] of Object.entries(hydratedRecords)) {
-        await putRecordMedia(recordKey, remoteRecord);
         const localRecord = mergedRecords[recordKey] || { maintenance: [], mileage: [] };
+        // Los registros remotos pueden tener photos=[] cuando una sincronización
+        // anterior subió el evento, pero no sus adjuntos. Recupera los originales
+        // de IndexedDB antes de reemplazar la caché local con la respuesta remota.
+        const localWithMedia = await restoreRecordMedia(recordKey, localRecord);
+        const remoteWithRecoveredMedia = { maintenance: [], mileage: [] };
+        for (const kind of ["maintenance", "mileage"]) {
+          const localById = new Map((localWithMedia[kind] || []).map(item => [String(item.id), item]));
+          const remoteItems = (remoteRecord[kind] || []).map(item => {
+            const localItem = localById.get(String(item.id));
+            const remoteHasImages = Array.isArray(item.images) && item.images.length > 0;
+            const localHasImages = Array.isArray(localItem?.images) && localItem.images.length > 0;
+            if (!remoteHasImages && localHasImages) {
+              queueRecordEntry(recordKey, kind, item.id);
+              return Object.assign({}, item, { images: localItem.images });
+            }
+            return item;
+          });
+          remoteWithRecoveredMedia[kind] = remoteItems;
+          const remoteIds = new Set(remoteItems.map(item => String(item.id)));
+          // A local entry missing remotely can be a save interrupted before its
+          // Supabase call. Queue it so the next flush can restore text and photos.
+          for (const localItem of localWithMedia[kind] || []) {
+            if (!remoteIds.has(String(localItem.id))) queueRecordEntry(recordKey, kind, localItem.id);
+          }
+        }
+        await putRecordMedia(recordKey, remoteWithRecoveredMedia);
         mergedRecords[recordKey] = {
-          maintenance: mergeById(localRecord.maintenance, remoteRecord.maintenance),
-          mileage: mergeById(localRecord.mileage, remoteRecord.mileage)
+          maintenance: mergeById(localWithMedia.maintenance, remoteWithRecoveredMedia.maintenance),
+          mileage: mergeById(localWithMedia.mileage, remoteWithRecoveredMedia.mileage)
         };
       }
+      // También reintenta copias locales de sedes que todavía no aparecen entre
+      // los eventos remotos para esta cuenta.
+      for (const [recordKey, localRecord] of Object.entries(mergedRecords)) {
+        if (hydratedRecords[recordKey]) continue;
+        const localWithMedia = await restoreRecordMedia(recordKey, localRecord);
+        for (const kind of ["maintenance", "mileage"]) {
+          for (const item of localWithMedia[kind] || []) queueRecordEntry(recordKey, kind, item.id);
+        }
+        mergedRecords[recordKey] = localWithMedia;
+      }
+      savePending(pending);
       setLocal(RECORDS_KEY, stripRecordsMedia(mergedRecords));
     }
     if (refreshSites) {

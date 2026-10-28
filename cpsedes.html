@@ -3182,14 +3182,29 @@
           window.alert("No se pudo guardar una copia local del mantenimiento. Revisa el espacio disponible del navegador; los datos y fotos siguen en el formulario.");
           return;
         }
-        try {
-          if (!(editingMachineRecord?.type === "maintenance" && canManageMachineRecords)) {
+        let ticketSyncError = null;
+        if (!(editingMachineRecord?.type === "maintenance" && canManageMachineRecords)) {
+          try {
             await completeAndLinkMachineTickets(currentMachine, entry);
+          } catch (error) {
+            // La sincronización del ticket no debe impedir que el evento y sus fotos
+            // se envíen a Supabase. Ambos registros tienen reintentos independientes.
+            ticketSyncError = error;
           }
-          if (entry.ticketIds.length) await writeMachineRecord(currentMachine.recordKey, record);
+        }
+        if (entry.ticketIds.length) await writeMachineRecord(currentMachine.recordKey, record);
+        let maintenanceSyncError = null;
+        try {
           await SmartFitSupabaseData.persistMachineRecord(currentMachine.recordKey, previousRecord, record);
         } catch (error) {
-          window.alert(`El mantenimiento quedó guardado localmente y se reintentará sincronizar con Supabase al volver a iniciar sesión. ${error.message || ""}`);
+          maintenanceSyncError = error;
+        }
+        if (maintenanceSyncError || ticketSyncError) {
+          const messages = [
+            maintenanceSyncError ? `El evento quedó guardado en este dispositivo y se reintentará sincronizar. ${maintenanceSyncError.message || ""}` : "El evento y sus fotografías se sincronizaron.",
+            ticketSyncError ? `No se pudo actualizar el ticket asociado. ${ticketSyncError.message || ""}` : ""
+          ].filter(Boolean).join("\n");
+          window.alert(messages);
         }
         editingMachineRecord = null;
         maintenanceDraft = null;
