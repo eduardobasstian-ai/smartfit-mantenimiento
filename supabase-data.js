@@ -9,6 +9,8 @@
   let realtimeClient = null;
   let realtimeChannel = null;
   let realtimeRefreshTimer = null;
+  let realtimeLibraryPromise = null;
+  let hydrateInFlight = null;
 
   function auth() {
     try { return JSON.parse(sessionStorage.getItem("smartfit.supabase.auth") || "null"); }
@@ -75,7 +77,7 @@
   }
   // Mantiene el tamaño por debajo del límite máximo de filas que puede fijar
   // Supabase REST; así la paginación no confunde una página truncada con el final.
-  async function queryRows(path, pageSize = 250) {
+  async function queryRows(path, pageSize = 1000) {
     const token = auth()?.access_token;
     if (!token) return [];
     const rows = [];
@@ -338,9 +340,33 @@
     });
     if (!response.ok) throw new Error(`No se pudo registrar el acceso (${response.status}): ${await response.text()}`);
   }
-  function startRealtimeSync() {
+  function loadRealtimeLibrary() {
+    if (global.supabase?.createClient) return Promise.resolve(global.supabase);
+    if (realtimeLibraryPromise) return realtimeLibraryPromise;
+    realtimeLibraryPromise = new Promise((resolve, reject) => {
+      const script = document.createElement("script");
+      script.src = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2";
+      script.async = true;
+      script.onload = () => global.supabase?.createClient
+        ? resolve(global.supabase)
+        : reject(new Error("El cliente de Supabase no quedó disponible."));
+      script.onerror = () => reject(new Error("No se pudo cargar el cliente de sincronización en tiempo real."));
+      document.head.appendChild(script);
+    }).catch(error => {
+      realtimeLibraryPromise = null;
+      throw error;
+    });
+    return realtimeLibraryPromise;
+  }
+  async function startRealtimeSync() {
     if (realtimeChannel) return true;
     if (!auth()?.access_token) return false;
+    try {
+      await loadRealtimeLibrary();
+    } catch (error) {
+      console.warn("La carga de datos terminó, pero no se pudo iniciar la sincronización en vivo.", error);
+      return false;
+    }
     if (!global.supabase?.createClient) {
       console.warn("No se pudo iniciar sincronización: falta cargar el cliente oficial de Supabase.");
       return false;
@@ -371,7 +397,8 @@
     // se vuelven a consultar por REST, donde Supabase aplica RLS por perfil.
     realtimeChannel.on("broadcast", { event: "smartfit-change" }, scheduleRefresh);
     realtimeChannel.subscribe((status, error) => {
-      if (status === "SUBSCRIBED") scheduleRefresh();
+      // La carga inicial ya terminó antes de conectarse al canal. Evita repetir
+      // de inmediato la descarga completa de tablas al abrir cada panel.
       if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
         console.warn("La sincronización en tiempo real no pudo conectarse.", error || status);
       }
@@ -820,7 +847,7 @@
     return records;
   }
 
-  async function hydrate() {
+  async function hydrateNow() {
     if (!auth()?.access_token) return { skipped: true };
     const canReadAccountEmails = appSession()?.role === "Administrador";
     const [sites, brands, equipment, tickets, events, mileageRows, eventLinks, profiles, assignments, accountAccess, accessRows] = await Promise.all([
@@ -962,6 +989,13 @@
     setLocal("smartfit.admin.users.v1", mergedUsers);
     await flushPending();
     return { sites: sites.length, brands: brands.length, equipment: equipment.length, tickets: tickets.length, events: events.length, mileage: mileageRows.length };
+  }
+
+  function hydrate() {
+    if (!auth()?.access_token) return Promise.resolve({ skipped: true });
+    if (hydrateInFlight) return hydrateInFlight;
+    hydrateInFlight = hydrateNow().finally(() => { hydrateInFlight = null; });
+    return hydrateInFlight;
   }
 
   function parseLocalSession(key) {
