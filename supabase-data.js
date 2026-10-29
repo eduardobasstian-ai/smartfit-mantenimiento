@@ -1070,26 +1070,56 @@
     return pendingFlushInFlight;
   }
   async function getReportImages({ maintenanceLegacyIds = [], ticketLegacyIds = [] } = {}) {
-    if (!auth()?.access_token) throw new Error("No hay una sesión autenticada de Supabase.");
     const readImages = async (table, values) => {
       const ids = [...new Set((Array.isArray(values) ? values : []).map(value => String(value || "")).filter(Boolean))];
       const imagesByLegacyId = {};
-      for (let offset = 0; offset < ids.length; offset += 10) {
-        const chunk = ids.slice(offset, offset + 10);
-        const filterValues = chunk.map(value => `"${value.replace(/\\/g, "\\\\").replace(/"/g, "\\\"")}"`).join(",");
-        const filter = encodeURIComponent(`in.(${filterValues})`);
-        const rows = await queryRows(`${table}?select=legacy_id,photos&legacy_id=${filter}`);
-        rows.forEach(row => {
-          if (row.legacy_id) imagesByLegacyId[String(row.legacy_id)] = Array.isArray(row.photos) ? row.photos : [];
-        });
+      let remoteError = null;
+      if (auth()?.access_token) {
+        // Mantén las respuestas pequeñas: las fotos viajan como JSON y varios
+        // eventos con adjuntos pueden superar límites de memoria/red del móvil.
+        try {
+          const chunks = [];
+          for (let offset = 0; offset < ids.length; offset += 2) chunks.push(ids.slice(offset, offset + 2));
+          for (let offset = 0; offset < chunks.length; offset += 2) {
+            const page = await Promise.all(chunks.slice(offset, offset + 2).map(async chunk => {
+              const filterValues = chunk.map(value => `"${value.replace(/\\/g, "\\\\").replace(/"/g, "\\\"")}"`).join(",");
+              const filter = encodeURIComponent(`in.(${filterValues})`);
+              return queryRows(`${table}?select=legacy_id,photos&legacy_id=${filter}`);
+            }));
+            page.flat().forEach(row => {
+              if (row.legacy_id) imagesByLegacyId[String(row.legacy_id)] = Array.isArray(row.photos) ? row.photos : [];
+            });
+          }
+        } catch (error) { remoteError = error; }
       }
-      return imagesByLegacyId;
+      const fallbackImage = legacyId => {
+        if (table === "tickets") return ticketMediaCache.get(`ticket::${legacyId}`) || [];
+        for (const kind of ["maintenance", "mileage"]) {
+          const marker = `::${kind}::`;
+          const index = legacyId.lastIndexOf(marker);
+          if (index < 0) continue;
+          return recordMediaCache.get(recordMediaKey(legacyId.slice(0, index), kind, legacyId.slice(index + marker.length))) || [];
+        }
+        return [];
+      };
+      ids.forEach(id => {
+        if (!imagesByLegacyId[id]?.length) {
+          const cached = fallbackImage(id);
+          if (cached.length) imagesByLegacyId[id] = cached;
+          else if (!(id in imagesByLegacyId)) imagesByLegacyId[id] = [];
+        }
+      });
+      return { images: imagesByLegacyId, error: remoteError };
     };
-    const [maintenance, tickets] = await Promise.all([
+    const [maintenanceResult, ticketResult] = await Promise.all([
       readImages("maintenance_events", maintenanceLegacyIds),
       readImages("tickets", ticketLegacyIds)
     ]);
-    return { maintenance, tickets };
+    return {
+      maintenance: maintenanceResult.images,
+      tickets: ticketResult.images,
+      warning: maintenanceResult.error || ticketResult.error || null
+    };
   }
   if (!global.__smartfitPendingOnlineBound) {
     global.__smartfitPendingOnlineBound = true;
