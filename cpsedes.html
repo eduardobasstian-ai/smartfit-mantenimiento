@@ -763,6 +763,7 @@
       </div>
     </section>
   </div>
+  <script src="mobile-back-navigation.js?v=20261029-mobile-back-1"></script>
   <script src="admin-store.js?v=20261029-performance-stage-2"></script>
   <script src="supabase-data.js?v=20261029-performance-stage-2"></script>
   <script src="pdf-report.js?v=20261029-print-ui-1"></script>
@@ -3462,6 +3463,115 @@
         if (supervisorTicketBrandId) renderSupervisorTicketEquipment(true);
         else if (supervisorTicketSiteId) renderSupervisorTicketBrands(true);
         else renderSupervisorTicketSites(true);
+      }
+    });
+    window.SmartFitMobileBack?.start({
+      page: "site-panel",
+      capture: () => {
+        const activeView = document.querySelector("[data-supervisor-view].active")?.dataset.supervisorView || (supervisorMode ? "summary" : "sites");
+        const eventsPage = !$('supervisorMileageHistoryBlank').hidden ? "mileage"
+          : !$('supervisorMaintenanceHistoryBlank').hidden ? "maintenance"
+            : !$('supervisorEventsChooser').hidden ? "chooser" : "";
+        const ticketContent = $('supervisorRaiseTicketContent');
+        const ticketPhase = supervisorTicketEquipment ? "form"
+          : supervisorTicketBrandId ? "equipment"
+            : supervisorTicketSiteId ? "brands"
+              : ticketContent?.querySelector("#supervisorTicketSiteSearch") ? "sites" : "chooser";
+        return {
+          mainView: activeView,
+          siteId: currentSite?.id || "",
+          brandId: currentBrandId || "",
+          machineKey: currentMachine?.recordKey || "",
+          machineTab: currentMachineTab || "maintenance",
+          eventsPage,
+          ticketPhase,
+          ticketSiteId: supervisorTicketSiteId || "",
+          ticketBrandId: supervisorTicketBrandId || "",
+          ticketEquipment: supervisorTicketEquipment ? {
+            recordKey: supervisorTicketEquipment.recordKey,
+            siteId: supervisorTicketEquipment.siteId,
+            siteName: supervisorTicketEquipment.siteName,
+            activeFixed: supervisorTicketEquipment.activeFixed,
+            machineName: supervisorTicketEquipment.machineName,
+            machineModel: supervisorTicketEquipment.machineModel,
+            technician: supervisorTicketEquipment.technician,
+            technicianId: supervisorTicketEquipment.technicianId,
+            supervisor: supervisorTicketEquipment.supervisor
+          } : null,
+          ticketSiteQuery: supervisorTicketSiteQuery || "",
+          ticketBrandQuery: supervisorTicketBrandQuery || "",
+          ticketEquipmentQuery: supervisorTicketEquipmentQuery || ""
+        };
+      },
+      restore: state => {
+        $("supervisorMenu").classList.remove("open");
+        $("supervisorMenuToggle").setAttribute("aria-expanded", "false");
+        const view = state.mainView || (supervisorMode ? "summary" : "sites");
+        if (supervisorMode && state.ticketPhase === "form" && state.ticketEquipment) {
+          renderSupervisorRaiseTicket();
+          supervisorTicketSiteQuery = state.ticketSiteQuery || "";
+          supervisorTicketBrandQuery = state.ticketBrandQuery || "";
+          supervisorTicketEquipmentQuery = state.ticketEquipmentQuery || "";
+          renderSupervisorTicketSites();
+          if (state.ticketSiteId) {
+            supervisorTicketSiteId = state.ticketSiteId;
+            renderSupervisorTicketBrands();
+          }
+          if (state.ticketBrandId) {
+            supervisorTicketBrandId = state.ticketBrandId;
+            renderSupervisorTicketEquipment();
+          }
+          renderSupervisorTicketForm(state.ticketEquipment);
+          return;
+        }
+        if (supervisorMode) {
+          if (view === "summary") renderSupervisorSummary();
+          else if (view === "tickets") renderSupervisorTickets();
+          else if (view === "inventory") renderSupervisorInventory();
+          else if (view === "raise-ticket") {
+            renderSupervisorRaiseTicket();
+            supervisorTicketSiteQuery = state.ticketSiteQuery || "";
+            supervisorTicketBrandQuery = state.ticketBrandQuery || "";
+            supervisorTicketEquipmentQuery = state.ticketEquipmentQuery || "";
+            if (state.ticketPhase !== "chooser") renderSupervisorTicketSites();
+            if (state.ticketSiteId && ["brands", "equipment", "form"].includes(state.ticketPhase)) {
+              supervisorTicketSiteId = state.ticketSiteId;
+              renderSupervisorTicketBrands();
+            }
+            if (state.ticketBrandId && ["equipment", "form"].includes(state.ticketPhase)) {
+              supervisorTicketBrandId = state.ticketBrandId;
+              renderSupervisorTicketEquipment();
+            }
+            if (state.ticketPhase === "form" && state.ticketEquipment) renderSupervisorTicketForm(state.ticketEquipment);
+            return;
+          } else if (view === "events") {
+            renderSupervisorEvents();
+            if (state.eventsPage === "maintenance") {
+              $('supervisorEventsChooser').hidden = true;
+              $('supervisorMaintenanceHistoryBlank').hidden = false;
+              renderSupervisorMaintenanceHistory();
+            } else if (state.eventsPage === "mileage") {
+              $('supervisorEventsChooser').hidden = true;
+              $('supervisorMileageHistoryBlank').hidden = false;
+              renderSupervisorMileageHistory();
+            }
+          } else renderSiteList();
+        } else renderSiteList();
+
+        if (state.siteId) {
+          if (supervisorMode) renderSiteList();
+          currentSite = assignedSites.find(site => String(site.id) === String(state.siteId)) || null;
+          if (currentSite) renderSiteBrands(currentSite);
+          if (currentSite && state.brandId) renderBrandEquipment(state.brandId, { resetFilter: false });
+          if (currentSite && state.machineKey) {
+            const machine = currentBrandEquipment.find(entry => String(entry.recordKey) === String(state.machineKey));
+            if (machine) {
+              currentMachineTab = state.machineTab || "maintenance";
+              renderMachineDetail(machine);
+              void loadMachineDetailMedia(machine);
+            }
+          }
+        }
       }
     });
     SmartFitSupabaseData.syncPendingAccessLogs().catch(error => console.warn("El inicio de sesión quedó en cola para sincronizarse.", error));
