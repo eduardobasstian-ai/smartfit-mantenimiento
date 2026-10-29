@@ -1103,11 +1103,22 @@
         return [];
       };
       ids.forEach(id => {
-        if (!imagesByLegacyId[id]?.length) {
-          const cached = fallbackImage(id);
-          if (cached.length) imagesByLegacyId[id] = cached;
-          else if (!(id in imagesByLegacyId)) imagesByLegacyId[id] = [];
+        if (!imagesByLegacyId[id]?.length) imagesByLegacyId[id] = fallbackImage(id);
+        const images = imagesByLegacyId[id];
+        if (!images.length) return;
+        if (table === "tickets") {
+          ticketMediaCache.set(`ticket::${id}`, images);
+          return;
         }
+        const marker = id.lastIndexOf("::");
+        if (marker < 0) return;
+        const kindMarker = id.lastIndexOf("::", marker - 1);
+        if (kindMarker < 0) return;
+        const kind = id.slice(kindMarker + 2, marker);
+        if (kind !== "maintenance" && kind !== "mileage") return;
+        const recordKey = id.slice(0, kindMarker);
+        const entryId = id.slice(marker + 2);
+        recordMediaCache.set(recordMediaKey(recordKey, kind, entryId), images);
       });
       return { images: imagesByLegacyId, error: remoteError };
     };
@@ -1120,6 +1131,19 @@
       tickets: ticketResult.images,
       warning: maintenanceResult.error || ticketResult.error || null
     };
+  }
+  async function loadMachineRecordMedia(recordKey) {
+    const key = String(recordKey || "");
+    if (!key) return { images: {}, warning: null };
+    const localRecord = parseLocal(RECORDS_KEY, {})[key] || { maintenance: [], mileage: [] };
+    const restored = await restoreRecordMedia(key, localRecord);
+    const ids = ["maintenance", "mileage"].flatMap(kind =>
+      (Array.isArray(restored[kind]) ? restored[kind] : [])
+        .filter(entry => entry?.id)
+        .map(entry => `${key}::${kind}::${entry.id}`)
+    );
+    const result = await getReportImages({ maintenanceLegacyIds: ids });
+    return { images: result.maintenance, warning: result.warning };
   }
   if (!global.__smartfitPendingOnlineBound) {
     global.__smartfitPendingOnlineBound = true;
@@ -1272,9 +1296,9 @@
       sites: () => getRows("sites", "id,legacy_id,name,region,internal_code,active"),
       brands: () => getRows("brands", "id,legacy_id,name,active"),
       equipment: () => getRows("equipment", "id,legacy_id,site_id,brand_id,fixed_asset,name,model,category,image_url,active,metadata"),
-      tickets: () => getRows("tickets", "id,legacy_id,ticket_number,ticket_type,site_id,equipment_id,fixed_asset,title,description,status,supervisor_id,supervisor_name,technician_id,technician_name,leader_id,leader_name,created_by,created_by_name,updated_by,machine_record_key,ticket_date,photos,metadata,created_at,updated_at"),
-      maintenance_events: () => getRows("maintenance_events", "id,legacy_id,source_record_key,site_id,equipment_id,equipment_name,equipment_model,fixed_asset,event_type,status,details,ticket_id,technician_id,technician_name,supervisor_id,supervisor_name,registered_by,registered_by_name,photos,occurred_at,created_at,metadata"),
-      mileage_records: () => getRows("mileage_records", "id,legacy_id,source_record_key,site_id,equipment_id,equipment_name,equipment_model,fixed_asset,mileage_km,entry_date,technician_id,technician_name,supervisor_id,supervisor_name,registered_by,registered_by_name,notes,lubrication,photos,recorded_at,metadata"),
+      tickets: () => getRows("tickets", "id,legacy_id,ticket_number,ticket_type,site_id,equipment_id,fixed_asset,title,description,status,supervisor_id,supervisor_name,technician_id,technician_name,leader_id,leader_name,created_by,created_by_name,updated_by,machine_record_key,ticket_date,metadata,created_at,updated_at"),
+      maintenance_events: () => getRows("maintenance_events", "id,legacy_id,source_record_key,site_id,equipment_id,equipment_name,equipment_model,fixed_asset,event_type,status,details,ticket_id,technician_id,technician_name,supervisor_id,supervisor_name,registered_by,registered_by_name,occurred_at,created_at,metadata"),
+      mileage_records: () => getRows("mileage_records", "id,legacy_id,source_record_key,site_id,equipment_id,equipment_name,equipment_model,fixed_asset,mileage_km,entry_date,technician_id,technician_name,supervisor_id,supervisor_name,registered_by,registered_by_name,notes,lubrication,recorded_at,metadata"),
       maintenance_event_tickets: () => getRows("maintenance_event_tickets", "event_id,ticket_id"),
       profiles: () => getRows("profiles", "id,legacy_id,full_name,username,role,active,password_change_required,updated_at"),
       site_assignments: () => getRows("site_assignments", "site_id,user_id,assignment_role"),
@@ -1568,5 +1592,5 @@
     try { return JSON.parse(sessionStorage.getItem(key) || "null"); } catch (error) { return null; }
   }
 
-  global.SmartFitSupabaseData = { hydrate, manageUser, persistSite, persistBrand, deleteBrand, deleteSite, recordAccess, startRealtimeSync, persistTicket: persistTicketQueued, assignTicketTechnician, listAssignableTicketTechnicians, persistMachineRecord, retryPending: flushPending, getReportImages, prepareMachineRecordStorage, writeMachineRecordCache, getMachineRecordWithCachedMediaSync, prepareTicketStorage, writeTicketCache, getTicketsWithCachedMediaSync };
+  global.SmartFitSupabaseData = { hydrate, manageUser, persistSite, persistBrand, deleteBrand, deleteSite, recordAccess, startRealtimeSync, persistTicket: persistTicketQueued, assignTicketTechnician, listAssignableTicketTechnicians, persistMachineRecord, retryPending: flushPending, getReportImages, loadMachineRecordMedia, prepareMachineRecordStorage, writeMachineRecordCache, getMachineRecordWithCachedMediaSync, prepareTicketStorage, writeTicketCache, getTicketsWithCachedMediaSync };
 })(window);

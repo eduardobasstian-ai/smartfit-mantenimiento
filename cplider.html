@@ -614,7 +614,7 @@
     </section>
   </div>
   <script src="admin-store.js?v=20261026-ubian"></script>
-  <script src="supabase-data.js?v=20261028-media-cache-6"></script>
+  <script src="supabase-data.js?v=20261029-media-lazy-1"></script>
   <script src="EQU/other-catalogs.js?v=20261026-ubian-rack"></script>
   <script src="inventory-export.js?v=20261027-profile1"></script>
   <script>
@@ -1200,7 +1200,7 @@
         </tr>`).join("") || '<tr><td colspan="5" class="empty-state">Todavía no hay tickets registrados.</td></tr>';
     }
 
-    function openTicketHistoryDetail(ticketId) {
+    function openTicketHistoryDetail(ticketId, mediaLoaded = false) {
       const ticket = visibleHistoryTickets().find(entry => String(entry.id) === String(ticketId));
       if (!ticket) return;
       const photos = Array.isArray(ticket.images) ? ticket.images.slice(0, 4) : [];
@@ -1222,6 +1222,11 @@
         </div>`;
       $("ticketHistoryModal").hidden = false;
       $("closeTicketHistoryModal").focus();
+      if (!mediaLoaded && !photos.length && ticket.id) {
+        void SmartFitSupabaseData.getReportImages({ ticketLegacyIds: [ticket.id] }).then(result => {
+          if (!result.warning && result.tickets[String(ticket.id)]?.length && !$("ticketHistoryModal").hidden) openTicketHistoryDetail(ticketId, true);
+        }).catch(error => console.warn("No se pudieron cargar las imágenes del ticket.", error));
+      }
     }
 
     function updateLeaderIdentity(label, equipmentCount) {
@@ -1780,6 +1785,19 @@
       });
     }
 
+    const machineMediaLoads = new Map();
+    function loadMachineDetailMedia(machine) {
+      if (!machine?.recordKey || !window.SmartFitSupabaseData?.loadMachineRecordMedia) return;
+      const key = String(machine.recordKey);
+      if (machineMediaLoads.has(key)) return machineMediaLoads.get(key);
+      const load = SmartFitSupabaseData.loadMachineRecordMedia(key).then(result => {
+        if (result.warning) console.warn("No se pudieron cargar las imágenes del equipo.", result.warning);
+        else if (currentMachine && String(currentMachine.recordKey) === key) renderMachineDetail(currentMachine);
+      }).catch(error => console.warn("No se pudieron cargar las imágenes del equipo.", error)).finally(() => machineMediaLoads.delete(key));
+      machineMediaLoads.set(key, load);
+      return load;
+    }
+
     function renderLeaderMaintenanceTicket(machine, activeFixed) {
       const site = currentSite || assignedSites.find(entry => entry.id === machine.siteId);
       if (leaderTicketDraft.recordKey !== machine.recordKey) {
@@ -1877,6 +1895,7 @@
         const machine = currentBrandEquipment[Number(machineCard.dataset.openMachine)];
         if (leaderMaintenanceMode && machine) currentSite = assignedSites.find(site => site.id === machine.siteId) || null;
         renderMachineDetail(machine);
+        void loadMachineDetailMedia(machine);
       }
     });
     $("siteGrid").addEventListener("keydown", event => {
@@ -1886,6 +1905,7 @@
         const machine = currentBrandEquipment[Number(machineCard.dataset.openMachine)];
         if (leaderMaintenanceMode && machine) currentSite = assignedSites.find(site => site.id === machine.siteId) || null;
         renderMachineDetail(machine);
+        void loadMachineDetailMedia(machine);
       }
     });
 

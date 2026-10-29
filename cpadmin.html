@@ -1091,7 +1091,7 @@
     </div>
   </div>
   <script src="admin-store.js?v=20261026-ubian"></script>
-  <script src="supabase-data.js?v=20261028-media-cache-6"></script>
+  <script src="supabase-data.js?v=20261029-media-lazy-1"></script>
   <script src="EQU/matrix-catalog.js"></script>
   <script src="EQU/booty-catalog.js"></script>
   <script src="EQU/other-catalogs.js?v=20261026-ubian-rack"></script>
@@ -1761,7 +1761,7 @@
       }
     }
 
-    function openTicketDetail(ticketId) {
+    function openTicketDetail(ticketId, mediaLoaded = false) {
       const ticket = readLeaderTickets().find(entry => entry.id === ticketId);
       if (!ticket) return;
       $("ticketDetailTitle").textContent = `Ticket ${ticket.ticketNumber || ""}`;
@@ -1784,6 +1784,11 @@
         </div>`;
       $("ticketDetailModal").hidden = false;
       $("closeTicketDetail").focus();
+      if (!mediaLoaded && !photos.length && ticket.id) {
+        void SmartFitSupabaseData.getReportImages({ ticketLegacyIds: [ticket.id] }).then(result => {
+          if (!result.warning && result.tickets[String(ticket.id)]?.length && !$ ("ticketDetailModal").hidden) openTicketDetail(ticketId, true);
+        }).catch(error => console.warn("No se pudieron cargar las imágenes del ticket.", error));
+      }
     }
 
     function formatAccessDate(value) {
