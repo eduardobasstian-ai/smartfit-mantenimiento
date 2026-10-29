@@ -1401,7 +1401,11 @@
     function readMaintenanceHistoryRecords() {
       try {
         const stored = JSON.parse(localStorage.getItem(MACHINE_RECORDS_KEY) || "{}");
-        return stored && typeof stored === "object" && !Array.isArray(stored) ? stored : {};
+        if (!stored || typeof stored !== "object" || Array.isArray(stored)) return {};
+        return Object.fromEntries(Object.entries(stored).map(([recordKey, record]) => [
+          recordKey,
+          SmartFitSupabaseData.getMachineRecordWithCachedMediaSync(recordKey, record)
+        ]));
       } catch (error) {
         return {};
       }
