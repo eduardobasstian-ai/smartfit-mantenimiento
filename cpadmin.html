@@ -1091,8 +1091,8 @@
       <img class="lightbox-image" id="matrixLightboxImage" alt="">
     </div>
   </div>
-  <script src="admin-store.js?v=20261026-ubian"></script>
-  <script src="supabase-data.js?v=20261029-media-lazy-1"></script>
+  <script src="admin-store.js?v=20261029-performance-stage-2"></script>
+  <script src="supabase-data.js?v=20261029-performance-stage-2"></script>
   <script src="pdf-report.js?v=20261029-print-ui-1"></script>
   <script src="EQU/matrix-catalog.js"></script>
   <script src="EQU/booty-catalog.js"></script>
@@ -3086,6 +3086,7 @@
       if (!$('maintenanceHistoryView').hidden && !$('maintenanceHistoryBlank').hidden) renderMaintenanceHistory();
       if (!$('maintenanceHistoryView').hidden && !$('mileageHistoryBlank').hidden) renderMileageHistory();
     });
+    SmartFitSupabaseData.syncPendingAccessLogs().catch(error => console.warn("El inicio de sesión quedó en cola para sincronizarse.", error));
     SmartFitSupabaseData.hydrate().then(result => {
       if (!result.skipped) {
         SmartFitSupabaseData.startRealtimeSync();

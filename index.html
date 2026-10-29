@@ -996,8 +996,8 @@
     </section>
   </div>
 
-  <script src="admin-store.js?v=20261026-ubian"></script>
-  <script src="supabase-data.js?v=20261029-media-lazy-1"></script>
+  <script src="admin-store.js?v=20261029-performance-stage-2"></script>
+  <script src="supabase-data.js?v=20261029-performance-stage-2"></script>
   <script src="supabase-auth.js"></script>
   <script>
     "use strict";
@@ -1005,6 +1005,7 @@
     const $ = (id) => document.getElementById(id);
     let loginDirectory = [];
     let selectedLoginAccount = null;
+    const LOGIN_DIRECTORY_CACHE_KEY = "smartfit.login-directory.cache.v1";
     const notificationItems = [
       {
         title: "Panel de notificaciones",
@@ -1105,20 +1106,36 @@
       if (!$("technicianPicker").contains(event.target)) closeTechnicianPicker();
     });
 
+    function applyLoginDirectory(accounts) {
+      loginDirectory = (Array.isArray(accounts) ? accounts : []).filter(account => account.role === "Técnico");
+      $("technicianPicker").hidden = !loginDirectory.length;
+      $("usernameFallback").hidden = Boolean(loginDirectory.length);
+      if (selectedLoginAccount && !loginDirectory.some(account => account.username === selectedLoginAccount.username)) {
+        selectedLoginAccount = null;
+      }
+      $("technicianValue").textContent = loginDirectory.length ? "Selecciona un técnico..." : "No hay técnicos activos";
+      $("technicianValue").classList.add("placeholder");
+      if (!loginDirectory.length) showMessage("error", "No hay técnicos activos en la nómina. Puedes ingresar tu RUT o usuario manualmente.");
+      else showMessage("", "");
+    }
+
     async function loadLoginDirectory() {
       try {
-        loginDirectory = (await SmartFitSupabaseAuth.listLoginDirectory())
-          .filter(account => account.role === "Técnico");
-        $("technicianValue").textContent = loginDirectory.length ? "Selecciona un técnico..." : "No hay técnicos activos";
+        const cached = JSON.parse(sessionStorage.getItem(LOGIN_DIRECTORY_CACHE_KEY) || "null");
+        if (Array.isArray(cached?.accounts) && Date.now() - Number(cached.savedAt) < 5 * 60 * 1000) {
+          applyLoginDirectory(cached.accounts);
+        }
+      } catch (error) { /* la nómina se solicita al servidor */ }
+      try {
+        const accounts = await SmartFitSupabaseAuth.listLoginDirectory();
+        sessionStorage.setItem(LOGIN_DIRECTORY_CACHE_KEY, JSON.stringify({ accounts, savedAt: Date.now() }));
+        applyLoginDirectory(accounts);
+      } catch (error) {
         if (!loginDirectory.length) {
           $("technicianPicker").hidden = true;
           $("usernameFallback").hidden = false;
-          showMessage("error", "No hay técnicos activos en la nómina. Puedes ingresar tu RUT o usuario manualmente.");
+          showMessage("error", "No se pudo cargar la nómina. Ingresa tu RUT o usuario manualmente.");
         }
-      } catch (error) {
-        $("technicianPicker").hidden = true;
-        $("usernameFallback").hidden = false;
-        showMessage("error", "No se pudo cargar la nómina. Ingresa tu RUT o usuario manualmente.");
         console.warn("No se pudo cargar la nómina para el acceso:", error);
       }
     }

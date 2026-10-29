@@ -5,6 +5,7 @@
   const TICKETS_KEY = "smartfit.leader-tickets.v1";
   const RECORDS_KEY = "smartfit.machine-records.v1";
   const PENDING_KEY = "smartfit.supabase.pending.v1";
+  const PENDING_ACCESS_LOGS_KEY = "smartfit.supabase.pending-access-logs.v1";
   const ACCESS_HISTORY_KEY = "smartfit.admin.access-history.v1";
   let realtimeClient = null;
   let realtimeChannel = null;
@@ -15,11 +16,39 @@
   let queuedHydrationTables = new Set();
   let pendingRealtimeTables = new Set();
   let pendingFlushInFlight = null;
+  let pendingAccessSyncInFlight = null;
   let refreshWhenVisible = false;
   let recordMediaDbPromise = null;
   const recordMediaCache = new Map();
   const ticketMediaCache = new Map();
   const syncedRecordMediaKeys = new Set();
+
+  function readPendingAccessLogs() {
+    const entries = new Map();
+    for (const storage of [global.localStorage, global.sessionStorage]) {
+      try {
+        const saved = JSON.parse(storage.getItem(PENDING_ACCESS_LOGS_KEY) || "null");
+        if (Array.isArray(saved)) saved.forEach(entry => {
+          if (entry?.id) entries.set(String(entry.id), entry);
+        });
+      } catch (error) { /* intenta el almacenamiento alternativo */ }
+    }
+    return [...entries.values()];
+  }
+
+  function savePendingAccessLogs(entries) {
+    const value = JSON.stringify(Array.isArray(entries) ? entries.slice(-100) : []);
+    const storages = [global.localStorage, global.sessionStorage];
+    for (let index = 0; index < storages.length; index += 1) {
+      const storage = storages[index];
+      try {
+        storage.setItem(PENDING_ACCESS_LOGS_KEY, value);
+        try { storages[index === 0 ? 1 : 0].removeItem(PENDING_ACCESS_LOGS_KEY); } catch (error) {}
+        return true;
+      } catch (error) { /* el almacenamiento local puede estar lleno o bloqueado */ }
+    }
+    return false;
+  }
 
   function auth() {
     try { return JSON.parse(sessionStorage.getItem("smartfit.supabase.auth") || "null"); }
@@ -626,25 +655,59 @@
     const token = auth()?.access_token;
     if (!token) throw new Error("No hay una sesión autenticada para registrar el acceso.");
     if (!user?.authId) throw new Error("El perfil no está vinculado a una cuenta de Supabase Auth.");
-    const response = await authorizedFetch(`${URL}/rest/v1/audit_log`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Prefer: "return=minimal"
-      },
-      body: JSON.stringify({
-        actor_id: user.authId,
-        action: "login_success",
-        entity_type: "profile",
-        entity_id: user.authId,
-        details: {
-          full_name: String(user.name || "Usuario"),
-          username: String(user.username || "—"),
-          role: String(user.role || "Usuario")
-        }
-      })
-    });
-    if (!response.ok) throw new Error(`No se pudo registrar el acceso (${response.status}): ${await response.text()}`);
+    const pending = readPendingAccessLogs();
+    const entry = {
+      id: global.crypto?.randomUUID?.() || `access-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      authId: String(user.authId),
+      name: String(user.name || "Usuario"),
+      username: String(user.username || "—"),
+      role: String(user.role || "Usuario"),
+      queuedAt: new Date().toISOString()
+    };
+    pending.push(entry);
+    if (!savePendingAccessLogs(pending)) console.warn("No se pudo guardar la cola local de accesos; el inicio de sesión continuará.");
+    global.AdminStore?.recordAccess(user, entry.id);
+    return { queued: true };
+  }
+
+  function currentAuthUserId() {
+    try {
+      const payload = auth()?.access_token?.split(".")[1];
+      return payload ? JSON.parse(atob(payload.replace(/-/g, "+").replace(/_/g, "/"))).sub || "" : "";
+    } catch (error) { return ""; }
+  }
+
+  async function syncPendingAccessLogs() {
+    if (pendingAccessSyncInFlight) return pendingAccessSyncInFlight;
+    const authUserId = currentAuthUserId();
+    if (!authUserId) return { synced: 0 };
+    pendingAccessSyncInFlight = (async () => {
+      let pending = readPendingAccessLogs();
+      let synced = 0;
+      for (const entry of pending) {
+        // RLS exige que el usuario autenticado registre su propio acceso.
+        if (String(entry.authId) !== authUserId) continue;
+        const response = await authorizedFetch(`${URL}/rest/v1/audit_log`, {
+          method: "POST",
+          keepalive: true,
+          headers: { "Content-Type": "application/json", Prefer: "return=minimal" },
+          body: JSON.stringify({
+            actor_id: entry.authId,
+            action: "login_success",
+            entity_type: "profile",
+            entity_id: entry.authId,
+            details: { full_name: entry.name, username: entry.username, role: entry.role, client_event_id: entry.id }
+          })
+        });
+        if (!response.ok) throw new Error(`No se pudo sincronizar el inicio de sesión (${response.status}): ${await response.text()}`);
+        pending = pending.filter(item => item.id !== entry.id);
+        if (!savePendingAccessLogs(pending)) console.warn("No se pudo actualizar la cola local de accesos después de sincronizar.");
+        synced += 1;
+      }
+      return { synced };
+    })();
+    try { return await pendingAccessSyncInFlight; }
+    finally { pendingAccessSyncInFlight = null; }
   }
   function loadRealtimeLibrary() {
     if (global.supabase?.createClient) return Promise.resolve(global.supabase);
@@ -1289,8 +1352,9 @@
 
   async function hydrateNow(refreshTables = null) {
     if (!auth()?.access_token) return { skipped: true };
-    await prepareMachineRecordStorage();
-    await prepareTicketStorage();
+    // Inicializa IndexedDB a la vez que se consulta Supabase. La preparación
+    // sigue completándose antes de combinar/restaurar registros con fotografías.
+    const localStorageReady = Promise.all([prepareMachineRecordStorage(), prepareTicketStorage()]);
     const canReadAccountEmails = appSession()?.role === "Administrador";
     const loaders = {
       sites: () => getRows("sites", "id,legacy_id,name,region,internal_code,active"),
@@ -1313,7 +1377,10 @@
     const requestedTables = useSnapshot
       ? [...new Set(refreshTables)].filter(table => refreshableTables.includes(table))
       : refreshableTables;
-    const loadedValues = await Promise.all(requestedTables.map(table => loaders[table]()));
+    const [loadedValues] = await Promise.all([
+      Promise.all(requestedTables.map(table => loaders[table]())),
+      localStorageReady
+    ]);
     const nextSnapshot = useSnapshot ? Object.assign({}, hydrationSnapshot) : {};
     requestedTables.forEach((table, index) => { nextSnapshot[table] = loadedValues[index]; });
     if (!canReadAccountEmails) {
@@ -1435,6 +1502,7 @@
     mergedUsers?.forEach(user => { if (user.authId) user.password = ""; });
     if (canReadAccountEmails && refreshAccessHistory) {
       const remoteAccesses = accessRows.map(row => ({
+        eventId: String(row.details?.client_event_id || ""),
         userId: String(row.actor_id || row.entity_id || ""),
         name: String(row.details?.full_name || "Usuario"),
         username: String(row.details?.username || "—"),
@@ -1442,7 +1510,10 @@
         accessedAt: row.created_at
       }));
       const localAccesses = parseLocal(ACCESS_HISTORY_KEY, []);
-      const mergedAccesses = [...remoteAccesses, ...(Array.isArray(localAccesses) ? localAccesses : [])]
+      const remoteEventIds = new Set(remoteAccesses.map(entry => entry.eventId).filter(Boolean));
+      const unmatchedLocalAccesses = (Array.isArray(localAccesses) ? localAccesses : [])
+        .filter(entry => !entry.eventId || !remoteEventIds.has(String(entry.eventId)));
+      const mergedAccesses = [...remoteAccesses, ...unmatchedLocalAccesses]
         .filter(entry => entry?.accessedAt)
         .sort((a, b) => String(b.accessedAt).localeCompare(String(a.accessedAt)));
       setLocal(ACCESS_HISTORY_KEY, mergedAccesses.slice(0, 500));
@@ -1592,5 +1663,5 @@
     try { return JSON.parse(sessionStorage.getItem(key) || "null"); } catch (error) { return null; }
   }
 
-  global.SmartFitSupabaseData = { hydrate, manageUser, persistSite, persistBrand, deleteBrand, deleteSite, recordAccess, startRealtimeSync, persistTicket: persistTicketQueued, assignTicketTechnician, listAssignableTicketTechnicians, persistMachineRecord, retryPending: flushPending, getReportImages, loadMachineRecordMedia, prepareMachineRecordStorage, writeMachineRecordCache, getMachineRecordWithCachedMediaSync, prepareTicketStorage, writeTicketCache, getTicketsWithCachedMediaSync };
+  global.SmartFitSupabaseData = { hydrate, manageUser, persistSite, persistBrand, deleteBrand, deleteSite, recordAccess, syncPendingAccessLogs, startRealtimeSync, persistTicket: persistTicketQueued, assignTicketTechnician, listAssignableTicketTechnicians, persistMachineRecord, retryPending: flushPending, getReportImages, loadMachineRecordMedia, prepareMachineRecordStorage, writeMachineRecordCache, getMachineRecordWithCachedMediaSync, prepareTicketStorage, writeTicketCache, getTicketsWithCachedMediaSync };
 })(window);

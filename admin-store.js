@@ -292,7 +292,7 @@
       return ensureSeeded().map(user => Object.assign({}, user));
     },
 
-    recordAccess(user) {
+    recordAccess(user, eventId = "") {
       if (!user || !user.id) return null;
       let history = [];
       try {
@@ -302,6 +302,7 @@
         history = [];
       }
       const access = {
+        eventId: String(eventId || ""),
         userId: String(user.id),
         name: String(user.name || "Usuario"),
         username: String(user.username || "—"),
