@@ -1654,7 +1654,10 @@
 
     function formatMachineDate(value, withTime) {
       if (!value) return "—";
-      const date = new Date(value);
+      const calendarDate = String(value).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      const date = calendarDate && !withTime
+        ? new Date(Number(calendarDate[1]), Number(calendarDate[2]) - 1, Number(calendarDate[3]))
+        : new Date(value);
       if (Number.isNaN(date.getTime())) return String(value);
       return new Intl.DateTimeFormat("es-CL", withTime
         ? { dateStyle: "short", timeStyle: "short" }
