@@ -123,6 +123,22 @@
       transaction.onabort = () => reject(transaction.error || new Error("Se canceló el guardado de las fotografías."));
     });
   }
+  async function deleteRecordMedia(recordKey, kind, entryId) {
+    const key = recordMediaKey(recordKey, kind, entryId);
+    recordMediaCache.delete(key);
+    try {
+      const database = await openRecordMediaDb();
+      await new Promise((resolve, reject) => {
+        const transaction = database.transaction("images", "readwrite");
+        transaction.objectStore("images").delete(key);
+        transaction.oncomplete = resolve;
+        transaction.onerror = () => reject(transaction.error || new Error("No se pudieron borrar las fotografías del registro."));
+        transaction.onabort = () => reject(transaction.error || new Error("Se canceló la limpieza de fotografías."));
+      });
+    } catch (error) {
+      console.warn("No se pudieron borrar las fotografías locales del evento eliminado.", error);
+    }
+  }
   async function putTicketMedia(tickets) {
     const writes = [];
     (Array.isArray(tickets) ? tickets : []).forEach(ticket => {
@@ -1086,7 +1102,7 @@
     });
   }
 
-  function hydrateRecords(events, mileageRows, ticketLinks, ticketUuidToLegacy, siteIdToLegacy, profileIdToLegacy) {
+  function hydrateRecords(events, mileageRows, ticketLinks, ticketUuidToLegacy, siteIdToLegacy, profileIdToLegacy, deletedMaintenanceIds = new Set()) {
     const records = {};
     const ticketIdsByEvent = new Map();
     ticketLinks.forEach(link => {
@@ -1097,6 +1113,7 @@
       ticketIdsByEvent.set(link.event_id, ids);
     });
     events.forEach(row => {
+      if (deletedMaintenanceIds.has(String(row.legacy_id || ""))) return;
       const recordKey = row.source_record_key || `${siteIdToLegacy.get(row.site_id) || ""}::`;
       if (!recordKey) return;
       const record = records[recordKey] || { maintenance: [], mileage: [] };
@@ -1159,6 +1176,13 @@
       maintenance_events: () => getRows("maintenance_events", "id,legacy_id,source_record_key,site_id,equipment_id,equipment_name,equipment_model,fixed_asset,event_type,status,details,ticket_id,technician_id,technician_name,supervisor_id,supervisor_name,registered_by,registered_by_name,photos,occurred_at,created_at,metadata", 8),
       mileage_records: () => getRows("mileage_records", "id,legacy_id,source_record_key,site_id,equipment_id,equipment_name,equipment_model,fixed_asset,mileage_km,entry_date,technician_id,technician_name,supervisor_id,supervisor_name,registered_by,registered_by_name,notes,lubrication,photos,recorded_at,metadata", 50),
       maintenance_event_tickets: () => getRows("maintenance_event_tickets", "event_id,ticket_id"),
+      maintenance_event_tombstones: () => getRows("maintenance_event_tombstones", "legacy_id", 500).catch(error => {
+        if (/PGRST205|42P01|404|Could not find the table/i.test(String(error?.message || error))) {
+          console.info("La tabla de exclusiones de mantenimiento aún no está instalada en Supabase.");
+          return [];
+        }
+        throw error;
+      }),
       profiles: () => getRows("profiles", "id,legacy_id,full_name,username,role,active,password_change_required,updated_at"),
       site_assignments: () => getRows("site_assignments", "site_id,user_id,assignment_role"),
       admin_user_access: () => getRows("admin_user_access", "profile_id,email").catch(error => {
@@ -1172,6 +1196,10 @@
     const requestedTables = useSnapshot
       ? [...new Set(refreshTables)].filter(table => refreshableTables.includes(table))
       : refreshableTables;
+    if (useSnapshot && requestedTables.some(table => ["maintenance_events", "mileage_records", "maintenance_event_tickets", "tickets", "sites", "profiles"].includes(table))
+      && !requestedTables.includes("maintenance_event_tombstones")) {
+      requestedTables.push("maintenance_event_tombstones");
+    }
     const loadedValues = await Promise.all(requestedTables.map(table => loaders[table]()));
     const nextSnapshot = useSnapshot ? Object.assign({}, hydrationSnapshot) : {};
     requestedTables.forEach((table, index) => { nextSnapshot[table] = loadedValues[index]; });
@@ -1183,12 +1211,13 @@
     if (!requestedTables.length) return { skipped: true };
     const { sites, brands, equipment, tickets, maintenance_events: events, mileage_records: mileageRows,
       maintenance_event_tickets: eventLinks, profiles, site_assignments: assignments,
+      maintenance_event_tombstones: deletedMaintenanceRows = [],
       admin_user_access: accountAccess, audit_log: accessRows } = hydrationSnapshot;
     const changed = new Set(requestedTables);
     const fullHydration = !useSnapshot;
     const refreshSites = fullHydration || ["sites", "brands", "equipment"].some(table => changed.has(table));
     const refreshTickets = fullHydration || ["tickets", "sites", "profiles"].some(table => changed.has(table));
-    const refreshRecords = fullHydration || ["maintenance_events", "mileage_records", "maintenance_event_tickets", "tickets", "sites", "profiles"].some(table => changed.has(table));
+    const refreshRecords = fullHydration || ["maintenance_events", "maintenance_event_tickets", "maintenance_event_tombstones", "mileage_records", "tickets", "sites", "profiles"].some(table => changed.has(table));
     const refreshUsers = fullHydration || ["profiles", "site_assignments", "sites", "tickets", "admin_user_access"].some(table => changed.has(table));
     const refreshAccessHistory = fullHydration || changed.has("audit_log");
     const siteIdToLegacy = new Map(sites.map(row => [row.id, String(row.legacy_id || "")]));
@@ -1314,11 +1343,31 @@
     }
     if (refreshRecords) {
       const ticketUuidToLegacy = new Map(tickets.map(row => [row.id, String(row.legacy_id || "")]));
-      const hydratedRecords = hydrateRecords(events, mileageRows, eventLinks, ticketUuidToLegacy, siteIdToLegacy, profileIdToLegacy);
+      const deletedMaintenanceIds = new Set(deletedMaintenanceRows.map(row => String(row.legacy_id || "")).filter(Boolean));
+      const hydratedRecords = hydrateRecords(events, mileageRows, eventLinks, ticketUuidToLegacy, siteIdToLegacy, profileIdToLegacy, deletedMaintenanceIds);
       const localRecords = parseLocal(RECORDS_KEY, {});
       const mergedRecords = Object.assign({}, localRecords && typeof localRecords === "object" ? localRecords : {});
       const pending = readPending();
       pending.records = Object.assign({}, pending.records || {});
+      // Una eliminación explícita en Supabase debe prevalecer sobre las copias
+      // locales pendientes; de otro modo, el reintento podría resucitar el evento.
+      for (const [recordKey, localRecord] of Object.entries(mergedRecords)) {
+        const kept = [];
+        for (const item of Array.isArray(localRecord?.maintenance) ? localRecord.maintenance : []) {
+          const legacyId = `${recordKey}::maintenance::${item.id}`;
+          if (deletedMaintenanceIds.has(legacyId)) {
+            await deleteRecordMedia(recordKey, "maintenance", item.id);
+            continue;
+          }
+          kept.push(item);
+        }
+        localRecord.maintenance = kept;
+        const queued = pending.records[recordKey];
+        if (queued) {
+          queued.maintenance = (queued.maintenance || []).filter(id => !deletedMaintenanceIds.has(`${recordKey}::maintenance::${id}`));
+          if (!queued.maintenance.length && !queued.mileage?.length) delete pending.records[recordKey];
+        }
+      }
       const queueRecordEntry = (recordKey, kind, id) => {
         if (!id) return;
         const queued = pending.records[recordKey] || { maintenance: [], mileage: [] };
