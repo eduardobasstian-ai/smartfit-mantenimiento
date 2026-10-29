@@ -19,6 +19,7 @@
   let recordMediaDbPromise = null;
   const recordMediaCache = new Map();
   const ticketMediaCache = new Map();
+  const syncedRecordMediaKeys = new Set();
 
   function auth() {
     try { return JSON.parse(sessionStorage.getItem("smartfit.supabase.auth") || "null"); }
@@ -143,6 +144,43 @@
       transaction.onabort = () => reject(transaction.error || new Error("Se canceló el guardado de las fotos de los tickets."));
     });
   }
+  function cacheTicketMedia(tickets) {
+    (Array.isArray(tickets) ? tickets : []).forEach(ticket => {
+      if (!ticket?.id || !Array.isArray(ticket.images)) return;
+      ticketMediaCache.set(`ticket::${ticket.id}`, ticket.images.slice(0, 4));
+    });
+  }
+  function cacheRecordMedia(recordKey, record) {
+    for (const kind of ["maintenance", "mileage"]) {
+      for (const entry of Array.isArray(record?.[kind]) ? record[kind] : []) {
+        if (!entry?.id || !Array.isArray(entry.images)) continue;
+        recordMediaCache.set(recordMediaKey(recordKey, kind, entry.id), entry.images.slice(0, 4));
+      }
+    }
+  }
+  async function deleteStoredMedia(keysOrPrefix, { prefix = false } = {}) {
+    if (!prefix && !(Array.isArray(keysOrPrefix) ? keysOrPrefix : [keysOrPrefix]).filter(Boolean).length) return;
+    try {
+      const database = await openRecordMediaDb();
+      await new Promise((resolve, reject) => {
+        const transaction = database.transaction("images", "readwrite");
+        const store = transaction.objectStore("images");
+        const remove = keys => keys.forEach(key => store.delete(key));
+        if (prefix) {
+          const request = store.getAllKeys();
+          request.onsuccess = () => remove(request.result.filter(key => String(key).startsWith(String(keysOrPrefix))));
+          request.onerror = () => reject(request.error || new Error("No se pudieron liberar las fotografías locales."));
+        } else remove(Array.isArray(keysOrPrefix) ? keysOrPrefix : [keysOrPrefix]);
+        transaction.oncomplete = resolve;
+        transaction.onerror = () => reject(transaction.error || new Error("No se pudieron liberar las fotografías locales."));
+        transaction.onabort = () => reject(transaction.error || new Error("Se canceló la liberación de fotografías locales."));
+      });
+    } catch (error) {
+      // El guardado remoto ya está confirmado; un fallo de limpieza no debe hacer
+      // aparecer como fallido el registro ni borrar la copia en memoria.
+      console.warn("No se pudo liberar el espacio local de fotografías sincronizadas.", error);
+    }
+  }
   function stripTicketMedia(tickets) {
     return (Array.isArray(tickets) ? tickets : []).map(ticket =>
       Array.isArray(ticket?.images) ? Object.assign({}, ticket, { images: [] }) : ticket
@@ -161,7 +199,6 @@
       let images = Array.isArray(ticket?.images) ? ticket.images : null;
       if (images?.length) {
         ticketMediaCache.set(key, images);
-        try { await putTicketMedia([ticket]); } catch (error) { /* La copia en Supabase sigue siendo la fuente remota. */ }
       } else {
         images = ticketMediaCache.get(key);
         if (!images) {
@@ -194,7 +231,7 @@
   }
   async function writeTicketCache(tickets) {
     await prepareTicketStorage();
-    await putTicketMedia(tickets);
+    cacheTicketMedia(tickets);
     const activeKeys = new Set((Array.isArray(tickets) ? tickets : []).filter(ticket => ticket?.id).map(ticket => `ticket::${ticket.id}`));
     try {
       const database = await openRecordMediaDb();
@@ -267,7 +304,28 @@
   }
   async function writeMachineRecordCache(recordKey, record) {
     await prepareMachineRecordStorage();
-    await putRecordMedia(recordKey, record);
+    const writes = [];
+    for (const kind of ["maintenance", "mileage"]) {
+      for (const entry of Array.isArray(record?.[kind]) ? record[kind] : []) {
+        if (!entry?.id || !Array.isArray(entry.images) || !entry.images.length) continue;
+        const key = recordMediaKey(recordKey, kind, entry.id);
+        const previousImages = recordMediaCache.get(key);
+        const changed = !previousImages || JSON.stringify(previousImages) !== JSON.stringify(entry.images);
+        recordMediaCache.set(key, entry.images.slice(0, 4));
+        if (!syncedRecordMediaKeys.has(key) || changed) writes.push([key, entry.images.slice(0, 4)]);
+      }
+    }
+    if (writes.length) {
+      const database = await openRecordMediaDb();
+      await new Promise((resolve, reject) => {
+        const transaction = database.transaction("images", "readwrite");
+        const store = transaction.objectStore("images");
+        writes.forEach(([key, images]) => store.put(images, key));
+        transaction.oncomplete = resolve;
+        transaction.onerror = () => reject(transaction.error || new Error("No se pudieron conservar las fotografías."));
+        transaction.onabort = () => reject(transaction.error || new Error("Se canceló el guardado de las fotografías."));
+      });
+    }
     const activeMediaKeys = new Set();
     for (const kind of ["maintenance", "mileage"]) {
       for (const entry of Array.isArray(record?.[kind]) ? record[kind] : []) {
@@ -304,7 +362,6 @@
         const key = recordMediaKey(recordKey, kind, entry?.id);
         if (images?.length) {
           recordMediaCache.set(key, images);
-          try { await putRecordMedia(recordKey, { [kind]: [entry] }); } catch (error) { /* Supabase is still the durable copy. */ }
         } else {
           images = recordMediaCache.get(key);
           if (!images) {
@@ -777,7 +834,7 @@
     const statusName = cleanName(ticket.status || "Pendiente");
     const status = statusName.includes("ejecucion") ? "En ejecución" : statusName.includes("ejecutad") ? "Ejecutado" : statusName.includes("cerrad") ? "Cerrado" : statusName.includes("rechaz") ? "Rechazado" : "Pendiente";
     const photos = Array.isArray(ticket.images) ? ticket.images : [];
-    return postRow("tickets", {
+    const savedTicket = await postRow("tickets", {
       legacy_id: String(ticket.id), ticket_number: String(ticket.ticketNumber || ticket.id), ticket_type: ticketType,
       site_id: siteUuid, equipment_id: equipmentId,
       fixed_asset: !ticket.activeFixed || cleanName(ticket.activeFixed) === "n/a" ? null : String(ticket.activeFixed),
@@ -792,6 +849,9 @@
       }),
       created_at: ticket.createdAt || new Date().toISOString(), updated_at: new Date().toISOString()
     });
+    const mediaKey = `ticket::${ticket.id}`;
+    await deleteStoredMedia(mediaKey);
+    return savedTicket;
   }
   async function assignTicketTechnician(ticketId, technicianId) {
     if (!String(ticketId || "").trim() || !String(technicianId || "").trim()) {
@@ -927,6 +987,12 @@
       }
     }
     if (errors.length) throw new Error(errors.join("\n"));
+    for (const kind of ["maintenance", "mileage"]) {
+      for (const entry of Array.isArray(after?.[kind]) ? after[kind] : []) {
+        if (entry?.id) syncedRecordMediaKeys.add(recordMediaKey(recordKey, kind, entry.id));
+      }
+    }
+    await deleteStoredMedia(`${recordKey}::`, { prefix: true });
   }
 
   async function persistTicketQueued(ticket) {
@@ -961,6 +1027,13 @@
         const oldIds = new Set((before?.[kind] || []).map(entry => String(entry.id)));
         const newIds = new Set((after?.[kind] || []).map(entry => String(entry.id)));
         oldIds.forEach(id => { if (!newIds.has(id)) deleted[kind].push(id); });
+        // Los IDs nuevos o modificados también deben reintentarse después de
+        // una falla de red; la cola cubre tanto altas/ediciones como borrados.
+        newIds.forEach(id => {
+          const oldEntry = (before?.[kind] || []).find(entry => String(entry.id) === id);
+          const newEntry = (after?.[kind] || []).find(entry => String(entry.id) === id);
+          if (!oldEntry || JSON.stringify(oldEntry) !== JSON.stringify(newEntry)) deleted[kind].push(id);
+        });
         deleted[kind] = [...new Set(deleted[kind])];
       }
       pending.records = Object.assign({}, pending.records, { [recordKey]: deleted });
@@ -1342,7 +1415,14 @@
         }
       }
       const mergedTickets = mergeById(localTickets, remoteTicketsWithRecoveredMedia);
-      await putTicketMedia(mergedTickets);
+      cacheTicketMedia(mergedTickets);
+      const syncedKeys = [];
+      for (const ticket of remoteTicketsWithRecoveredMedia) {
+        if (!Array.isArray(ticket.images) || !ticket.images.length) continue;
+        const key = `ticket::${ticket.id}`;
+        syncedKeys.push(key);
+      }
+      await deleteStoredMedia(syncedKeys);
       await writeTicketCache(mergedTickets);
       savePending(pending);
     }
@@ -1366,19 +1446,31 @@
         // de IndexedDB antes de reemplazar la caché local con la respuesta remota.
         const localWithMedia = await restoreRecordMedia(recordKey, localRecord);
         const remoteWithRecoveredMedia = { maintenance: [], mileage: [] };
+        const syncedMediaKeys = [];
         for (const kind of ["maintenance", "mileage"]) {
           const localById = new Map((localWithMedia[kind] || []).map(item => [String(item.id), item]));
+          const localImagesToKeep = [];
           const remoteItems = (remoteRecord[kind] || []).map(item => {
             const localItem = localById.get(String(item.id));
             const remoteHasImages = Array.isArray(item.images) && item.images.length > 0;
             const localHasImages = Array.isArray(localItem?.images) && localItem.images.length > 0;
+            const mediaKey = recordMediaKey(recordKey, kind, item.id);
+            if (remoteHasImages) {
+              syncedRecordMediaKeys.add(mediaKey);
+              syncedMediaKeys.push(mediaKey);
+            }
             if (!remoteHasImages && localHasImages) {
               queueRecordEntry(recordKey, kind, item.id);
+              localImagesToKeep.push(Object.assign({}, item, { images: localItem.images }));
               return Object.assign({}, item, { images: localItem.images });
             }
             return item;
           });
           remoteWithRecoveredMedia[kind] = remoteItems;
+          if (localImagesToKeep.length) {
+            try { await putRecordMedia(recordKey, { [kind]: localImagesToKeep }); }
+            catch (error) { console.warn("No se pudieron conservar fotografías pendientes de sincronización.", error); }
+          }
           const remoteIds = new Set(remoteItems.map(item => String(item.id)));
           // A local entry missing remotely can be a save interrupted before its
           // Supabase call. Queue it so the next flush can restore text and photos.
@@ -1386,7 +1478,8 @@
             if (!remoteIds.has(String(localItem.id))) queueRecordEntry(recordKey, kind, localItem.id);
           }
         }
-        await putRecordMedia(recordKey, remoteWithRecoveredMedia);
+        await deleteStoredMedia(syncedMediaKeys);
+        cacheRecordMedia(recordKey, remoteWithRecoveredMedia);
         mergedRecords[recordKey] = {
           maintenance: mergeById(localWithMedia.maintenance, remoteWithRecoveredMedia.maintenance),
           mileage: mergeById(localWithMedia.mileage, remoteWithRecoveredMedia.mileage)

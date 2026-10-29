@@ -8,6 +8,8 @@
   var checkTimer;
   var failedChecks = 0;
   var appLocked = false;
+  var connectionCheckUrl = "https://acmcksmiqrfrxopceies.supabase.co/auth/v1/health";
+  var publishableKey = "sb_publishable_uWaLgff_Xc03iC68QpUUuQ_QkmCLLGy";
 
   function setAppLocked(locked) {
     appLocked = locked;
@@ -70,12 +72,15 @@
       return;
     }
 
+    var controller = new AbortController();
+    var timeout = window.setTimeout(function () { controller.abort(); }, 8000);
     try {
-      var response = await fetch(new URL("./?online-check=" + Date.now(), window.location.href), {
+      var response = await fetch(connectionCheckUrl + "?check=" + Date.now(), {
         method: "GET",
         cache: "no-store",
-        credentials: "same-origin",
-        headers: { "X-SmartFit-Online-Check": "1" }
+        mode: "cors",
+        headers: { apikey: publishableKey },
+        signal: controller.signal
       });
       if (!response.ok) throw new Error("Network check failed");
       failedChecks = 0;
@@ -85,6 +90,7 @@
       // Una respuesta fallida aislada puede ser temporal; confirma antes de bloquear.
       if (failedChecks >= 2) show();
     } finally {
+      window.clearTimeout(timeout);
       checking = false;
     }
   }
