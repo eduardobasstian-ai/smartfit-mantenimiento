@@ -270,7 +270,7 @@
     .image-lightbox { position: fixed; z-index: 100; inset: 0; display: grid; place-items: center; padding: 18px; background: #000e; }
     .image-lightbox[hidden] { display: none; }
     .image-lightbox-frame { position: relative; display: grid; place-items: center; width: fit-content; height: fit-content; max-width: 96vw; max-height: 94vh; overflow: hidden; border: 1px solid #555966; border-radius: 13px; background: #f5f5f7; box-shadow: 0 24px 90px #000b; }
-    .image-lightbox-frame.is-zoomed { overflow: auto; }
+    .image-lightbox-frame.is-zoomed { display: block; overflow: auto; }
     .image-lightbox-frame img { display: block; width: auto; height: auto; max-width: 94vw; max-height: 92vh; object-fit: contain; touch-action: none; user-select: none; }
     .image-lightbox-frame img.is-zoomed { max-width: none; max-height: none; }
     .image-lightbox-nav { position: absolute; z-index: 2; top: 50%; display: grid; place-items: center; width: 42px; height: 54px; transform: translateY(-50%); border: 1px solid #d1d3d8; border-radius: 12px; background: #17191fe8; color: #fff; font-size: 28px; cursor: pointer; }
@@ -1950,8 +1950,40 @@
       image.style.height = `${Math.floor(image.naturalHeight * scale * equipmentImageZoom)}px`;
       image.classList.toggle("is-zoomed", equipmentImageZoom > 1.01);
       $("imageLightboxFrame").classList.toggle("is-zoomed", equipmentImageZoom > 1.01);
+      if (equipmentImageZoom <= 1.01) {
+        $("imageLightboxFrame").scrollLeft = 0;
+        $("imageLightboxFrame").scrollTop = 0;
+      }
       $("toggleEquipmentImageZoom").textContent = equipmentImageZoom > 1.01 ? "−" : "+";
       $("toggleEquipmentImageZoom").setAttribute("aria-label", equipmentImageZoom > 1.01 ? "Reducir imagen" : "Ampliar imagen");
+    }
+
+    function equipmentImagePinchGeometry(points) {
+      const imageRect = $("equipmentLightboxImage").getBoundingClientRect();
+      const frame = $("imageLightboxFrame");
+      const frameRect = frame.getBoundingClientRect();
+      const midpointX = (points[0].x + points[1].x) / 2;
+      const midpointY = (points[0].y + points[1].y) / 2;
+      return {
+        distance: Math.hypot(points[1].x - points[0].x, points[1].y - points[0].y),
+        anchorX: Math.max(0, Math.min(1, (midpointX - imageRect.left) / Math.max(1, imageRect.width))),
+        anchorY: Math.max(0, Math.min(1, (midpointY - imageRect.top) / Math.max(1, imageRect.height))),
+        localX: midpointX - frameRect.left - frame.clientLeft,
+        localY: midpointY - frameRect.top - frame.clientTop
+      };
+    }
+
+    function setEquipmentImageZoomAt(zoom, focalPoint = null) {
+      equipmentImageZoom = Math.max(1, Math.min(4, zoom));
+      fitEquipmentImage();
+      if (equipmentImageZoom <= 1.01 || !focalPoint) return;
+      const frame = $("imageLightboxFrame");
+      const frameRect = frame.getBoundingClientRect();
+      const imageRect = $("equipmentLightboxImage").getBoundingClientRect();
+      const targetX = frameRect.left + frame.clientLeft + focalPoint.localX;
+      const targetY = frameRect.top + frame.clientTop + focalPoint.localY;
+      frame.scrollLeft += imageRect.left + focalPoint.anchorX * imageRect.width - targetX;
+      frame.scrollTop += imageRect.top + focalPoint.anchorY * imageRect.height - targetY;
     }
 
     function toggleEquipmentImageZoom() {
@@ -2463,19 +2495,31 @@
         equipmentImageWasPinching = false;
       } else if (equipmentImagePointers.size === 2) {
         const points = [...equipmentImagePointers.values()];
-        equipmentImagePinchStart = { distance: Math.hypot(points[1].x - points[0].x, points[1].y - points[0].y), zoom: equipmentImageZoom };
+        equipmentImagePinchStart = Object.assign(equipmentImagePinchGeometry(points), { zoom: equipmentImageZoom });
         equipmentImageWasPinching = true;
       }
     });
     $("equipmentLightboxImage").addEventListener("pointermove", event => {
       if (!equipmentImagePointers.has(event.pointerId)) return;
+      const previousPoint = equipmentImagePointers.get(event.pointerId);
       equipmentImagePointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+      if (equipmentImagePointers.size === 1 && equipmentImageZoom > 1.01) {
+        event.preventDefault();
+        const frame = $("imageLightboxFrame");
+        frame.scrollLeft -= event.clientX - previousPoint.x;
+        frame.scrollTop -= event.clientY - previousPoint.y;
+        return;
+      }
       if (equipmentImagePointers.size < 2 || !equipmentImagePinchStart?.distance) return;
       event.preventDefault();
       const points = [...equipmentImagePointers.values()];
-      const distance = Math.hypot(points[1].x - points[0].x, points[1].y - points[0].y);
-      equipmentImageZoom = Math.max(1, Math.min(4, equipmentImagePinchStart.zoom * distance / equipmentImagePinchStart.distance));
-      fitEquipmentImage();
+      const geometry = equipmentImagePinchGeometry(points);
+      setEquipmentImageZoomAt(equipmentImagePinchStart.zoom * geometry.distance / equipmentImagePinchStart.distance, {
+        anchorX: equipmentImagePinchStart.anchorX,
+        anchorY: equipmentImagePinchStart.anchorY,
+        localX: geometry.localX,
+        localY: geometry.localY
+      });
     });
     function finishEquipmentImagePointer(event) {
       if (!equipmentImagePointers.has(event.pointerId)) return;
@@ -2488,7 +2532,7 @@
       if (equipmentImagePointerStart) {
         const dx = event.clientX - equipmentImagePointerStart.x;
         const dy = event.clientY - equipmentImagePointerStart.y;
-        if (Math.abs(dx) > 55 && Math.abs(dx) > Math.abs(dy) * 1.25) stepEquipmentImage(dx < 0 ? 1 : -1);
+        if (equipmentImageZoom <= 1.01 && Math.abs(dx) > 55 && Math.abs(dx) > Math.abs(dy) * 1.25) stepEquipmentImage(dx < 0 ? 1 : -1);
       }
       equipmentImagePointerStart = null;
     }
