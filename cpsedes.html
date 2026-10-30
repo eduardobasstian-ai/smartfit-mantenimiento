@@ -100,8 +100,6 @@
     .panel-heading h2 { margin: 0; font-size: 17px; }
     .panel-heading p { margin: 6px 0 0; color: var(--muted); font-size: 11px; }
     .panel-tools { display: flex; align-items: center; gap: 9px; }
-    .qr-search-button { min-height: 38px; padding: 0 13px; border: 1px solid var(--yellow); border-radius: 9px; background: var(--yellow); color: #17130a; font: inherit; font-size: 11px; font-weight: 800; white-space: nowrap; }
-    .qr-search-button:hover { background: var(--yellow-hover); }
     .site-search { width: min(230px, 36vw); min-height: 36px; padding: 0 10px; border: 1px solid #383b47; border-radius: 9px; background: #111319; color: var(--text); font: inherit; font-size: 11px; }
     .site-search:focus-visible { outline: 2px solid var(--yellow); outline-offset: 2px; }
     .site-grid, .brand-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
@@ -255,15 +253,7 @@
     .image-lightbox { position: fixed; z-index: 170; inset: 0; display: grid; place-items: center; padding: 18px; background: #000e; }
     .image-lightbox[hidden] { display: none; }
     .image-lightbox-frame { position: relative; display: grid; place-items: center; width: fit-content; height: fit-content; max-width: 96vw; max-height: 94vh; overflow: hidden; border: 1px solid #555966; border-radius: 13px; background: #f5f5f7; box-shadow: 0 24px 90px #000b; }
-    .image-lightbox-frame.is-zoomed { display: block; overflow: auto; }
-    .image-lightbox-frame img { display: block; width: auto; height: auto; max-width: 94vw; max-height: 92vh; object-fit: contain; touch-action: none; user-select: none; }
-    .image-lightbox-frame img.is-zoomed { max-width: none; max-height: none; }
-    .image-lightbox-zoom { position: absolute; z-index: 3; top: 10px; left: 10px; width: 38px; height: 38px; border: 1px solid #d1d3d8; border-radius: 50%; background: #17191fe8; color: #fff; font-size: 24px; line-height: 1; }
-    .image-lightbox-nav { position: absolute; z-index: 2; top: 50%; display: grid; place-items: center; width: 42px; height: 54px; transform: translateY(-50%); border: 1px solid #d1d3d8; border-radius: 12px; background: #17191fe8; color: #fff; font-size: 28px; cursor: pointer; }
-    .image-lightbox-nav[hidden], .image-lightbox-count[hidden] { display: none; }
-    .image-lightbox-prev { left: 10px; }
-    .image-lightbox-next { right: 10px; }
-    .image-lightbox-count { position: absolute; z-index: 2; bottom: 10px; left: 50%; transform: translateX(-50%); padding: 6px 11px; border-radius: 20px; background: #17191fe8; color: #fff; font: 700 13px Arial,sans-serif; }
+    .image-lightbox-frame img { display: block; width: auto; height: auto; max-width: 94vw; max-height: 92vh; object-fit: contain; }
     .image-lightbox-close { position: absolute; z-index: 1; top: 10px; right: 10px; width: 38px; height: 38px; border: 1px solid #d1d3d8; border-radius: 50%; background: #fff; color: #17191f; font-size: 23px; line-height: 1; box-shadow: 0 2px 12px #0003; }
     .image-lightbox-close:hover { border-color: var(--yellow); color: #8a5a00; }
     .empty-state {
@@ -460,12 +450,6 @@
     .supervisor-shell.supervisor-mode .identity-bar { display: none; }
     @media (max-width: 600px) {
       .ticket-raise-brand-tools .site-search { width: min(288px, 100%); }
-      #supervisorRaiseTicketContent > .panel-heading { flex-wrap: wrap; }
-      #supervisorRaiseTicketContent .ticket-raise-brand-tools { display: grid; flex: 1 1 100%; width: 100%; grid-template-columns: minmax(0, 1fr) auto auto; }
-      #supervisorRaiseTicketContent .ticket-raise-brand-tools .site-search { grid-column: 1 / -1; width: 100%; }
-      #sitesPanel > .panel-heading { flex-wrap: wrap; }
-      #sitesPanel .panel-tools { flex: 1 1 100%; width: 100%; flex-wrap: wrap; }
-      #sitesPanel .panel-tools .site-search { flex: 1 1 100%; }
       .ticket-raise-context { padding: 13px; font-size: 11px; }
       .ticket-raise-brand-grid .brand-card { min-height: 78px; padding: 14px; }
       .supervisor-shell.supervisor-mode .supervisor-menu { border-radius: 17px; }
@@ -727,7 +711,6 @@
         <div class="panel-tools">
           <input class="site-search" id="siteFilter" type="search" placeholder="Buscar sede..." aria-label="Buscar sede por nombre">
           <button class="back-button" id="requestPartsFromBrands" type="button" hidden>Pedir repuesto</button>
-          <button class="qr-search-button" id="searchQrButton" type="button" hidden>Buscar QR</button>
           <button class="back-button" id="backToSites" type="button" hidden>← Volver a sedes</button>
         </div>
       </div>
@@ -753,13 +736,9 @@
   </div>
 
   <div class="image-lightbox" id="equipmentImageLightbox" hidden>
-    <div class="image-lightbox-frame" id="imageLightboxFrame" role="dialog" aria-modal="true" aria-label="Visor de fotografías">
+    <div class="image-lightbox-frame" role="dialog" aria-modal="true" aria-label="Imagen ampliada del equipo">
       <button class="image-lightbox-close" id="closeEquipmentImage" type="button" aria-label="Cerrar imagen">×</button>
-      <button class="image-lightbox-zoom" id="toggleEquipmentImageZoom" type="button" aria-label="Ampliar imagen">+</button>
-      <button class="image-lightbox-nav image-lightbox-prev" id="prevEquipmentImage" type="button" aria-label="Imagen anterior" hidden>‹</button>
       <img id="equipmentLightboxImage" alt="">
-      <button class="image-lightbox-nav image-lightbox-next" id="nextEquipmentImage" type="button" aria-label="Imagen siguiente" hidden>›</button>
-      <span class="image-lightbox-count" id="equipmentImageCount" hidden></span>
     </div>
   </div>
 
@@ -784,7 +763,6 @@
       </div>
     </section>
   </div>
-  <script src="mobile-back-navigation.js?v=20261029-mobile-back-1"></script>
   <script src="admin-store.js?v=20261029-performance-stage-2"></script>
   <script src="supabase-data.js?v=20261029-performance-stage-2"></script>
   <script src="pdf-report.js?v=20261029-print-ui-1"></script>
@@ -792,8 +770,6 @@
   <script src="EQU/booty-catalog.js"></script>
   <script src="EQU/other-catalogs.js?v=20261026-ubian-rack"></script>
   <script src="inventory-export.js?v=20261027-profile1"></script>
-  <script src="vendor/jsQR.min.js?v=1.4.0"></script>
-  <script src="qr-scanner.js?v=20261029-1"></script>
   <script>
     "use strict";
     const $ = id => document.getElementById(id);
@@ -1123,7 +1099,7 @@
       });
       $("supervisorRaiseTicketPanel").querySelector(":scope > .panel-heading").hidden = true;
       renderSupervisorTicketContext(site);
-      $("supervisorRaiseTicketContent").innerHTML = `<div class="panel-heading"><div><h3>Marcas de equipos</h3><p>Equipos para ticket de mantenimiento · 1 sede habilitada</p></div><div class="panel-tools ticket-raise-brand-tools"><input class="site-search" id="supervisorTicketBrandSearch" type="search" placeholder="Buscar activo fijo..." aria-label="Buscar por activo fijo" value="${escapeHtml(supervisorTicketBrandQuery)}"><button type="button" class="qr-search-button" data-search-qr-supervisor-ticket>Buscar QR</button><button type="button" class="back-button" data-supervisor-ticket-back-to-sites>← Volver a sedes</button></div></div>
+      $("supervisorRaiseTicketContent").innerHTML = `<div class="panel-heading"><div><h3>Marcas de equipos</h3><p>Equipos para ticket de mantenimiento · 1 sede habilitada</p></div><div class="panel-tools ticket-raise-brand-tools"><input class="site-search" id="supervisorTicketBrandSearch" type="search" placeholder="Buscar activo fijo..." aria-label="Buscar por activo fijo" value="${escapeHtml(supervisorTicketBrandQuery)}"><button type="button" class="back-button" data-supervisor-ticket-back-to-sites>← Volver a sedes</button></div></div>
         <div class="brand-grid ticket-raise-brand-grid" aria-label="Marcas de equipos">${orderedBrands.map(brand => `<button class="brand-card" type="button" data-supervisor-ticket-brand="${escapeHtml(brand.id)}"><span class="brand-name">${escapeHtml(brand.name)}</span><span class="brand-count">${brand.count} ${query ? "coincidencias" : brand.count === 1 ? "equipo" : "equipos"} · Ver equipos →</span></button>`).join("") || `<div class="empty-state">${query ? "No se encontraron equipos con ese activo fijo." : "Esta sede aún no tiene equipos agrupados por marca."}</div>`}</div>`;
       if (restoreFocus) { $("supervisorTicketBrandSearch").focus(); if (caret !== null) $("supervisorTicketBrandSearch").setSelectionRange(caret, caret); }
     }
@@ -1164,74 +1140,6 @@
       const brandName = selectedBrand?.brandName || brandDirectory.find(entry => entry.id === supervisorTicketBrandId)?.name || selectedBrand?.name || "marca";
       content.innerHTML = `<div class="panel-heading"><div><h3>Equipos ${escapeHtml(brandName)}</h3><p>${cards.length} ${cards.length === 1 ? "equipo" : "equipos"} · Busca por activo fijo</p></div><div class="panel-tools ticket-raise-brand-tools"><input class="site-search" id="supervisorTicketEquipmentSearch" type="search" placeholder="Buscar activo fijo..." aria-label="Buscar equipo por número de activo fijo" value="${escapeHtml(supervisorTicketEquipmentQuery || supervisorTicketBrandQuery)}"><button type="button" class="back-button" data-supervisor-ticket-back>← Cambiar de marca</button></div></div><div class="machine-grid">${cards.join("") || '<div class="empty-state">No hay equipos registrados para esta marca o búsqueda.</div>'}</div>`;
       if (restoreFocus) { $("supervisorTicketEquipmentSearch").focus(); if (caret !== null) $("supervisorTicketEquipmentSearch").setSelectionRange(caret, caret); }
-    }
-
-    function currentBrandEquipmentFromSite(site) {
-      const entries = [];
-      (Array.isArray(site?.equipment) ? site.equipment : []).forEach(item => {
-        const brand = brandDirectory.find(entry => entry.id === item.brandId) ||
-          brandDirectory.find(entry => normalizeChartLabel(entry.name) === normalizeChartLabel(item.brandName));
-        const units = Array.isArray(item.units) && item.units.length
-          ? item.units
-          : Array.from({ length: Math.max(0, Number(item.quantity) || 0) }, () => ({}));
-        units.forEach((unit, index) => {
-          const unitId = unit.unitId || `${item.catalogId || item.brandId || brand?.id || "equipo"}:${index}`;
-          entries.push({ item, unit, index, total: units.length, recordKey: `${site.id}::${unitId}`, siteId: site.id, siteName: site.name });
-        });
-      });
-      return entries;
-    }
-
-    function openEquipmentByQr(activeFixed) {
-      const normalized = String(activeFixed).trim();
-      const site = assignedSites.find(entry => String(entry.id) === String(currentSite?.id));
-      if (!site) {
-        window.alert("Primero abre una sede para buscar uno de sus equipos.");
-        return;
-      }
-      const matches = currentBrandEquipmentFromSite(site).filter(machine => String(machine.unit?.activeFixed ?? "").trim() === normalized);
-      if (!matches.length) {
-        window.alert(`No se encontró el activo fijo ${normalized} en la sede seleccionada.`);
-        return;
-      }
-      if (matches.length > 1) {
-        window.alert(`El activo fijo ${normalized} aparece más de una vez en esta sede. Busca el número manualmente para elegir el equipo correcto.`);
-        return;
-      }
-      const machine = matches[0];
-      const brand = brandDirectory.find(entry => entry.id === machine.item.brandId) ||
-        brandDirectory.find(entry => normalizeChartLabel(entry.name) === normalizeChartLabel(machine.item.brandName));
-      if (!brand) {
-        window.alert("No se pudo identificar la marca del equipo escaneado.");
-        return;
-      }
-      renderBrandEquipment(brand.id);
-      $("siteFilter").value = normalized;
-      renderMachineCards(normalized);
-    }
-
-    function openSupervisorTicketEquipmentByQr(activeFixed) {
-      const normalized = String(activeFixed).trim();
-      const site = assignedSites.find(entry => String(entry.id) === String(supervisorTicketSiteId));
-      if (!site) {
-        window.alert("Vuelve a seleccionar una sede antes de buscar el equipo por QR.");
-        return;
-      }
-      const matches = currentBrandEquipmentFromSite(site).filter(machine => String(machine.unit?.activeFixed ?? "").trim() === normalized);
-      if (!matches.length) {
-        window.alert(`No se encontró el activo fijo ${normalized} en las sedes habilitadas para este supervisor.`);
-        return;
-      }
-      if (matches.length > 1) {
-        window.alert(`El activo fijo ${normalized} aparece más de una vez en esta sede. Busca el número manualmente para elegir el equipo correcto.`);
-        return;
-      }
-      const machine = matches[0];
-      const brandKey = supervisorTicketBrandKey(machine.item);
-      supervisorTicketBrandId = brandKey;
-      supervisorTicketEquipmentQuery = normalized;
-      supervisorTicketBrandQuery = "";
-      renderSupervisorTicketEquipment();
     }
 
     function renderSupervisorTicketForm(equipment) {
@@ -1933,7 +1841,6 @@
       $("siteFilter").placeholder = "Buscar sede...";
       $("siteFilter").setAttribute("aria-label", "Buscar sede por nombre");
       $("requestPartsFromBrands").hidden = true;
-      $("searchQrButton").hidden = true;
       $("backToSites").hidden = true;
       $("siteGrid").className = "site-grid";
       const normalize = value => String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("es");
@@ -2307,7 +2214,6 @@
       $("siteFilter").hidden = true;
       $("siteFilter").value = "";
       $("requestPartsFromBrands").hidden = false;
-      $("searchQrButton").hidden = false;
       $("backToSites").hidden = false;
       $("backToSites").textContent = "← Volver a sedes";
       $("siteGrid").className = "brand-grid";
@@ -2382,7 +2288,6 @@
       $("panelHeading").textContent = `Equipos ${brand.name}`;
       $("panelDescription").textContent = `${currentSite.name} · ${machines.length} ${machines.length === 1 ? "equipo" : "equipos"}`;
       $("backToSites").textContent = "← Cambiar de marca";
-      $("searchQrButton").hidden = true;
       $("siteFilter").hidden = false;
       $("siteFilter").placeholder = "Buscar activo fijo...";
       $("siteFilter").setAttribute("aria-label", "Buscar equipo por número de activo fijo");
@@ -2845,49 +2750,16 @@
       return load;
     }
 
-    let equipmentImageGallery = [];
-    let equipmentImageIndex = 0;
-    let equipmentImageZoom = 1;
-    let equipmentImagePointerStart = null;
-    let equipmentImageDragPoint = null;
-
-    function imageGalleryFor(trigger, src, alt) {
-      const container = trigger?.closest(".machine-log-photos, .maintenance-image-list, .ticket-history-detail-photos, .ticket-detail-photos");
-      if (!container) return [{ src, alt: alt || "Imagen" }];
-      const buttons = [...container.querySelectorAll("[data-enlarge-image], [data-history-image], [data-ticket-enlarge]")];
-      const gallery = buttons.map(button => ({ src: button.dataset.enlargeImage || button.dataset.historyImage || button.dataset.ticketEnlarge, alt: button.dataset.imageAlt || button.alt || "Imagen del registro" })).filter(item => item.src);
-      const index = gallery.findIndex(item => item.src === src);
-      return { gallery: gallery.length ? gallery : [{ src, alt: alt || "Imagen" }], index: Math.max(0, index) };
-    }
-
-    function openEquipmentImage(src, alt, trigger) {
-      const result = imageGalleryFor(trigger, src, alt);
-      equipmentImageGallery = Array.isArray(result) ? result : result.gallery;
-      equipmentImageIndex = Array.isArray(result) ? 0 : result.index;
-      equipmentImageZoom = 1;
-      renderEquipmentLightboxImage();
-      $("equipmentImageLightbox").hidden = false;
-      $("closeEquipmentImage").focus();
-    }
-
-    function renderEquipmentLightboxImage() {
+    function openEquipmentImage(src, alt) {
       const image = $("equipmentLightboxImage");
-      const item = equipmentImageGallery[equipmentImageIndex];
-      if (!item) return;
-      equipmentImageZoom = 1;
-      image.classList.remove("is-zoomed");
-      $("imageLightboxFrame").classList.remove("is-zoomed");
       image.style.width = "auto";
       image.style.height = "auto";
-      image.alt = item.alt || "Imagen del equipo";
+      image.alt = alt || "Imagen del equipo";
       image.onload = fitEquipmentImage;
-      image.src = item.src;
-      const multiple = equipmentImageGallery.length > 1;
-      $("prevEquipmentImage").hidden = !multiple;
-      $("nextEquipmentImage").hidden = !multiple;
-      $("equipmentImageCount").hidden = !multiple;
-      $("equipmentImageCount").textContent = `${equipmentImageIndex + 1} / ${equipmentImageGallery.length} · Desliza para cambiar`;
+      image.src = src;
+      $("equipmentImageLightbox").hidden = false;
       if (image.complete) fitEquipmentImage();
+      $("closeEquipmentImage").focus();
     }
 
     function fitEquipmentImage() {
@@ -2896,39 +2768,13 @@
       const maxWidth = Math.min(window.innerWidth * .94, 1400);
       const maxHeight = window.innerHeight * .92;
       const scale = Math.min(maxWidth / image.naturalWidth, maxHeight / image.naturalHeight);
-      image.style.width = `${Math.floor(image.naturalWidth * scale * equipmentImageZoom)}px`;
-      image.style.height = `${Math.floor(image.naturalHeight * scale * equipmentImageZoom)}px`;
-      image.classList.toggle("is-zoomed", equipmentImageZoom > 1.01);
-      $("imageLightboxFrame").classList.toggle("is-zoomed", equipmentImageZoom > 1.01);
-      if (equipmentImageZoom <= 1.01) { $("imageLightboxFrame").scrollLeft = 0; $("imageLightboxFrame").scrollTop = 0; }
-      $("toggleEquipmentImageZoom").textContent = equipmentImageZoom > 1.01 ? "−" : "+";
-      $("toggleEquipmentImageZoom").setAttribute("aria-label", equipmentImageZoom > 1.01 ? "Reducir imagen" : "Ampliar imagen");
-    }
-
-    function toggleEquipmentImageZoom() {
-      equipmentImageZoom = equipmentImageZoom > 1.01 ? 1 : 2;
-      fitEquipmentImage();
-      if (equipmentImageZoom > 1.01) {
-        const frame = $("imageLightboxFrame");
-        frame.scrollLeft = Math.max(0, (frame.scrollWidth - frame.clientWidth) / 2);
-        frame.scrollTop = Math.max(0, (frame.scrollHeight - frame.clientHeight) / 2);
-      }
-    }
-
-    function stepEquipmentImage(direction) {
-      if (equipmentImageGallery.length < 2) return;
-      equipmentImageIndex = (equipmentImageIndex + direction + equipmentImageGallery.length) % equipmentImageGallery.length;
-      equipmentImageZoom = 1;
-      renderEquipmentLightboxImage();
+      image.style.width = `${Math.floor(image.naturalWidth * scale)}px`;
+      image.style.height = `${Math.floor(image.naturalHeight * scale)}px`;
     }
 
     function closeEquipmentImage() {
       $("equipmentImageLightbox").hidden = true;
       $("equipmentLightboxImage").removeAttribute("src");
-      equipmentImageGallery = [];
-      equipmentImageZoom = 1;
-      equipmentImageDragPoint = null;
-      $("imageLightboxFrame").classList.remove("is-zoomed");
     }
 
     $("siteGrid").addEventListener("click", event => {
@@ -3023,14 +2869,9 @@
       $("supervisorMenuToggle").setAttribute("aria-label", isOpen ? "Cerrar menú" : "Abrir menú");
     });
     $("supervisorRaiseTicketPanel").addEventListener("click", event => {
-      const qrButton = event.target.closest("[data-search-qr-supervisor-ticket]");
-      if (qrButton) {
-        window.SmartFitQrScanner?.open({ onCode: openSupervisorTicketEquipmentByQr });
-        return;
-      }
       const enlargedImage = event.target.closest("[data-enlarge-image]");
       if (enlargedImage) {
-        openEquipmentImage(enlargedImage.dataset.enlargeImage, enlargedImage.dataset.imageAlt, enlargedImage);
+        openEquipmentImage(enlargedImage.dataset.enlargeImage, enlargedImage.dataset.imageAlt);
         return;
       }
       const toggleImageMenu = event.target.closest("[data-toggle-supervisor-ticket-image-menu]");
@@ -3283,9 +3124,6 @@
         renderSiteList();
       }
     });
-    $("searchQrButton").addEventListener("click", () => {
-      window.SmartFitQrScanner?.open({ onCode: openEquipmentByQr });
-    });
     $("siteGrid").addEventListener("click", async event => {
       const imageMenuToggle = event.target.closest("[data-toggle-maintenance-image-menu]");
       if (imageMenuToggle) {
@@ -3517,7 +3355,7 @@
         return;
       }
       const imageButton = event.target.closest("[data-enlarge-image]");
-      if (imageButton) openEquipmentImage(imageButton.dataset.enlargeImage, imageButton.dataset.imageAlt, imageButton);
+      if (imageButton) openEquipmentImage(imageButton.dataset.enlargeImage, imageButton.dataset.imageAlt);
     });
     $("siteGrid").addEventListener("error", event => {
       if (!event.target.matches(".machine-image-button img")) return;
@@ -3569,7 +3407,7 @@
     $("supervisorTicketModal").addEventListener("click", event => {
       const ticketPhoto = event.target.closest("[data-ticket-enlarge]");
       if (ticketPhoto) {
-        openEquipmentImage(ticketPhoto.dataset.ticketEnlarge, ticketPhoto.alt, ticketPhoto);
+        openEquipmentImage(ticketPhoto.dataset.ticketEnlarge, ticketPhoto.alt);
         return;
       }
       const saveTicketStatus = event.target.closest("[data-save-ticket-status]");
@@ -3584,44 +3422,10 @@
       if (event.target === $("supervisorTicketModal")) $("supervisorTicketModal").hidden = true;
     });
     $("closeEquipmentImage").addEventListener("click", closeEquipmentImage);
-    $("toggleEquipmentImageZoom").addEventListener("click", toggleEquipmentImageZoom);
-    $("prevEquipmentImage").addEventListener("click", () => stepEquipmentImage(-1));
-    $("nextEquipmentImage").addEventListener("click", () => stepEquipmentImage(1));
-    $("equipmentLightboxImage").addEventListener("pointerdown", event => {
-      if (equipmentImageZoom > 1.01) {
-        event.currentTarget.setPointerCapture?.(event.pointerId);
-        equipmentImageDragPoint = { x: event.clientX, y: event.clientY };
-        return;
-      }
-      equipmentImagePointerStart = { x: event.clientX, y: event.clientY };
-    });
-    $("equipmentLightboxImage").addEventListener("pointermove", event => {
-      if (equipmentImageZoom <= 1.01 || !equipmentImageDragPoint) return;
-      event.preventDefault();
-      const frame = $("imageLightboxFrame");
-      frame.scrollLeft -= event.clientX - equipmentImageDragPoint.x;
-      frame.scrollTop -= event.clientY - equipmentImageDragPoint.y;
-      equipmentImageDragPoint = { x: event.clientX, y: event.clientY };
-    });
-    $("equipmentLightboxImage").addEventListener("pointerup", event => {
-      if (equipmentImageZoom > 1.01) { equipmentImageDragPoint = null; return; }
-      if (!equipmentImagePointerStart) return;
-      const dx = event.clientX - equipmentImagePointerStart.x;
-      const dy = event.clientY - equipmentImagePointerStart.y;
-      if (Math.abs(dx) > 55 && Math.abs(dx) > Math.abs(dy) * 1.25) {
-        stepEquipmentImage(dx < 0 ? 1 : -1);
-      }
-      equipmentImagePointerStart = null;
-    });
-    $("equipmentLightboxImage").addEventListener("pointercancel", () => { equipmentImagePointerStart = null; equipmentImageDragPoint = null; });
     window.addEventListener("resize", () => {
       if (!$("equipmentImageLightbox").hidden) fitEquipmentImage();
     });
     document.addEventListener("keydown", event => {
-      if (!$("equipmentImageLightbox").hidden) {
-        if (event.key === "ArrowLeft") stepEquipmentImage(-1);
-        if (event.key === "ArrowRight") stepEquipmentImage(1);
-      }
       if (event.key !== "Escape") return;
       if (!$("equipmentImageLightbox").hidden) closeEquipmentImage();
       $("supervisorTicketModal").hidden = true;
@@ -3658,115 +3462,6 @@
         if (supervisorTicketBrandId) renderSupervisorTicketEquipment(true);
         else if (supervisorTicketSiteId) renderSupervisorTicketBrands(true);
         else renderSupervisorTicketSites(true);
-      }
-    });
-    window.SmartFitMobileBack?.start({
-      page: "site-panel",
-      capture: () => {
-        const activeView = document.querySelector("[data-supervisor-view].active")?.dataset.supervisorView || (supervisorMode ? "summary" : "sites");
-        const eventsPage = !$('supervisorMileageHistoryBlank').hidden ? "mileage"
-          : !$('supervisorMaintenanceHistoryBlank').hidden ? "maintenance"
-            : !$('supervisorEventsChooser').hidden ? "chooser" : "";
-        const ticketContent = $('supervisorRaiseTicketContent');
-        const ticketPhase = supervisorTicketEquipment ? "form"
-          : supervisorTicketBrandId ? "equipment"
-            : supervisorTicketSiteId ? "brands"
-              : ticketContent?.querySelector("#supervisorTicketSiteSearch") ? "sites" : "chooser";
-        return {
-          mainView: activeView,
-          siteId: currentSite?.id || "",
-          brandId: currentBrandId || "",
-          machineKey: currentMachine?.recordKey || "",
-          machineTab: currentMachineTab || "maintenance",
-          eventsPage,
-          ticketPhase,
-          ticketSiteId: supervisorTicketSiteId || "",
-          ticketBrandId: supervisorTicketBrandId || "",
-          ticketEquipment: supervisorTicketEquipment ? {
-            recordKey: supervisorTicketEquipment.recordKey,
-            siteId: supervisorTicketEquipment.siteId,
-            siteName: supervisorTicketEquipment.siteName,
-            activeFixed: supervisorTicketEquipment.activeFixed,
-            machineName: supervisorTicketEquipment.machineName,
-            machineModel: supervisorTicketEquipment.machineModel,
-            technician: supervisorTicketEquipment.technician,
-            technicianId: supervisorTicketEquipment.technicianId,
-            supervisor: supervisorTicketEquipment.supervisor
-          } : null,
-          ticketSiteQuery: supervisorTicketSiteQuery || "",
-          ticketBrandQuery: supervisorTicketBrandQuery || "",
-          ticketEquipmentQuery: supervisorTicketEquipmentQuery || ""
-        };
-      },
-      restore: state => {
-        $("supervisorMenu").classList.remove("open");
-        $("supervisorMenuToggle").setAttribute("aria-expanded", "false");
-        const view = state.mainView || (supervisorMode ? "summary" : "sites");
-        if (supervisorMode && state.ticketPhase === "form" && state.ticketEquipment) {
-          renderSupervisorRaiseTicket();
-          supervisorTicketSiteQuery = state.ticketSiteQuery || "";
-          supervisorTicketBrandQuery = state.ticketBrandQuery || "";
-          supervisorTicketEquipmentQuery = state.ticketEquipmentQuery || "";
-          renderSupervisorTicketSites();
-          if (state.ticketSiteId) {
-            supervisorTicketSiteId = state.ticketSiteId;
-            renderSupervisorTicketBrands();
-          }
-          if (state.ticketBrandId) {
-            supervisorTicketBrandId = state.ticketBrandId;
-            renderSupervisorTicketEquipment();
-          }
-          renderSupervisorTicketForm(state.ticketEquipment);
-          return;
-        }
-        if (supervisorMode) {
-          if (view === "summary") renderSupervisorSummary();
-          else if (view === "tickets") renderSupervisorTickets();
-          else if (view === "inventory") renderSupervisorInventory();
-          else if (view === "raise-ticket") {
-            renderSupervisorRaiseTicket();
-            supervisorTicketSiteQuery = state.ticketSiteQuery || "";
-            supervisorTicketBrandQuery = state.ticketBrandQuery || "";
-            supervisorTicketEquipmentQuery = state.ticketEquipmentQuery || "";
-            if (state.ticketPhase !== "chooser") renderSupervisorTicketSites();
-            if (state.ticketSiteId && ["brands", "equipment", "form"].includes(state.ticketPhase)) {
-              supervisorTicketSiteId = state.ticketSiteId;
-              renderSupervisorTicketBrands();
-            }
-            if (state.ticketBrandId && ["equipment", "form"].includes(state.ticketPhase)) {
-              supervisorTicketBrandId = state.ticketBrandId;
-              renderSupervisorTicketEquipment();
-            }
-            if (state.ticketPhase === "form" && state.ticketEquipment) renderSupervisorTicketForm(state.ticketEquipment);
-            return;
-          } else if (view === "events") {
-            renderSupervisorEvents();
-            if (state.eventsPage === "maintenance") {
-              $('supervisorEventsChooser').hidden = true;
-              $('supervisorMaintenanceHistoryBlank').hidden = false;
-              renderSupervisorMaintenanceHistory();
-            } else if (state.eventsPage === "mileage") {
-              $('supervisorEventsChooser').hidden = true;
-              $('supervisorMileageHistoryBlank').hidden = false;
-              renderSupervisorMileageHistory();
-            }
-          } else renderSiteList();
-        } else renderSiteList();
-
-        if (state.siteId) {
-          if (supervisorMode) renderSiteList();
-          currentSite = assignedSites.find(site => String(site.id) === String(state.siteId)) || null;
-          if (currentSite) renderSiteBrands(currentSite);
-          if (currentSite && state.brandId) renderBrandEquipment(state.brandId, { resetFilter: false });
-          if (currentSite && state.machineKey) {
-            const machine = currentBrandEquipment.find(entry => String(entry.recordKey) === String(state.machineKey));
-            if (machine) {
-              currentMachineTab = state.machineTab || "maintenance";
-              renderMachineDetail(machine);
-              void loadMachineDetailMedia(machine);
-            }
-          }
-        }
       }
     });
     SmartFitSupabaseData.syncPendingAccessLogs().catch(error => console.warn("El inicio de sesión quedó en cola para sincronizarse.", error));
