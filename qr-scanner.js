@@ -7,6 +7,7 @@
   let onCode = null;
   let locked = false;
   let previousBodyOverflow = "";
+  let qrDecoderPromise = null;
 
   const styles = document.createElement("style");
   styles.textContent = `
@@ -70,6 +71,23 @@
     status.dataset.state = "error";
   }
 
+  function loadQrDecoder() {
+    if (window.jsQR) return Promise.resolve(window.jsQR);
+    if (qrDecoderPromise) return qrDecoderPromise;
+    qrDecoderPromise = new Promise((resolve, reject) => {
+      const script = document.createElement("script");
+      script.src = "vendor/jsQR.min.js?v=1.4.0";
+      script.async = true;
+      script.onload = () => window.jsQR ? resolve(window.jsQR) : reject(new Error("El lector QR no quedó disponible."));
+      script.onerror = () => reject(new Error("No se pudo descargar el lector QR."));
+      document.head.append(script);
+    }).catch(error => {
+      qrDecoderPromise = null;
+      throw error;
+    });
+    return qrDecoderPromise;
+  }
+
   function scanFrame(now) {
     if (backdrop.hidden || !stream) return;
     animationFrame = requestAnimationFrame(scanFrame);
@@ -103,14 +121,18 @@
 
   async function open(options = {}) {
     onCode = typeof options.onCode === "function" ? options.onCode : null;
-    if (!window.jsQR) {
-      backdrop.hidden = false;
-      showError("No se pudo cargar el lector QR local. Recarga la página e inténtalo otra vez.");
-      return;
-    }
     backdrop.hidden = false;
     previousBodyOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
+    status.removeAttribute("data-state");
+    status.textContent = "Cargando lector QR…";
+    try {
+      await loadQrDecoder();
+    } catch (error) {
+      showError("No se pudo cargar el lector QR. Comprueba la conexión e inténtalo otra vez.");
+      return;
+    }
+    if (backdrop.hidden) return;
     status.removeAttribute("data-state");
     status.textContent = "Solicitando permiso para usar la cámara…";
     if (!navigator.mediaDevices?.getUserMedia) {
