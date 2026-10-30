@@ -492,6 +492,12 @@
       .supervisor-chart-legend { grid-template-columns: repeat(2, minmax(0, 1fr)); max-height: 150px; }
     }
   </style>
+<style>
+.record-photo-carousel-viewport[hidden]{display:none!important}.record-photo-carousel-viewport{position:absolute;inset:0;width:100%;height:100%;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none;overscroll-behavior:contain}
+.record-photo-carousel-track{display:flex;width:100%;height:100%;will-change:transform}.record-photo-carousel-slide{flex:0 0 100%;width:100%;height:100%;display:grid;place-items:center;overflow:hidden}
+.record-photo-carousel-slide img{display:block;max-width:none;max-height:none;object-fit:contain;pointer-events:none;-webkit-user-drag:none}
+.image-lightbox-frame.has-record-photo-carousel{display:block!important;position:relative;width:auto;height:auto;max-width:96vw!important;max-height:94dvh!important}
+</style>
 </head>
 <body>
   <header class="topbar">
@@ -745,11 +751,13 @@
   </div>
 
   <div class="image-lightbox" id="equipmentImageLightbox" hidden>
-    <div class="image-lightbox-frame" role="dialog" aria-modal="true" aria-label="Imagen ampliada del equipo">
+    <div class="image-lightbox-frame" id="equipmentImageLightboxFrame" role="dialog" aria-modal="true" aria-label="Imagen ampliada del equipo">
       <button class="image-lightbox-close" id="closeEquipmentImage" type="button" aria-label="Cerrar imagen">×</button>
       <img id="equipmentLightboxImage" alt="">
+      <div class="record-photo-carousel-viewport" id="equipmentRecordPhotoViewport" hidden><div class="record-photo-carousel-track" id="equipmentRecordPhotoTrack"></div></div>
     </div>
   </div>
+  <script src="record-photo-carousel.js?v=20261030-record-carousel-3"></script>
 
   <div class="ticket-modal-backdrop" id="supervisorTicketModal" hidden>
     <section class="ticket-modal" role="dialog" aria-modal="true" aria-labelledby="supervisorTicketModalTitle">
@@ -2833,7 +2841,13 @@
       return load;
     }
 
-    function openEquipmentImage(src, alt) {
+    const siteRecordPhotoCarousel = window.SmartFitRecordPhotoCarousel.create({ overlayId: "equipmentImageLightbox", frameId: "equipmentImageLightboxFrame", imageId: "equipmentLightboxImage", viewportId: "equipmentRecordPhotoViewport", trackId: "equipmentRecordPhotoTrack" });
+
+    function openEquipmentImage(src, alt, trigger) {
+      if (siteRecordPhotoCarousel.openFromTrigger(trigger, src, alt)) {
+        $("closeEquipmentImage").focus();
+        return;
+      }
       const image = $("equipmentLightboxImage");
       image.style.width = "auto";
       image.style.height = "auto";
@@ -2856,6 +2870,7 @@
     }
 
     function closeEquipmentImage() {
+      siteRecordPhotoCarousel.close();
       $("equipmentImageLightbox").hidden = true;
       $("equipmentLightboxImage").removeAttribute("src");
     }
@@ -2959,7 +2974,7 @@
       }
       const enlargedImage = event.target.closest("[data-enlarge-image]");
       if (enlargedImage) {
-        openEquipmentImage(enlargedImage.dataset.enlargeImage, enlargedImage.dataset.imageAlt);
+        openEquipmentImage(enlargedImage.dataset.enlargeImage, enlargedImage.dataset.imageAlt, enlargedImage);
         return;
       }
       const toggleImageMenu = event.target.closest("[data-toggle-supervisor-ticket-image-menu]");
@@ -3446,7 +3461,7 @@
         return;
       }
       const imageButton = event.target.closest("[data-enlarge-image]");
-      if (imageButton) openEquipmentImage(imageButton.dataset.enlargeImage, imageButton.dataset.imageAlt);
+      if (imageButton) openEquipmentImage(imageButton.dataset.enlargeImage, imageButton.dataset.imageAlt, imageButton);
     });
     $("siteGrid").addEventListener("error", event => {
       if (!event.target.matches(".machine-image-button img")) return;
@@ -3498,7 +3513,7 @@
     $("supervisorTicketModal").addEventListener("click", event => {
       const ticketPhoto = event.target.closest("[data-ticket-enlarge]");
       if (ticketPhoto) {
-        openEquipmentImage(ticketPhoto.dataset.ticketEnlarge, ticketPhoto.alt);
+        openEquipmentImage(ticketPhoto.dataset.ticketEnlarge, ticketPhoto.alt, ticketPhoto);
         return;
       }
       const saveTicketStatus = event.target.closest("[data-save-ticket-status]");

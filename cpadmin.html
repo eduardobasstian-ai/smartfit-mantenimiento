@@ -495,6 +495,12 @@
       .lightbox-image { max-width: 96vw; max-height: 92dvh; }
     }
   </style>
+<style>
+.record-photo-carousel-viewport[hidden]{display:none!important}.record-photo-carousel-viewport{position:absolute;inset:0;width:100%;height:100%;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none;overscroll-behavior:contain}
+.record-photo-carousel-track{display:flex;width:100%;height:100%;will-change:transform}.record-photo-carousel-slide{flex:0 0 100%;width:100%;height:100%;display:grid;place-items:center;overflow:hidden}
+.record-photo-carousel-slide img{display:block;max-width:none;max-height:none;object-fit:contain;pointer-events:none;-webkit-user-drag:none}
+.lightbox-frame.has-record-photo-carousel{display:block!important;position:relative;width:auto;height:auto;max-width:96vw!important;max-height:94dvh!important}
+</style>
 </head>
 <body>
   <header class="topbar">
@@ -1086,11 +1092,13 @@
   </div>
 
   <div class="lightbox-backdrop" id="matrixImageLightbox" hidden>
-    <div class="lightbox-frame" role="dialog" aria-modal="true" aria-label="Imagen ampliada del equipo">
+    <div class="lightbox-frame" id="matrixImageLightboxFrame" role="dialog" aria-modal="true" aria-label="Imagen ampliada del equipo">
       <button class="lightbox-close" id="closeMatrixImage" type="button" aria-label="Cerrar imagen">×</button>
       <img class="lightbox-image" id="matrixLightboxImage" alt="">
+      <div class="record-photo-carousel-viewport" id="matrixRecordPhotoViewport" hidden><div class="record-photo-carousel-track" id="matrixRecordPhotoTrack"></div></div>
     </div>
   </div>
+  <script src="record-photo-carousel.js?v=20261030-record-carousel-3"></script>
   <script src="mobile-back-navigation.js?v=20261029-mobile-back-1"></script>
   <script src="admin-store.js?v=20261029-performance-stage-2"></script>
   <script src="supabase-data.js?v=20261029-performance-stage-2"></script>
@@ -2303,7 +2311,13 @@
 
     function closeMatrixModal() { $("matrixModal").hidden = true; }
 
-    function openMatrixImage(src, alt) {
+    const matrixRecordPhotoCarousel = window.SmartFitRecordPhotoCarousel.create({ overlayId: "matrixImageLightbox", frameId: "matrixImageLightboxFrame", imageId: "matrixLightboxImage", viewportId: "matrixRecordPhotoViewport", trackId: "matrixRecordPhotoTrack" });
+
+    function openMatrixImage(src, alt, trigger) {
+      if (matrixRecordPhotoCarousel.openFromTrigger(trigger, src, alt)) {
+        $("closeMatrixImage").focus();
+        return;
+      }
       const image = $("matrixLightboxImage");
       image.style.width = "auto";
       image.style.height = "auto";
@@ -2326,6 +2340,7 @@
     }
 
     function closeMatrixImage() {
+      matrixRecordPhotoCarousel.close();
       $("matrixImageLightbox").hidden = true;
       $("matrixLightboxImage").removeAttribute("src");
     }
@@ -2679,7 +2694,7 @@
     $("ticketDetailModal").addEventListener("click", event => {
       const ticketPhoto = event.target.closest("[data-ticket-enlarge]");
       if (ticketPhoto) {
-        openMatrixImage(ticketPhoto.dataset.ticketEnlarge, ticketPhoto.alt);
+        openMatrixImage(ticketPhoto.dataset.ticketEnlarge, ticketPhoto.alt, ticketPhoto);
         return;
       }
       if (event.target === $("ticketDetailModal")) $("ticketDetailModal").hidden = true;

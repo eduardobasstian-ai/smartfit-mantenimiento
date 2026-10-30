@@ -23,7 +23,7 @@ jobs:
       - name: Preparar versión pública
         run: |
           mkdir -p _site/IMG _site/EQU _site/vendor
-          cp index.html cpadmin.html cpsedes.html cplider.html change-password.html admin-store.js supabase-auth.js supabase-data.js mobile-back-navigation.js online-only.js form-drafts.js qr-scanner.js manifest.webmanifest _site/
+          cp index.html cpadmin.html cpsedes.html cplider.html change-password.html admin-store.js supabase-auth.js supabase-data.js mobile-back-navigation.js online-only.js form-drafts.js qr-scanner.js record-photo-carousel.js manifest.webmanifest _site/
           cp vendor/jsQR.min.js vendor/jsQR.LICENSE _site/vendor/
           cp IMG/favicon.ico IMG/favicon.png IMG/logo-header.png IMG/pwa-180.png IMG/pwa-192.png IMG/pwa-512.png _site/IMG/
           cp -R EQU/. _site/EQU/
