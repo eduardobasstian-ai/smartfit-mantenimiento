@@ -10,9 +10,10 @@
     const overlay = $(options.overlayId);
     const frame = $(options.frameId);
     const originalImage = $(options.imageId);
+    const downloadButton = $(options.downloadButtonId);
     const viewport = $(options.viewportId);
     const track = $(options.trackId);
-    if (!overlay || !frame || !originalImage || !viewport || !track) throw new Error("Faltan elementos del carrusel de fotografías.");
+    if (!overlay || !frame || !originalImage || !downloadButton || !viewport || !track) throw new Error("Faltan elementos del carrusel de fotografías.");
 
     let photos = [];
     let index = 0;
@@ -102,6 +103,7 @@
       mouseStartPoint = null;
       normalizeAfterTransition = false;
       originalImage.hidden = true;
+      downloadButton.hidden = false;
       viewport.hidden = false;
       frame.classList.add("has-record-photo-carousel");
       overlay.hidden = false;
@@ -122,6 +124,7 @@
       frame.style.removeProperty("width");
       frame.style.removeProperty("height");
       viewport.hidden = true;
+      downloadButton.hidden = true;
       originalImage.hidden = false;
       frame.classList.remove("has-record-photo-carousel");
     }
@@ -209,6 +212,46 @@
       else positionTrack(true);
       mouseStartPoint = null;
     });
+
+    async function downloadCurrentPhoto() {
+      const photoIndex = index;
+      const photo = photos[photoIndex];
+      if (!photo?.src) return;
+      const extensionFor = (blob, source) => {
+        const mimeExtension = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/gif": "gif", "image/heic": "heic", "image/heif": "heif" };
+        const mime = (blob.type || "").split(";")[0].toLowerCase();
+        if (mimeExtension[mime]) return mimeExtension[mime];
+        try {
+          const extension = new URL(source, document.baseURI).pathname.split(".").pop().toLowerCase();
+          if (/^(jpe?g|png|webp|gif|heic|heif)$/.test(extension)) return extension === "jpeg" ? "jpg" : extension;
+        } catch (error) { /* Use jpg as the safe image fallback. */ }
+        return "jpg";
+      };
+      const triggerDownload = (href, filename) => {
+        const link = document.createElement("a");
+        link.href = href;
+        link.download = filename;
+        link.rel = "noopener";
+        document.body.append(link);
+        link.click();
+        link.remove();
+      };
+      const filename = `fotografia-registro-${photoIndex + 1}.${extensionFor({ type: "" }, photo.src)}`;
+      try {
+        const response = await fetch(photo.src, { mode: "cors", credentials: "omit" });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const blob = await response.blob();
+        const downloadUrl = URL.createObjectURL(blob);
+        triggerDownload(downloadUrl, `fotografia-registro-${photoIndex + 1}.${extensionFor(blob, photo.src)}`);
+        window.setTimeout(() => URL.revokeObjectURL(downloadUrl), 30000);
+      } catch (error) {
+        // If the image is same-origin or a data URL, the browser can still
+        // download it directly even when fetching a blob is unavailable.
+        triggerDownload(photo.src, filename);
+      }
+    }
+
+    downloadButton.addEventListener("click", downloadCurrentPhoto);
     track.addEventListener("transitionend", event => {
       if (event.target !== track || event.propertyName !== "transform" || !normalizeAfterTransition) return;
       normalizeAfterTransition = false;

@@ -435,6 +435,7 @@
 .record-photo-carousel-track{display:flex;width:100%;height:100%;will-change:transform}.record-photo-carousel-slide{flex:0 0 100%;width:100%;height:100%;display:grid;place-items:center;overflow:hidden}
 .record-photo-carousel-slide img{display:block;max-width:none;max-height:none;object-fit:contain;pointer-events:none;-webkit-user-drag:none}
 .image-lightbox-frame.has-record-photo-carousel{display:block!important;position:relative;width:auto;height:auto;max-width:96vw!important;max-height:94dvh!important}
+.record-photo-download[hidden]{display:none!important}.record-photo-download{position:absolute;z-index:2;top:56px;right:10px;width:38px;height:38px;display:grid;place-items:center;padding:0;border:1px solid #d1d3d8;border-radius:50%;background:#fff;color:#17191f;box-shadow:0 2px 12px #0003;cursor:pointer}.record-photo-download:hover{border-color:var(--yellow);color:#8a5a00}
 </style>
 </head>
 <body>
@@ -609,11 +610,12 @@
   <div class="image-lightbox" id="equipmentImageLightbox" hidden>
     <div class="image-lightbox-frame" id="equipmentImageLightboxFrame" role="dialog" aria-modal="true" aria-label="Imagen ampliada del equipo">
       <button class="image-lightbox-close" id="closeEquipmentImage" type="button" aria-label="Cerrar imagen">×</button>
+      <button class="record-photo-download" id="downloadEquipmentImage" type="button" aria-label="Descargar fotografía" title="Descargar fotografía" hidden><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v11m0 0 4-4m-4 4-4-4M5 17v3h14v-3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
       <img id="equipmentLightboxImage" alt="">
       <div class="record-photo-carousel-viewport" id="equipmentRecordPhotoViewport" hidden><div class="record-photo-carousel-track" id="equipmentRecordPhotoTrack"></div></div>
     </div>
   </div>
-  <script src="record-photo-carousel.js?v=20261030-record-carousel-3"></script>
+  <script src="record-photo-carousel.js?v=20261030-record-carousel-4"></script>
 
   <div class="ticket-history-modal-backdrop" id="ticketHistoryModal" hidden>
     <section class="ticket-history-modal" role="dialog" aria-modal="true" aria-labelledby="ticketHistoryModalTitle">
@@ -1882,7 +1884,7 @@
         </article>`;
     }
 
-    const leaderRecordPhotoCarousel = window.SmartFitRecordPhotoCarousel.create({ overlayId: "equipmentImageLightbox", frameId: "equipmentImageLightboxFrame", imageId: "equipmentLightboxImage", viewportId: "equipmentRecordPhotoViewport", trackId: "equipmentRecordPhotoTrack" });
+    const leaderRecordPhotoCarousel = window.SmartFitRecordPhotoCarousel.create({ overlayId: "equipmentImageLightbox", frameId: "equipmentImageLightboxFrame", imageId: "equipmentLightboxImage", downloadButtonId: "downloadEquipmentImage", viewportId: "equipmentRecordPhotoViewport", trackId: "equipmentRecordPhotoTrack" });
 
     function openEquipmentImage(src, alt, trigger) {
       if (leaderRecordPhotoCarousel.openFromTrigger(trigger, src, alt)) {
