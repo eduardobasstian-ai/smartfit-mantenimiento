@@ -495,16 +495,6 @@
       .lightbox-image { max-width: 96vw; max-height: 92dvh; }
     }
   </style>
-<style>
-.image-gallery-frame{position:relative!important;width:min(96vw,1400px)!important;height:min(92vh,1000px)!important;max-width:96vw!important;max-height:94dvh!important;display:flex!important;flex-direction:column!important;overflow:hidden!important;background:#08090c!important;border:1px solid #454854!important;border-radius:14px!important}
-.image-gallery-toolbar{position:absolute;z-index:3;top:10px;left:10px;right:10px;display:flex;align-items:center;justify-content:space-between;pointer-events:none}
-.image-gallery-toolbar button,.image-gallery-counter{pointer-events:auto;min-width:40px;height:40px;padding:0 12px;border:1px solid #555966;border-radius:10px;background:#191b22;color:#fff;font-size:20px;font-weight:700;box-shadow:0 2px 12px #0008}
-.image-gallery-toolbar button{cursor:pointer}.image-gallery-toolbar button[hidden],.image-gallery-counter[hidden]{display:none!important}.image-gallery-toolbar button:hover{border-color:var(--yellow,#ffb51b);color:var(--yellow,#ffb51b)}
-.image-gallery-viewport{width:100%;height:100%;min-height:0;overflow:hidden;touch-action:none;overscroll-behavior:contain;user-select:none;-webkit-user-select:none}.image-gallery-track{display:flex;width:100%;height:100%;will-change:transform}
-.image-gallery-slide{flex:0 0 100%;width:100%;height:100%;display:grid;place-items:center;overflow:hidden;overscroll-behavior:contain;touch-action:none}.image-gallery-slide.is-zoomed{display:block;overflow:auto;scrollbar-width:none}.image-gallery-slide.is-zoomed::-webkit-scrollbar{display:none}
-.image-gallery-slide img{display:block;max-width:none;max-height:none;object-fit:contain;pointer-events:none;-webkit-user-drag:none}.image-gallery-slide:not(.is-zoomed) img{max-width:94vw;max-height:90vh;object-fit:contain}
-@media(max-width:600px){.image-gallery-frame{width:100vw!important;height:100dvh!important;max-width:100vw!important;max-height:100dvh!important;border:0!important;border-radius:0!important}.image-gallery-toolbar{top:max(10px,env(safe-area-inset-top));left:10px;right:10px}.image-gallery-toolbar button,.image-gallery-counter{height:42px}.image-gallery-slide:not(.is-zoomed) img{max-width:96vw;max-height:90dvh}}
-</style>
 </head>
 <body>
   <header class="topbar">
@@ -1096,12 +1086,11 @@
   </div>
 
   <div class="lightbox-backdrop" id="matrixImageLightbox" hidden>
-    <div class="lightbox-frame image-gallery-frame" id="matrixGalleryFrame" role="dialog" aria-modal="true" aria-label="Galería de imágenes">
-      <div class="image-gallery-toolbar"><button id="matrixGalleryPrevious" type="button" aria-label="Imagen anterior">‹</button><span class="image-gallery-counter" id="matrixGalleryCounter" aria-live="polite"></span><div><button id="matrixGalleryZoom" type="button" aria-label="Ampliar imagen">+</button><button class="lightbox-close" id="closeMatrixImage" type="button" aria-label="Cerrar imagen">×</button></div><button id="matrixGalleryNext" type="button" aria-label="Imagen siguiente">›</button></div>
-      <div class="image-gallery-viewport" id="matrixGalleryViewport"><div class="image-gallery-track" id="matrixGalleryTrack"></div></div>
+    <div class="lightbox-frame" role="dialog" aria-modal="true" aria-label="Imagen ampliada del equipo">
+      <button class="lightbox-close" id="closeMatrixImage" type="button" aria-label="Cerrar imagen">×</button>
+      <img class="lightbox-image" id="matrixLightboxImage" alt="">
     </div>
   </div>
-  <script src="image-gallery-viewer.js?v=20261030-gallery-2"></script>
   <script src="mobile-back-navigation.js?v=20261029-mobile-back-1"></script>
   <script src="admin-store.js?v=20261029-performance-stage-2"></script>
   <script src="supabase-data.js?v=20261029-performance-stage-2"></script>
@@ -2314,9 +2303,32 @@
 
     function closeMatrixModal() { $("matrixModal").hidden = true; }
 
-    const matrixImageGallery = window.SmartFitImageGallery.create({ overlayId: "matrixImageLightbox", frameId: "matrixGalleryFrame", viewportId: "matrixGalleryViewport", trackId: "matrixGalleryTrack", closeId: "closeMatrixImage", zoomId: "matrixGalleryZoom", previousId: "matrixGalleryPrevious", nextId: "matrixGalleryNext", counterId: "matrixGalleryCounter" });
-    function openMatrixImage(src, alt, trigger) { matrixImageGallery.openFromTrigger(trigger, src, alt); }
-    function closeMatrixImage() { matrixImageGallery.close(); }
+    function openMatrixImage(src, alt) {
+      const image = $("matrixLightboxImage");
+      image.style.width = "auto";
+      image.style.height = "auto";
+      image.alt = alt;
+      image.onload = fitMatrixLightboxImage;
+      image.src = src;
+      $("matrixImageLightbox").hidden = false;
+      if (image.complete) fitMatrixLightboxImage();
+      $("closeMatrixImage").focus();
+    }
+
+    function fitMatrixLightboxImage() {
+      const image = $("matrixLightboxImage");
+      if (!image.naturalWidth || !image.naturalHeight) return;
+      const maxWidth = Math.min(window.innerWidth * 0.9, 1200);
+      const maxHeight = window.innerHeight * 0.86;
+      const scale = Math.min(maxWidth / image.naturalWidth, maxHeight / image.naturalHeight);
+      image.style.width = `${Math.floor(image.naturalWidth * scale)}px`;
+      image.style.height = `${Math.floor(image.naturalHeight * scale)}px`;
+    }
+
+    function closeMatrixImage() {
+      $("matrixImageLightbox").hidden = true;
+      $("matrixLightboxImage").removeAttribute("src");
+    }
 
     function showView(name) {
       document.querySelectorAll(".view").forEach(view => { view.hidden = view.id !== `${name}View`; });
@@ -2667,7 +2679,7 @@
     $("ticketDetailModal").addEventListener("click", event => {
       const ticketPhoto = event.target.closest("[data-ticket-enlarge]");
       if (ticketPhoto) {
-        openMatrixImage(ticketPhoto.dataset.ticketEnlarge, ticketPhoto.alt, ticketPhoto);
+        openMatrixImage(ticketPhoto.dataset.ticketEnlarge, ticketPhoto.alt);
         return;
       }
       if (event.target === $("ticketDetailModal")) $("ticketDetailModal").hidden = true;
@@ -2707,7 +2719,7 @@
     $("siteInventoryBody").addEventListener("click", event => {
       const thumbnail = event.target.closest("[data-inventory-image]");
       if (thumbnail) {
-        openMatrixImage(thumbnail.currentSrc || thumbnail.src, thumbnail.alt, thumbnail);
+        openMatrixImage(thumbnail.currentSrc || thumbnail.src, thumbnail.alt);
         return;
       }
       const editButton = event.target.closest("[data-edit-fixed]");
@@ -2775,11 +2787,11 @@
     });
     $("siteEquipmentGrid").addEventListener("click", event => {
       const thumbnail = event.target.closest(".matrix-thumb");
-      if (thumbnail) openMatrixImage(thumbnail.currentSrc || thumbnail.src, thumbnail.alt, thumbnail);
+      if (thumbnail) openMatrixImage(thumbnail.currentSrc || thumbnail.src, thumbnail.alt);
     });
     $("matrixGrid").addEventListener("click", event => {
       const thumbnail = event.target.closest(".matrix-thumb");
-      if (thumbnail) openMatrixImage(thumbnail.currentSrc || thumbnail.src, thumbnail.alt, thumbnail);
+      if (thumbnail) openMatrixImage(thumbnail.currentSrc || thumbnail.src, thumbnail.alt);
     });
     $("applySiteEquipment").addEventListener("click", () => {
       selectedSiteEquipment = Array.from(siteEquipmentDraft.values()).map(item => resizeMachineUnits(Object.assign({}, item), item.quantity));
@@ -2804,7 +2816,7 @@
     });
     $("matrixGrid").addEventListener("click", event => {
       const thumbnail = event.target.closest(".matrix-thumb");
-      if (thumbnail) openMatrixImage(thumbnail.currentSrc || thumbnail.src, thumbnail.alt, thumbnail);
+      if (thumbnail) openMatrixImage(thumbnail.currentSrc || thumbnail.src, thumbnail.alt);
     });
     $("matrixGrid").addEventListener("error", event => {
       const image = event.target.closest(".matrix-thumb");
@@ -2815,6 +2827,9 @@
       if (event.target === $("matrixImageLightbox")) closeMatrixImage();
     });
     $("closeMatrixImage").addEventListener("click", closeMatrixImage);
+    window.addEventListener("resize", () => {
+      if (!$("matrixImageLightbox").hidden) fitMatrixLightboxImage();
+    });
     $("userSearch").addEventListener("input", event => {
       searchTerm = event.target.value.trim().toLocaleLowerCase("es");
       render();
