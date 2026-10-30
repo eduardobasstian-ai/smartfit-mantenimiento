@@ -1989,6 +1989,11 @@
     function toggleEquipmentImageZoom() {
       equipmentImageZoom = equipmentImageZoom > 1.01 ? 1 : 2;
       fitEquipmentImage();
+      if (equipmentImageZoom > 1.01) {
+        const frame = $("imageLightboxFrame");
+        frame.scrollLeft = Math.max(0, (frame.scrollWidth - frame.clientWidth) / 2);
+        frame.scrollTop = Math.max(0, (frame.scrollHeight - frame.clientHeight) / 2);
+      }
     }
 
     function stepEquipmentImage(direction) {

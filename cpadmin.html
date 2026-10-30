@@ -2417,6 +2417,11 @@
     function toggleMatrixImageZoom() {
       matrixImageZoom = matrixImageZoom > 1.01 ? 1 : 2;
       fitMatrixLightboxImage();
+      if (matrixImageZoom > 1.01) {
+        const frame = $("matrixLightboxFrame");
+        frame.scrollLeft = Math.max(0, (frame.scrollWidth - frame.clientWidth) / 2);
+        frame.scrollTop = Math.max(0, (frame.scrollHeight - frame.clientHeight) / 2);
+      }
     }
 
     function stepMatrixImage(direction) {
