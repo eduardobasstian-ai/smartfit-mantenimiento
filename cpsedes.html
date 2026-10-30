@@ -100,6 +100,8 @@
     .panel-heading h2 { margin: 0; font-size: 17px; }
     .panel-heading p { margin: 6px 0 0; color: var(--muted); font-size: 11px; }
     .panel-tools { display: flex; align-items: center; gap: 9px; }
+    .qr-search-button { min-height: 38px; padding: 0 13px; border: 1px solid var(--yellow); border-radius: 9px; background: var(--yellow); color: #17130a; font: inherit; font-size: 11px; font-weight: 800; white-space: nowrap; }
+    .qr-search-button:hover { background: var(--yellow-hover); }
     .site-search { width: min(230px, 36vw); min-height: 36px; padding: 0 10px; border: 1px solid #383b47; border-radius: 9px; background: #111319; color: var(--text); font: inherit; font-size: 11px; }
     .site-search:focus-visible { outline: 2px solid var(--yellow); outline-offset: 2px; }
     .site-grid, .brand-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
@@ -455,6 +457,12 @@
     .supervisor-shell.supervisor-mode .identity-bar { display: none; }
     @media (max-width: 600px) {
       .ticket-raise-brand-tools .site-search { width: min(288px, 100%); }
+      #supervisorRaiseTicketContent > .panel-heading { flex-wrap: wrap; }
+      #supervisorRaiseTicketContent .ticket-raise-brand-tools { display: grid; flex: 1 1 100%; width: 100%; grid-template-columns: minmax(0, 1fr) auto auto; }
+      #supervisorRaiseTicketContent .ticket-raise-brand-tools .site-search { grid-column: 1 / -1; width: 100%; }
+      #sitesPanel > .panel-heading { flex-wrap: wrap; }
+      #sitesPanel .panel-tools { flex: 1 1 100%; width: 100%; flex-wrap: wrap; }
+      #sitesPanel .panel-tools .site-search { flex: 1 1 100%; }
       .ticket-raise-context { padding: 13px; font-size: 11px; }
       .ticket-raise-brand-grid .brand-card { min-height: 78px; padding: 14px; }
       .supervisor-shell.supervisor-mode .supervisor-menu { border-radius: 17px; }
@@ -716,6 +724,7 @@
         <div class="panel-tools">
           <input class="site-search" id="siteFilter" type="search" placeholder="Buscar sede..." aria-label="Buscar sede por nombre">
           <button class="back-button" id="requestPartsFromBrands" type="button" hidden>Pedir repuesto</button>
+          <button class="qr-search-button" id="searchQrButton" type="button" hidden>Buscar QR</button>
           <button class="back-button" id="backToSites" type="button" hidden>← Volver a sedes</button>
         </div>
       </div>
@@ -779,6 +788,8 @@
   <script src="EQU/booty-catalog.js"></script>
   <script src="EQU/other-catalogs.js?v=20261026-ubian-rack"></script>
   <script src="inventory-export.js?v=20261027-profile1"></script>
+  <script src="vendor/jsQR.min.js?v=1.4.0"></script>
+  <script src="qr-scanner.js?v=20261029-1"></script>
   <script>
     "use strict";
     const $ = id => document.getElementById(id);
@@ -1108,7 +1119,7 @@
       });
       $("supervisorRaiseTicketPanel").querySelector(":scope > .panel-heading").hidden = true;
       renderSupervisorTicketContext(site);
-      $("supervisorRaiseTicketContent").innerHTML = `<div class="panel-heading"><div><h3>Marcas de equipos</h3><p>Equipos para ticket de mantenimiento · 1 sede habilitada</p></div><div class="panel-tools ticket-raise-brand-tools"><input class="site-search" id="supervisorTicketBrandSearch" type="search" placeholder="Buscar activo fijo..." aria-label="Buscar por activo fijo" value="${escapeHtml(supervisorTicketBrandQuery)}"><button type="button" class="back-button" data-supervisor-ticket-back-to-sites>← Volver a sedes</button></div></div>
+      $("supervisorRaiseTicketContent").innerHTML = `<div class="panel-heading"><div><h3>Marcas de equipos</h3><p>Equipos para ticket de mantenimiento · 1 sede habilitada</p></div><div class="panel-tools ticket-raise-brand-tools"><input class="site-search" id="supervisorTicketBrandSearch" type="search" placeholder="Buscar activo fijo..." aria-label="Buscar por activo fijo" value="${escapeHtml(supervisorTicketBrandQuery)}"><button type="button" class="qr-search-button" data-search-qr-supervisor-ticket>Buscar QR</button><button type="button" class="back-button" data-supervisor-ticket-back-to-sites>← Volver a sedes</button></div></div>
         <div class="brand-grid ticket-raise-brand-grid" aria-label="Marcas de equipos">${orderedBrands.map(brand => `<button class="brand-card" type="button" data-supervisor-ticket-brand="${escapeHtml(brand.id)}"><span class="brand-name">${escapeHtml(brand.name)}</span><span class="brand-count">${brand.count} ${query ? "coincidencias" : brand.count === 1 ? "equipo" : "equipos"} · Ver equipos →</span></button>`).join("") || `<div class="empty-state">${query ? "No se encontraron equipos con ese activo fijo." : "Esta sede aún no tiene equipos agrupados por marca."}</div>`}</div>`;
       if (restoreFocus) { $("supervisorTicketBrandSearch").focus(); if (caret !== null) $("supervisorTicketBrandSearch").setSelectionRange(caret, caret); }
     }
@@ -1149,6 +1160,74 @@
       const brandName = selectedBrand?.brandName || brandDirectory.find(entry => entry.id === supervisorTicketBrandId)?.name || selectedBrand?.name || "marca";
       content.innerHTML = `<div class="panel-heading"><div><h3>Equipos ${escapeHtml(brandName)}</h3><p>${cards.length} ${cards.length === 1 ? "equipo" : "equipos"} · Busca por activo fijo</p></div><div class="panel-tools ticket-raise-brand-tools"><input class="site-search" id="supervisorTicketEquipmentSearch" type="search" placeholder="Buscar activo fijo..." aria-label="Buscar equipo por número de activo fijo" value="${escapeHtml(supervisorTicketEquipmentQuery || supervisorTicketBrandQuery)}"><button type="button" class="back-button" data-supervisor-ticket-back>← Cambiar de marca</button></div></div><div class="machine-grid">${cards.join("") || '<div class="empty-state">No hay equipos registrados para esta marca o búsqueda.</div>'}</div>`;
       if (restoreFocus) { $("supervisorTicketEquipmentSearch").focus(); if (caret !== null) $("supervisorTicketEquipmentSearch").setSelectionRange(caret, caret); }
+    }
+
+    function currentBrandEquipmentFromSite(site) {
+      const entries = [];
+      (Array.isArray(site?.equipment) ? site.equipment : []).forEach(item => {
+        const brand = brandDirectory.find(entry => entry.id === item.brandId) ||
+          brandDirectory.find(entry => normalizeChartLabel(entry.name) === normalizeChartLabel(item.brandName));
+        const units = Array.isArray(item.units) && item.units.length
+          ? item.units
+          : Array.from({ length: Math.max(0, Number(item.quantity) || 0) }, () => ({}));
+        units.forEach((unit, index) => {
+          const unitId = unit.unitId || `${item.catalogId || item.brandId || brand?.id || "equipo"}:${index}`;
+          entries.push({ item, unit, index, total: units.length, recordKey: `${site.id}::${unitId}`, siteId: site.id, siteName: site.name });
+        });
+      });
+      return entries;
+    }
+
+    function openEquipmentByQr(activeFixed) {
+      const normalized = String(activeFixed).trim();
+      const site = assignedSites.find(entry => String(entry.id) === String(currentSite?.id));
+      if (!site) {
+        window.alert("Primero abre una sede para buscar uno de sus equipos.");
+        return;
+      }
+      const matches = currentBrandEquipmentFromSite(site).filter(machine => String(machine.unit?.activeFixed ?? "").trim() === normalized);
+      if (!matches.length) {
+        window.alert(`No se encontró el activo fijo ${normalized} en la sede seleccionada.`);
+        return;
+      }
+      if (matches.length > 1) {
+        window.alert(`El activo fijo ${normalized} aparece más de una vez en esta sede. Busca el número manualmente para elegir el equipo correcto.`);
+        return;
+      }
+      const machine = matches[0];
+      const brand = brandDirectory.find(entry => entry.id === machine.item.brandId) ||
+        brandDirectory.find(entry => normalizeChartLabel(entry.name) === normalizeChartLabel(machine.item.brandName));
+      if (!brand) {
+        window.alert("No se pudo identificar la marca del equipo escaneado.");
+        return;
+      }
+      renderBrandEquipment(brand.id);
+      $("siteFilter").value = normalized;
+      renderMachineCards(normalized);
+    }
+
+    function openSupervisorTicketEquipmentByQr(activeFixed) {
+      const normalized = String(activeFixed).trim();
+      const site = assignedSites.find(entry => String(entry.id) === String(supervisorTicketSiteId));
+      if (!site) {
+        window.alert("Vuelve a seleccionar una sede antes de buscar el equipo por QR.");
+        return;
+      }
+      const matches = currentBrandEquipmentFromSite(site).filter(machine => String(machine.unit?.activeFixed ?? "").trim() === normalized);
+      if (!matches.length) {
+        window.alert(`No se encontró el activo fijo ${normalized} en las sedes habilitadas para este supervisor.`);
+        return;
+      }
+      if (matches.length > 1) {
+        window.alert(`El activo fijo ${normalized} aparece más de una vez en esta sede. Busca el número manualmente para elegir el equipo correcto.`);
+        return;
+      }
+      const machine = matches[0];
+      const brandKey = supervisorTicketBrandKey(machine.item);
+      supervisorTicketBrandId = brandKey;
+      supervisorTicketEquipmentQuery = normalized;
+      supervisorTicketBrandQuery = "";
+      renderSupervisorTicketEquipment();
     }
 
     function renderSupervisorTicketForm(equipment) {
@@ -1850,6 +1929,7 @@
       $("siteFilter").placeholder = "Buscar sede...";
       $("siteFilter").setAttribute("aria-label", "Buscar sede por nombre");
       $("requestPartsFromBrands").hidden = true;
+      $("searchQrButton").hidden = true;
       $("backToSites").hidden = true;
       $("siteGrid").className = "site-grid";
       const normalize = value => String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("es");
@@ -2223,6 +2303,7 @@
       $("siteFilter").hidden = true;
       $("siteFilter").value = "";
       $("requestPartsFromBrands").hidden = false;
+      $("searchQrButton").hidden = false;
       $("backToSites").hidden = false;
       $("backToSites").textContent = "← Volver a sedes";
       $("siteGrid").className = "brand-grid";
@@ -2297,6 +2378,7 @@
       $("panelHeading").textContent = `Equipos ${brand.name}`;
       $("panelDescription").textContent = `${currentSite.name} · ${machines.length} ${machines.length === 1 ? "equipo" : "equipos"}`;
       $("backToSites").textContent = "← Cambiar de marca";
+      $("searchQrButton").hidden = true;
       $("siteFilter").hidden = false;
       $("siteFilter").placeholder = "Buscar activo fijo...";
       $("siteFilter").setAttribute("aria-label", "Buscar equipo por número de activo fijo");
@@ -2912,6 +2994,11 @@
       $("supervisorMenuToggle").setAttribute("aria-label", isOpen ? "Cerrar menú" : "Abrir menú");
     });
     $("supervisorRaiseTicketPanel").addEventListener("click", event => {
+      const qrButton = event.target.closest("[data-search-qr-supervisor-ticket]");
+      if (qrButton) {
+        window.SmartFitQrScanner?.open({ onCode: openSupervisorTicketEquipmentByQr });
+        return;
+      }
       const enlargedImage = event.target.closest("[data-enlarge-image]");
       if (enlargedImage) {
         openEquipmentImage(enlargedImage.dataset.enlargeImage, enlargedImage.dataset.imageAlt, enlargedImage);
@@ -3166,6 +3253,9 @@
       } else {
         renderSiteList();
       }
+    });
+    $("searchQrButton").addEventListener("click", () => {
+      window.SmartFitQrScanner?.open({ onCode: openEquipmentByQr });
     });
     $("siteGrid").addEventListener("click", async event => {
       const imageMenuToggle = event.target.closest("[data-toggle-maintenance-image-menu]");
