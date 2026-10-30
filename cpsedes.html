@@ -253,7 +253,14 @@
     .image-lightbox { position: fixed; z-index: 170; inset: 0; display: grid; place-items: center; padding: 18px; background: #000e; }
     .image-lightbox[hidden] { display: none; }
     .image-lightbox-frame { position: relative; display: grid; place-items: center; width: fit-content; height: fit-content; max-width: 96vw; max-height: 94vh; overflow: hidden; border: 1px solid #555966; border-radius: 13px; background: #f5f5f7; box-shadow: 0 24px 90px #000b; }
-    .image-lightbox-frame img { display: block; width: auto; height: auto; max-width: 94vw; max-height: 92vh; object-fit: contain; }
+    .image-lightbox-frame img { display: block; width: auto; height: auto; max-width: 94vw; max-height: 92vh; object-fit: contain; touch-action: pan-y; user-select: none; }
+    .image-lightbox-frame.is-zoomed { overflow: auto; }
+    .image-lightbox-nav { position: absolute; z-index: 2; top: 50%; display: grid; place-items: center; width: 42px; height: 54px; transform: translateY(-50%); border: 1px solid #d1d3d8; border-radius: 12px; background: #17191fe8; color: #fff; font-size: 28px; cursor: pointer; }
+    .image-lightbox-nav[hidden], .image-lightbox-count[hidden] { display: none; }
+    .image-lightbox-prev { left: 10px; }
+    .image-lightbox-next { right: 10px; }
+    .image-lightbox-count { position: absolute; z-index: 2; bottom: 10px; left: 50%; transform: translateX(-50%); padding: 6px 11px; border-radius: 20px; background: #17191fe8; color: #fff; font: 700 13px Arial,sans-serif; }
+    .image-lightbox-frame img.is-zoomed { max-width: none; max-height: none; cursor: zoom-out; }
     .image-lightbox-close { position: absolute; z-index: 1; top: 10px; right: 10px; width: 38px; height: 38px; border: 1px solid #d1d3d8; border-radius: 50%; background: #fff; color: #17191f; font-size: 23px; line-height: 1; box-shadow: 0 2px 12px #0003; }
     .image-lightbox-close:hover { border-color: var(--yellow); color: #8a5a00; }
     .empty-state {
@@ -736,9 +743,12 @@
   </div>
 
   <div class="image-lightbox" id="equipmentImageLightbox" hidden>
-    <div class="image-lightbox-frame" role="dialog" aria-modal="true" aria-label="Imagen ampliada del equipo">
+    <div class="image-lightbox-frame" id="imageLightboxFrame" role="dialog" aria-modal="true" aria-label="Visor de fotografías">
       <button class="image-lightbox-close" id="closeEquipmentImage" type="button" aria-label="Cerrar imagen">×</button>
+      <button class="image-lightbox-nav image-lightbox-prev" id="prevEquipmentImage" type="button" aria-label="Imagen anterior" hidden>‹</button>
       <img id="equipmentLightboxImage" alt="">
+      <button class="image-lightbox-nav image-lightbox-next" id="nextEquipmentImage" type="button" aria-label="Imagen siguiente" hidden>›</button>
+      <span class="image-lightbox-count" id="equipmentImageCount" hidden></span>
     </div>
   </div>
 
@@ -2751,16 +2761,48 @@
       return load;
     }
 
-    function openEquipmentImage(src, alt) {
+    let equipmentImageGallery = [];
+    let equipmentImageIndex = 0;
+    let equipmentImageZoomed = false;
+    let equipmentImageTapAt = 0;
+    let equipmentImagePointerStart = null;
+
+    function imageGalleryFor(trigger, src, alt) {
+      const container = trigger?.closest(".machine-log-photos, .maintenance-image-list, .ticket-history-detail-photos, .ticket-detail-photos");
+      if (!container) return [{ src, alt: alt || "Imagen" }];
+      const buttons = [...container.querySelectorAll("[data-enlarge-image], [data-history-image], [data-ticket-enlarge]")];
+      const gallery = buttons.map(button => ({ src: button.dataset.enlargeImage || button.dataset.historyImage || button.dataset.ticketEnlarge, alt: button.dataset.imageAlt || button.alt || "Imagen del registro" })).filter(item => item.src);
+      const index = gallery.findIndex(item => item.src === src);
+      return { gallery: gallery.length ? gallery : [{ src, alt: alt || "Imagen" }], index: Math.max(0, index) };
+    }
+
+    function openEquipmentImage(src, alt, trigger) {
+      const result = imageGalleryFor(trigger, src, alt);
+      equipmentImageGallery = Array.isArray(result) ? result : result.gallery;
+      equipmentImageIndex = Array.isArray(result) ? 0 : result.index;
+      equipmentImageZoomed = false;
+      renderEquipmentLightboxImage();
+      $("equipmentImageLightbox").hidden = false;
+      $("closeEquipmentImage").focus();
+    }
+
+    function renderEquipmentLightboxImage() {
       const image = $("equipmentLightboxImage");
+      const item = equipmentImageGallery[equipmentImageIndex];
+      if (!item) return;
       image.style.width = "auto";
       image.style.height = "auto";
-      image.alt = alt || "Imagen del equipo";
+      image.classList.remove("is-zoomed");
+      $("imageLightboxFrame").classList.remove("is-zoomed");
+      image.alt = item.alt || "Imagen del equipo";
       image.onload = fitEquipmentImage;
-      image.src = src;
-      $("equipmentImageLightbox").hidden = false;
+      image.src = item.src;
+      const multiple = equipmentImageGallery.length > 1;
+      $("prevEquipmentImage").hidden = !multiple;
+      $("nextEquipmentImage").hidden = !multiple;
+      $("equipmentImageCount").hidden = !multiple;
+      $("equipmentImageCount").textContent = multiple ? `${equipmentImageIndex + 1} / ${equipmentImageGallery.length} · Desliza para cambiar` : "Doble toque para ampliar";
       if (image.complete) fitEquipmentImage();
-      $("closeEquipmentImage").focus();
     }
 
     function fitEquipmentImage() {
@@ -2769,13 +2811,27 @@
       const maxWidth = Math.min(window.innerWidth * .94, 1400);
       const maxHeight = window.innerHeight * .92;
       const scale = Math.min(maxWidth / image.naturalWidth, maxHeight / image.naturalHeight);
-      image.style.width = `${Math.floor(image.naturalWidth * scale)}px`;
-      image.style.height = `${Math.floor(image.naturalHeight * scale)}px`;
+      const zoom = equipmentImageZoomed ? 2 : 1;
+      image.style.width = `${Math.floor(image.naturalWidth * scale * zoom)}px`;
+      image.style.height = `${Math.floor(image.naturalHeight * scale * zoom)}px`;
+      image.classList.toggle("is-zoomed", equipmentImageZoomed);
+      $("imageLightboxFrame").classList.toggle("is-zoomed", equipmentImageZoomed);
     }
+
+    function stepEquipmentImage(direction) {
+      if (equipmentImageGallery.length < 2) return;
+      equipmentImageIndex = (equipmentImageIndex + direction + equipmentImageGallery.length) % equipmentImageGallery.length;
+      equipmentImageZoomed = false;
+      renderEquipmentLightboxImage();
+    }
+
+    function toggleEquipmentImageZoom() { equipmentImageZoomed = !equipmentImageZoomed; fitEquipmentImage(); }
 
     function closeEquipmentImage() {
       $("equipmentImageLightbox").hidden = true;
       $("equipmentLightboxImage").removeAttribute("src");
+      equipmentImageGallery = [];
+      equipmentImageZoomed = false;
     }
 
     $("siteGrid").addEventListener("click", event => {
@@ -2872,7 +2928,7 @@
     $("supervisorRaiseTicketPanel").addEventListener("click", event => {
       const enlargedImage = event.target.closest("[data-enlarge-image]");
       if (enlargedImage) {
-        openEquipmentImage(enlargedImage.dataset.enlargeImage, enlargedImage.dataset.imageAlt);
+        openEquipmentImage(enlargedImage.dataset.enlargeImage, enlargedImage.dataset.imageAlt, enlargedImage);
         return;
       }
       const toggleImageMenu = event.target.closest("[data-toggle-supervisor-ticket-image-menu]");
@@ -3356,7 +3412,7 @@
         return;
       }
       const imageButton = event.target.closest("[data-enlarge-image]");
-      if (imageButton) openEquipmentImage(imageButton.dataset.enlargeImage, imageButton.dataset.imageAlt);
+      if (imageButton) openEquipmentImage(imageButton.dataset.enlargeImage, imageButton.dataset.imageAlt, imageButton);
     });
     $("siteGrid").addEventListener("error", event => {
       if (!event.target.matches(".machine-image-button img")) return;
@@ -3408,7 +3464,7 @@
     $("supervisorTicketModal").addEventListener("click", event => {
       const ticketPhoto = event.target.closest("[data-ticket-enlarge]");
       if (ticketPhoto) {
-        openEquipmentImage(ticketPhoto.dataset.ticketEnlarge, ticketPhoto.alt);
+        openEquipmentImage(ticketPhoto.dataset.ticketEnlarge, ticketPhoto.alt, ticketPhoto);
         return;
       }
       const saveTicketStatus = event.target.closest("[data-save-ticket-status]");
@@ -3423,10 +3479,39 @@
       if (event.target === $("supervisorTicketModal")) $("supervisorTicketModal").hidden = true;
     });
     $("closeEquipmentImage").addEventListener("click", closeEquipmentImage);
+    $("prevEquipmentImage").addEventListener("click", () => stepEquipmentImage(-1));
+    $("nextEquipmentImage").addEventListener("click", () => stepEquipmentImage(1));
+    $("equipmentLightboxImage").addEventListener("pointerdown", event => {
+      equipmentImagePointerStart = { x: event.clientX, y: event.clientY, type: event.pointerType };
+    });
+    $("equipmentLightboxImage").addEventListener("pointerup", event => {
+      if (!equipmentImagePointerStart) return;
+      const dx = event.clientX - equipmentImagePointerStart.x;
+      const dy = event.clientY - equipmentImagePointerStart.y;
+      if (Math.abs(dx) > 55 && Math.abs(dx) > Math.abs(dy) * 1.25) {
+        stepEquipmentImage(dx < 0 ? 1 : -1);
+        equipmentImageTapAt = 0;
+      } else if (equipmentImagePointerStart.type === "touch") {
+        const now = Date.now();
+        if (now - equipmentImageTapAt < 320) { toggleEquipmentImageZoom(); equipmentImageTapAt = 0; }
+        else equipmentImageTapAt = now;
+      }
+      equipmentImagePointerStart = null;
+    });
+    $("equipmentLightboxImage").addEventListener("pointercancel", () => { equipmentImagePointerStart = null; });
+    $("equipmentLightboxImage").addEventListener("dblclick", event => {
+      event.preventDefault();
+      if (Date.now() - equipmentImageTapAt > 500) toggleEquipmentImageZoom();
+      equipmentImageTapAt = 0;
+    });
     window.addEventListener("resize", () => {
       if (!$("equipmentImageLightbox").hidden) fitEquipmentImage();
     });
     document.addEventListener("keydown", event => {
+      if (!$("equipmentImageLightbox").hidden) {
+        if (event.key === "ArrowLeft") stepEquipmentImage(-1);
+        if (event.key === "ArrowRight") stepEquipmentImage(1);
+      }
       if (event.key !== "Escape") return;
       if (!$("equipmentImageLightbox").hidden) closeEquipmentImage();
       $("supervisorTicketModal").hidden = true;
