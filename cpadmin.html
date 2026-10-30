@@ -1091,7 +1091,6 @@
       <img class="lightbox-image" id="matrixLightboxImage" alt="">
     </div>
   </div>
-  <script src="mobile-back-navigation.js?v=20261029-mobile-back-1"></script>
   <script src="admin-store.js?v=20261029-performance-stage-2"></script>
   <script src="supabase-data.js?v=20261029-performance-stage-2"></script>
   <script src="pdf-report.js?v=20261029-print-ui-1"></script>
@@ -3079,27 +3078,6 @@
       }
     });
 
-    window.SmartFitMobileBack?.start({
-      page: "admin",
-      capture: () => {
-        const activeView = document.querySelector(".nav-button.active")?.dataset.view || "overview";
-        let historyPage = "";
-        if (activeView === "maintenanceHistory") {
-          if (!$('mileageHistoryBlank').hidden) historyPage = "mileage";
-          else if (!$('maintenanceHistoryBlank').hidden) historyPage = "maintenance";
-        }
-        return { view: activeView, historyPage };
-      },
-      restore: state => {
-        showView(state.view || "overview");
-        if (state.view !== "maintenanceHistory") return;
-        $('maintenanceHistoryChooser').hidden = Boolean(state.historyPage);
-        $('maintenanceHistoryBlank').hidden = state.historyPage !== "maintenance";
-        $('mileageHistoryBlank').hidden = state.historyPage !== "mileage";
-        if (state.historyPage === "maintenance") renderMaintenanceHistory();
-        if (state.historyPage === "mileage") renderMileageHistory();
-      }
-    });
     setupChartInteractions();
     render();
     window.addEventListener("smartfit:supabase-data-hydrated", () => {

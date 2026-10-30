@@ -129,8 +129,6 @@
     .ticket-history-detail-photos img { cursor: zoom-in; }
     .image-lightbox { z-index: 170; }
     .panel-tools { display: flex; align-items: center; gap: 9px; }
-    .qr-search-button { min-height: 38px; padding: 0 13px; border: 1px solid var(--yellow); border-radius: 9px; background: var(--yellow); color: #17130a; font: inherit; font-size: 11px; font-weight: 800; white-space: nowrap; }
-    .qr-search-button:hover { background: var(--yellow-hover); }
     .site-search { width: min(230px, 36vw); min-height: 36px; padding: 0 10px; border: 1px solid #383b47; border-radius: 9px; background: #111319; color: var(--text); font: inherit; font-size: 11px; }
     .site-search:focus-visible { outline: 2px solid var(--yellow); outline-offset: 2px; }
     .site-grid, .brand-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
@@ -589,7 +587,6 @@
         </div>
         <div class="panel-tools">
           <input class="site-search" id="siteFilter" type="search" placeholder="Buscar sede..." aria-label="Buscar sede por nombre">
-          <button class="qr-search-button" id="searchQrButton" type="button" hidden>Buscar QR</button>
           <button class="back-button" id="backToSites" type="button" hidden>← Volver a sedes</button>
         </div>
       </div>
@@ -616,14 +613,11 @@
       <div class="ticket-history-modal-body" id="ticketHistoryModalBody"></div>
     </section>
   </div>
-  <script src="mobile-back-navigation.js?v=20261029-mobile-back-1"></script>
   <script src="admin-store.js?v=20261029-performance-stage-2"></script>
   <script src="supabase-data.js?v=20261029-performance-stage-2"></script>
   <script src="pdf-report.js?v=20261029-print-ui-1"></script>
   <script src="EQU/other-catalogs.js?v=20261026-ubian-rack"></script>
   <script src="inventory-export.js?v=20261027-profile1"></script>
-  <script src="vendor/jsQR.min.js?v=1.4.0"></script>
-  <script src="qr-scanner.js?v=20261029-1"></script>
   <script>
     "use strict";
     const $ = id => document.getElementById(id);
@@ -1309,7 +1303,6 @@
       $("siteFilter").placeholder = "Buscar activo fijo...";
       $("siteFilter").setAttribute("aria-label", "Buscar activo fijo en todas las marcas");
       if (resetFilter) $("siteFilter").value = "";
-      $("searchQrButton").hidden = false;
       $("backToSites").hidden = false;
       $("backToSites").textContent = "← Volver a tickets";
       $("siteGrid").className = "brand-grid";
@@ -1361,27 +1354,10 @@
       $("siteFilter").placeholder = "Buscar activo fijo...";
       $("siteFilter").setAttribute("aria-label", "Buscar equipo por número de activo fijo");
       if (resetFilter) $("siteFilter").value = "";
-      $("searchQrButton").hidden = true;
       $("backToSites").hidden = false;
       $("backToSites").textContent = "← Cambiar de marca";
       $("siteGrid").className = "machine-grid";
       renderMachineCards($("siteFilter").value);
-    }
-
-    function currentBrandEquipmentFromSite(site) {
-      const entries = [];
-      (Array.isArray(site?.equipment) ? site.equipment : []).forEach(item => {
-        const brand = brandDirectory.find(entry => entry.id === item.brandId) ||
-          brandDirectory.find(entry => String(entry.name).toLocaleLowerCase("es") === String(item.brandName || "").toLocaleLowerCase("es"));
-        const units = Array.isArray(item.units) && item.units.length
-          ? item.units
-          : Array.from({ length: Math.max(0, Number(item.quantity) || 0) }, () => ({}));
-        units.forEach((unit, index) => {
-          const unitKey = unit.unitId || `${item.catalogId || item.brandId || brand?.id || "equipo"}:${index}`;
-          entries.push({ item, unit, index, total: units.length, recordKey: `${site.id}::${unitKey}`, siteId: site.id, siteName: site.name });
-        });
-      });
-      return entries;
     }
 
     function renderSiteBrands(site) {
@@ -1407,7 +1383,6 @@
       $("equipmentSummary").textContent = `${Number(site.machineCount) || 0} ${Number(site.machineCount) === 1 ? "equipo" : "equipos"}`;
       $("siteFilter").hidden = true;
       $("siteFilter").value = "";
-      $("searchQrButton").hidden = false;
       $("backToSites").hidden = false;
       $("backToSites").textContent = "← Volver a sedes";
       $("siteGrid").className = "brand-grid";
@@ -1475,7 +1450,6 @@
       $("panelHeading").textContent = `Equipos ${brand.name}`;
       $("panelDescription").textContent = `${currentSite.name} · ${machines.length} ${machines.length === 1 ? "equipo" : "equipos"}`;
       $("backToSites").textContent = "← Cambiar de marca";
-      $("searchQrButton").hidden = true;
       $("siteFilter").hidden = false;
       $("siteFilter").placeholder = "Buscar activo fijo...";
       $("siteFilter").setAttribute("aria-label", "Buscar equipo por número de activo fijo");
@@ -2058,45 +2032,6 @@
         renderSiteList();
       }
     });
-    $("searchQrButton").addEventListener("click", () => {
-      if (!window.SmartFitQrScanner) return;
-      window.SmartFitQrScanner.open({
-        onCode: activeFixed => {
-          const normalized = String(activeFixed).trim();
-          const scopedEquipment = leaderMaintenanceMode
-            ? leaderAllEquipment
-            : (currentSite && assignedSites.some(site => String(site.id) === String(currentSite.id))
-              ? currentBrandEquipmentFromSite(currentSite)
-              : []);
-          const matches = scopedEquipment.filter(machine => String(machine.unit?.activeFixed ?? "").trim() === normalized);
-          if (!matches.length) {
-            window.alert(`No se encontró el activo fijo ${normalized} en las sedes habilitadas para este perfil.`);
-            return;
-          }
-          if (matches.length > 1) {
-            window.alert(`El activo fijo ${normalized} aparece más de una vez. Busca el número manualmente para elegir la sede correcta.`);
-            return;
-          }
-          const machine = matches[0];
-          if (leaderMaintenanceMode) {
-            leaderTicketBrandId = machine.leaderBrandKey;
-            renderLeaderBrandEquipment();
-          } else {
-            const site = assignedSites.find(entry => String(entry.id) === String(currentSite.id));
-            if (!site) return;
-            const brand = brandDirectory.find(entry => entry.id === machine.item.brandId) ||
-              brandDirectory.find(entry => String(entry.name).toLocaleLowerCase("es") === String(machine.item.brandName || "").toLocaleLowerCase("es"));
-            if (!brand) {
-              window.alert("No se pudo identificar la marca del equipo escaneado.");
-              return;
-            }
-            renderBrandEquipment(brand.id);
-          }
-          $("siteFilter").value = normalized;
-          renderMachineCards(normalized);
-        }
-      });
-    });
     $("siteGrid").addEventListener("click", async event => {
       const leaderBrandCard = event.target.closest("[data-leader-brand]");
       if (leaderBrandCard && leaderMode) {
@@ -2407,70 +2342,6 @@
         if ($('siteGrid').classList.contains('site-grid')) renderSiteList();
         else if (currentSite && $('siteGrid').classList.contains('brand-grid')) renderSiteBrands(currentSite);
         else if (currentSite && currentBrandId && $('siteGrid').classList.contains('machine-grid')) renderBrandEquipment(currentBrandId, { resetFilter: false });
-      }
-    });
-    window.SmartFitMobileBack?.start({
-      page: "leader-panel",
-      capture: () => ({
-        mainView: document.querySelector("[data-supervisor-view].active")?.dataset.supervisorView || (leaderMode ? "summary" : "sites"),
-        siteId: currentSite?.id || "",
-        brandId: currentBrandId || "",
-        machineKey: currentMachine?.recordKey || "",
-        machineTab: currentMachineTab || "maintenance",
-        leaderMaintenanceMode,
-        leaderTicketType,
-        leaderBrandKey: leaderTicketBrandId || ""
-      }),
-      restore: state => {
-        $("supervisorMenu").classList.remove("open");
-        $("supervisorMenuToggle").setAttribute("aria-expanded", "false");
-        const view = state.mainView || (leaderMode ? "summary" : "sites");
-        if (leaderMode && state.leaderMaintenanceMode) {
-          leaderTicketType = state.leaderTicketType || "Mantenimiento";
-          renderLeaderMaintenanceEquipment();
-          if (state.leaderBrandKey) {
-            leaderTicketBrandId = state.leaderBrandKey;
-            renderLeaderBrandEquipment({ resetFilter: false });
-          }
-          if (state.machineKey) {
-            const machine = currentBrandEquipment.find(entry => String(entry.recordKey) === String(state.machineKey));
-            if (machine) {
-              currentMachineTab = state.machineTab || "maintenance";
-              renderMachineDetail(machine);
-              void loadMachineDetailMedia(machine);
-            }
-          }
-          return;
-        }
-
-        if (supervisorMode) {
-          if (view === "summary") renderSupervisorSummary();
-          else if (view === "ticket-history") renderTicketHistory();
-          else if (view === "inventory") renderInventory();
-          else if (view === "tickets") renderLeaderTickets();
-          else renderSiteList();
-        } else renderSiteList();
-
-        if (state.siteId) {
-          if (leaderMode) {
-            $("supervisorSummary").hidden = true;
-            $("leaderTicketsPanel").hidden = true;
-            $("ticketHistoryPanel").hidden = true;
-            $("inventoryPanel").hidden = true;
-            $("sitesPanel").hidden = false;
-          } else if (supervisorMode) renderSiteList();
-          currentSite = assignedSites.find(site => String(site.id) === String(state.siteId)) || null;
-          if (currentSite) renderSiteBrands(currentSite);
-          if (currentSite && state.brandId) renderBrandEquipment(state.brandId, { resetFilter: false });
-          if (currentSite && state.machineKey) {
-            const machine = currentBrandEquipment.find(entry => String(entry.recordKey) === String(state.machineKey));
-            if (machine) {
-              currentMachineTab = state.machineTab || "maintenance";
-              renderMachineDetail(machine);
-              void loadMachineDetailMedia(machine);
-            }
-          }
-        }
       }
     });
     SmartFitSupabaseData.syncPendingAccessLogs().catch(error => console.warn("El inicio de sesión quedó en cola para sincronizarse.", error));
