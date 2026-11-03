@@ -908,7 +908,7 @@
           const tables = [...pendingRealtimeTables];
           pendingRealtimeTables.clear();
           const result = await hydrate({ tables });
-          if (!result.skipped) global.dispatchEvent(new Event("smartfit:supabase-data-hydrated"));
+          if (!result.skipped) global.dispatchEvent(new CustomEvent("smartfit:supabase-data-hydrated", { detail: { tables } }));
         } catch (error) {
           console.warn("No se pudieron actualizar los datos en tiempo real.", error);
         }
@@ -1793,7 +1793,7 @@
       queueMicrotask(async () => {
         try {
           const result = await hydrate({ tables });
-          if (!result.skipped) global.dispatchEvent(new Event("smartfit:supabase-data-hydrated"));
+          if (!result.skipped) global.dispatchEvent(new CustomEvent("smartfit:supabase-data-hydrated", { detail: { tables } }));
         } catch (error) {
           console.warn("No se pudieron aplicar todos los cambios recibidos durante la sincronización.", error);
         }

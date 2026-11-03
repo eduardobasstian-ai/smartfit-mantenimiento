@@ -1792,7 +1792,7 @@
         ticket.technicianAssignment = { technicianId: ticket.technicianId, technicianName: ticket.technician, assignedById: result.assignedById || adminSession.id, assignedByName: result.assignedByName || adminSession.name, assignedAt: result.assignedAt || new Date().toISOString() };
         await writeLeaderTickets(tickets);
         try { await SmartFitSupabaseData.hydrate({ tables: ["tickets"] }); } catch (error) { console.warn("La asignación se guardó, pero no se pudo actualizar la caché remota.", error); }
-        window.dispatchEvent(new Event("smartfit:supabase-data-hydrated"));
+        window.dispatchEvent(new CustomEvent("smartfit:supabase-data-hydrated", { detail: { tables: ["tickets"] } }));
         closeTicketAssignment();
       } catch (error) {
         $("ticketAssignmentError").textContent = error.message || "No se pudo asignar el técnico.";
@@ -2359,6 +2359,7 @@
     function showView(name) {
       document.querySelectorAll(".view").forEach(view => { view.hidden = view.id !== `${name}View`; });
       document.querySelectorAll(".nav-button").forEach(button => button.classList.toggle("active", button.dataset.view === name));
+      if (["overview", "users", "sites", "equipment"].includes(name)) render();
       if (name === "users") $("userSearch").focus({ preventScroll: true });
       if (name === "tickets") renderTickets();
       if (name === "inventory") renderAdminInventory();
@@ -3128,17 +3129,33 @@
     });
     setupChartInteractions();
     render();
-    window.addEventListener("smartfit:supabase-data-hydrated", () => {
-      render();
-      if (!$('ticketsView').hidden) renderTickets();
-      if (!$('maintenanceHistoryView').hidden && !$('maintenanceHistoryBlank').hidden) renderMaintenanceHistory();
-      if (!$('maintenanceHistoryView').hidden && !$('mileageHistoryBlank').hidden) renderMileageHistory();
+    window.addEventListener("smartfit:supabase-data-hydrated", event => {
+      const tables = Array.isArray(event.detail?.tables) ? new Set(event.detail.tables) : null;
+      if (!tables) {
+        render();
+        if (!$('ticketsView').hidden) renderTickets();
+        if (!$('maintenanceHistoryView').hidden && !$('maintenanceHistoryBlank').hidden) renderMaintenanceHistory();
+        if (!$('maintenanceHistoryView').hidden && !$('mileageHistoryBlank').hidden) renderMileageHistory();
+        return;
+      }
+      const view = document.querySelector(".view:not([hidden])")?.id || "overviewView";
+      const has = (...names) => names.some(name => tables.has(name));
+      if (view === "overviewView" && has("sites", "equipment", "brands", "profiles", "site_assignments", "admin_user_access", "audit_log")) render();
+      else if (view === "usersView" && has("profiles", "site_assignments", "sites", "admin_user_access")) render();
+      else if (view === "sitesView" && has("sites", "profiles", "site_assignments", "equipment")) render();
+      else if (view === "equipmentView" && has("brands", "equipment")) render();
+      else if (view === "inventoryView" && has("sites", "equipment", "brands", "profiles", "site_assignments")) renderAdminInventory();
+      else if (view === "ticketsView" && has("tickets", "sites", "equipment", "profiles", "site_assignments")) renderTickets();
+      else if (view === "maintenanceHistoryView" && has("maintenance_events", "mileage_records", "maintenance_event_tickets", "tickets", "sites", "equipment", "profiles", "site_assignments")) {
+        if (!$('maintenanceHistoryBlank').hidden) renderMaintenanceHistory();
+        if (!$('mileageHistoryBlank').hidden) renderMileageHistory();
+      }
     });
     SmartFitSupabaseData.syncPendingAccessLogs().catch(error => console.warn("El inicio de sesión quedó en cola para sincronizarse.", error));
     SmartFitSupabaseData.hydrate().then(result => {
       if (!result.skipped) {
         SmartFitSupabaseData.startRealtimeSync();
-        window.dispatchEvent(new Event("smartfit:supabase-data-hydrated"));
+        window.dispatchEvent(new CustomEvent("smartfit:supabase-data-hydrated", { detail: { tables: ["sites", "brands", "equipment", "tickets", "maintenance_events", "mileage_records", "maintenance_event_tickets", "profiles", "site_assignments", "admin_user_access", "audit_log"] } }));
       }
     }).catch(error => {
       console.error("No se pudieron cargar los datos de Supabase:", error);

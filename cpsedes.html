@@ -1430,7 +1430,7 @@
         ticket.technicianAssignment = { technicianId: ticket.technicianId, technicianName: ticket.technician, assignedById: result.assignedById || user.id, assignedByName: result.assignedByName || user.name, assignedAt: result.assignedAt || new Date().toISOString() };
         await writeLeaderTickets(tickets);
         try { await SmartFitSupabaseData.hydrate({ tables: ["tickets"] }); } catch (error) { console.warn("La asignación se guardó, pero no se pudo actualizar la caché remota.", error); }
-        window.dispatchEvent(new Event("smartfit:supabase-data-hydrated"));
+        window.dispatchEvent(new CustomEvent("smartfit:supabase-data-hydrated", { detail: { tables: ["tickets"] } }));
         closeSupervisorTicketAssignment();
       } catch (error) {
         $("supervisorAssignmentError").textContent = error.message || "No se pudo asignar el técnico.";
@@ -3577,7 +3577,41 @@
       sessionStorage.removeItem("smartfit.supabase.auth");
       window.location.href = "index.html";
     });
-    window.addEventListener("smartfit:supabase-data-hydrated", () => {
+    window.addEventListener("smartfit:supabase-data-hydrated", event => {
+      const tables = Array.isArray(event.detail?.tables) ? new Set(event.detail.tables) : null;
+      if (tables) {
+        const has = (...names) => names.some(name => tables.has(name));
+        const scopeChanged = has("profiles", "sites", "site_assignments");
+        if (scopeChanged) {
+          try {
+            const refreshed = JSON.parse(sessionStorage.getItem(adminMode ? "smartfit.admin.session" : "smartfit.site.session") || "null");
+            if (refreshed && user) {
+              session = refreshed;
+              user.siteIds = refreshed.siteIds || user.siteIds || [];
+              user.permanentSiteIds = refreshed.permanentSiteIds || user.permanentSiteIds || user.siteIds;
+              const userSiteIds = new Set((user.siteIds || []).map(String));
+              assignedSites = AdminStore.listSites().filter(site => adminMode || userSiteIds.has(String(site.id)));
+            }
+          } catch (error) { /* conserva el alcance cargado si falta la sesión */ }
+        }
+        if (!$('supervisorSummary').hidden && has("sites", "site_assignments", "profiles", "equipment", "brands", "tickets", "maintenance_events", "mileage_records")) renderSupervisorSummary();
+        if (!$('supervisorTicketsPanel').hidden && has("tickets", "sites", "equipment", "profiles", "site_assignments")) renderSupervisorTickets();
+        if (!$('supervisorEventsPanel').hidden && has("maintenance_events", "mileage_records", "maintenance_event_tickets", "tickets", "sites", "equipment", "profiles", "site_assignments")) renderSupervisorEvents();
+        if (!$('supervisorMaintenanceHistoryBlank').hidden && has("maintenance_events", "maintenance_event_tickets", "tickets", "sites", "equipment", "profiles", "site_assignments")) renderSupervisorMaintenanceHistory();
+        if (!$('supervisorMileageHistoryBlank').hidden && has("mileage_records", "sites", "equipment", "profiles", "site_assignments")) renderSupervisorMileageHistory();
+        if (!$('inventoryPanel').hidden && has("sites", "equipment", "brands", "profiles", "site_assignments")) renderSupervisorInventory();
+        if (!$('sitesPanel').hidden && has("sites", "equipment", "brands", "profiles", "site_assignments")) {
+          if ($('siteGrid').classList.contains('site-grid')) renderSiteList();
+          else if (currentSite && $('siteGrid').classList.contains('brand-grid')) renderSiteBrands(currentSite);
+          else if (currentSite && currentBrandId && $('siteGrid').classList.contains('machine-grid')) renderBrandEquipment(currentBrandId, { resetFilter: false });
+        }
+        if (!$('supervisorRaiseTicketPanel').hidden && !supervisorTicketEquipment && has("sites", "brands", "equipment", "profiles", "site_assignments")) {
+          if (supervisorTicketBrandId) renderSupervisorTicketEquipment(true);
+          else if (supervisorTicketSiteId) renderSupervisorTicketBrands(true);
+          else renderSupervisorTicketSites(true);
+        }
+        return;
+      }
       try {
         const refreshed = JSON.parse(sessionStorage.getItem(adminMode ? "smartfit.admin.session" : "smartfit.site.session") || "null");
         if (refreshed && user) {
@@ -3719,7 +3753,7 @@
     SmartFitSupabaseData.hydrate().then(result => {
       if (!result.skipped) {
         SmartFitSupabaseData.startRealtimeSync();
-        window.dispatchEvent(new Event("smartfit:supabase-data-hydrated"));
+        window.dispatchEvent(new CustomEvent("smartfit:supabase-data-hydrated", { detail: { tables: ["sites", "brands", "equipment", "tickets", "maintenance_events", "mileage_records", "maintenance_event_tickets", "profiles", "site_assignments", "admin_user_access", "audit_log"] } }));
       }
     }).catch(error => console.error("No se pudieron cargar los datos de Supabase:", error));
   </script>
