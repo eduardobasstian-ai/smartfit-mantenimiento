@@ -25,6 +25,48 @@
     .knowledge-photo-tools{display:flex;flex-wrap:wrap;gap:8px}.knowledge-photo-preview{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}.knowledge-photo-preview figure{position:relative;margin:0;width:76px;height:76px}.knowledge-photo-preview img{width:100%;height:100%;object-fit:cover;border:1px solid var(--line);border-radius:9px;cursor:zoom-in}.knowledge-photo-preview button{position:absolute;right:-5px;top:-5px;width:23px;height:23px;border:1px solid #555;background:#171920;color:#fff;border-radius:50%;font-weight:800}.knowledge-photo-grid{display:flex;flex-wrap:wrap;gap:8px;margin-top:9px}.knowledge-photo-grid img{width:76px;height:76px;object-fit:cover;border-radius:9px;border:1px solid var(--line);cursor:zoom-in}.knowledge-photo-status{margin:6px 0 0;color:var(--muted);font-size:11px}.knowledge-lightbox{position:fixed;inset:0;z-index:20;background:#05060aee;display:grid;place-items:center;padding:16px}.knowledge-lightbox[hidden]{display:none}.knowledge-lightbox-frame{position:relative;display:grid;place-items:center;width:min(94vw,1400px);height:min(92vh,1000px);background:#111319;border:1px solid #4a4d56;border-radius:14px;overflow:hidden}.knowledge-lightbox-frame>img{max-width:100%;max-height:100%;object-fit:contain}.knowledge-lightbox-close{position:absolute;z-index:2;right:12px;top:12px;width:42px;height:42px;border:1px solid #464954;border-radius:50%;background:#fff;color:#171717;font-size:25px}.knowledge-lightbox-frame.has-record-photo-carousel{display:block;width:auto;height:auto;max-width:96vw;max-height:94vh}.knowledge-lightbox-frame .record-photo-carousel-viewport{position:absolute;inset:0;width:100%;height:100%;overflow:hidden;touch-action:none;user-select:none}.knowledge-lightbox-frame .record-photo-carousel-track{display:flex;width:100%;height:100%;will-change:transform}.knowledge-lightbox-frame .record-photo-carousel-slide{flex:0 0 100%;width:100%;height:100%;display:grid;place-items:center;overflow:hidden}.knowledge-lightbox-frame .record-photo-carousel-slide img{display:block;max-width:none;max-height:none;object-fit:contain;pointer-events:none;-webkit-user-drag:none}
     #knowledgePhotoDownload:not([hidden]){position:absolute;z-index:2;right:12px;top:62px;width:42px;height:42px;border:1px solid #d9d9d9;border-radius:50%;background:#fff;color:#171717;font-size:20px;box-shadow:0 3px 12px #0004}
   </style>
+  <style>
+    @media (max-width: 600px) {
+      html, body, .layout, main { width: 100%; max-width: 100%; min-width: 0; overflow-x: clip; }
+      main { padding: 14px 12px 24px; }
+      .embedded main { padding: 12px; }
+      .page-head { display: grid; grid-template-columns: minmax(0, 1fr); align-items: stretch; gap: 10px; width: 100%; }
+      .page-head > div:first-child { min-width: 0; width: 100%; }
+      .page-head h1 { max-width: 100%; overflow-wrap: anywhere; }
+      .manager-head-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; width: 100%; min-width: 0; }
+      .manager-head-actions .btn { width: 100%; min-width: 0; max-width: 100%; padding: 0 8px; white-space: normal; line-height: 1.2; }
+      .toolbar { grid-template-columns: minmax(0, 1fr); width: 100%; }
+      .toolbar input { grid-column: auto; min-width: 0; }
+      .toolbar select { min-width: 0; }
+      .cf-list-head { align-items: flex-start; flex-wrap: wrap; gap: 5px; }
+      .cf-table-wrap { overflow: visible; border: 0; background: transparent; }
+      .cf-table { display: block; width: 100%; min-width: 0; }
+      .cf-table thead { display: none; }
+      .cf-table tbody { display: grid; gap: 8px; width: 100%; }
+      .cf-table tbody tr { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); min-width: 0; overflow: hidden; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); }
+      .cf-table td { min-width: 0; padding: 9px; overflow-wrap: anywhere; }
+      .cf-table td:first-child, .cf-table td:nth-child(4), .cf-table td:nth-child(5), .cf-table td[colspan] { grid-column: 1 / -1; }
+      .cf-table td::before { display: block; margin-bottom: 4px; color: var(--muted); font-size: 10px; font-weight: 800; }
+      .cf-table td:first-child::before { content: "Falla / tutorial"; }
+      .cf-table td:nth-child(2)::before { content: "Marca"; }
+      .cf-table td:nth-child(3)::before { content: "Modelo"; }
+      .cf-table td:nth-child(4)::before { content: "Síntomas / descripción"; }
+      .cf-table td:nth-child(5)::before { content: "Acciones"; }
+      .cf-table td[colspan]::before { content: none; }
+      .cf-row-actions { flex-wrap: wrap; }
+      .cf-pagination { flex-wrap: wrap; }
+      .form-actions, .cf-editor-actions { flex-wrap: wrap; }
+      .form-actions .btn, .cf-editor-actions .btn { flex: 1 1 130px; min-width: 0; }
+      .content-home-note { align-items: flex-start; }
+    }
+    @media (max-width: 380px) {
+      main, .embedded main { padding: 10px 8px 20px; }
+      .manager-head-actions { grid-template-columns: minmax(0, 1fr); }
+      .manager-head-actions .btn { min-height: 40px; }
+      .cf-table td { padding: 8px; }
+      .form-card, .consult-card, .device-card, .cf-editor-card { padding: 12px; }
+    }
+  </style>
 </head>
 <body>
   <header class="topbar">
@@ -96,7 +138,8 @@
       function title(){return kind==="failure"?"Fallas":"Tutoriales"}
       function roleCanManage(){return role==="Administrador"||role==="Supervisor"}
       function setRole(next){role=next;$("roleNote").innerHTML=roleCanManage()?`<strong>${esc(role)}</strong><br>Puede crear, editar y eliminar fallas y tutoriales.`:`<strong>Técnico</strong><br>Consulta el contenido asociado al equipo. No puede editarlo.`;$("navFailures").hidden=!roleCanManage();$("navEquipment").hidden=roleCanManage();$("navFailures").classList.toggle("active",roleCanManage());$("navEquipment").classList.toggle("active",!roleCanManage());section=roleCanManage()?"home":"equipment";render()}
-      function render(){if(remoteMode&&(!remoteLoaded||(remoteLoadError&&!records.length))){$("app").innerHTML='<div class="empty">'+(remoteLoading?"Cargando contenido desde Supabase…":esc(remoteLoadError||"Preparando conexión…"))+'</div>';return}if(roleCanManage()){if(section==="manage")renderManager();else if(section==="edit")renderEditor();else renderContentHome()}else renderTechnician();if(remoteMode)document.querySelectorAll(".local-banner").forEach(banner=>{banner.innerHTML='<span aria-hidden="true">ⓘ</span><div><strong>Contenido sincronizado.</strong> Los cambios se comparten entre los perfiles autorizados.</div>'})}
+      function render(){if(remoteMode&&(!remoteLoaded||(remoteLoadError&&!records.length))){$("app").innerHTML='<div class="empty">'+(remoteLoading?"Cargando contenido desde Supabase…":esc(remoteLoadError||"Preparando conexión…"))+'</div>';return}if(roleCanManage()){if(section==="manage")renderManager();else if(section==="edit")renderEditor();else renderContentHome()}else renderTechnician();if(remoteMode)document.querySelectorAll(".local-banner").forEach(banner=>{banner.innerHTML='<span aria-hidden="true">ⓘ</span><div><strong>Contenido sincronizado.</strong> Los cambios se comparten entre los perfiles autorizados.</div>'});window.dispatchEvent(new CustomEvent("smartfit:common-failures-navigation",{detail:{section,kind,technicianTab,technicianPage:technicianPage[technicianTab]||1,editId:editingRecord?.id||""}}))}
+      window.addEventListener("smartfit:common-failures-restore",event=>{const payload=event.detail;if(typeof host==="undefined"||!host||payload?.host!==host)return;const state=payload.state||{};section=["home","manage","edit"].includes(state.section)?state.section:"home";kind=state.kind==="tutorial"?"tutorial":"failure";technicianTab=state.technicianTab==="tutorial"?"tutorial":"failure";technicianPage[technicianTab]=Math.max(1,Number(state.technicianPage)||1);editingRecord=state.editId?records.find(item=>item.id===state.editId)||null:null;editingId=editingRecord?.id||"";if(section==="edit"&&!editingRecord)section="manage";render()});
       function renderContentHome(){
         $("app").innerHTML=`<div class="local-banner"><span aria-hidden="true">ⓘ</span><div><strong>Modo de prueba local.</strong> Los datos se guardan solo en este navegador y no se envían a Supabase ni a otros usuarios.</div></div><header class="page-head"><div><div class="eyebrow">Base de conocimiento</div><h1>Fallas comunes</h1><p>Gestiona el contenido de soporte asociado a marca y modelo.</p></div></header><div class="content-home-grid"><article class="content-home-card"><span class="content-home-icon" aria-hidden="true">▤</span><h2>Fallas</h2><p>Crea y edita fallas comunes con síntomas y soluciones asociadas al equipo.</p><button class="btn primary" type="button" data-manage-kind="failure">Gestionar fallas →</button></article><article class="content-home-card"><span class="content-home-icon" aria-hidden="true">▶</span><h2>Tutoriales</h2><p>Administra enlaces a tutoriales de mantenimiento y reparación.</p><button class="btn primary" type="button" data-manage-kind="tutorial">Gestionar tutoriales →</button></article></div><article class="content-home-note"><span class="content-home-icon" aria-hidden="true">☼</span><div><strong>Contenido para un mejor soporte</strong><p>Mantén actualizada la base de fallas comunes y tutoriales para apoyar al equipo técnico en campo.</p></div></article>`;
       }

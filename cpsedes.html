@@ -502,6 +502,30 @@
 .image-lightbox-frame.has-record-photo-carousel{display:block!important;position:relative;width:auto;height:auto;max-width:96vw!important;max-height:94dvh!important}
 .record-photo-download[hidden]{display:none!important}.record-photo-download{position:absolute;z-index:2;top:56px;right:10px;width:38px;height:38px;display:grid;place-items:center;padding:0;border:1px solid #d1d3d8;border-radius:50%;background:#fff;color:#17191f;box-shadow:0 2px 12px #0003;cursor:pointer}.record-photo-download:hover{border-color:var(--yellow);color:#8a5a00}
 </style>
+  <style>
+    @media (max-width: 600px) {
+      html, body { width: 100%; max-width: 100%; overflow-x: clip; }
+      .supervisor-shell, .supervisor-shell.supervisor-mode { width: 100%; max-width: 100%; min-width: 0; padding-right: 10px; padding-left: 10px; }
+      .supervisor-shell.supervisor-mode .page, .page, .sites-panel, .machine-detail-card, .supervisor-summary, .supervisor-chart-card { width: 100%; min-width: 0; max-width: 100%; }
+      .identity-bar, .identity-user, .identity-actions, .panel-heading, .panel-heading > div, .detail-title-row, .machine-title-row { min-width: 0; max-width: 100%; }
+      .identity-actions, .panel-tools, .toolbar, .filter-actions, .machine-tabs, .form-actions, .ticket-actions, .record-photo-actions { flex-wrap: wrap; }
+      .panel-tools, .page-heading, .panel-heading, .detail-title-row { min-width: 0; }
+      .page-heading > div:last-child, .panel-heading > div:last-child { display: flex; flex-wrap: wrap; gap: 8px; width: 100%; }
+      .page-heading > div:last-child > button, .panel-heading > div:last-child > button { flex: 1 1 135px; min-width: 0; max-width: 100%; white-space: normal; }
+      .supervisor-chart-header, .supervisor-chart-date-filters, .supervisor-chart-site-filter { min-width: 0; max-width: 100%; flex-wrap: wrap; }
+      input, select, textarea, button { max-width: 100%; }
+      .table-wrap, .machine-table-wrap { max-width: 100%; overscroll-behavior-x: contain; }
+      .supervisor-menu { max-width: calc(100vw - 20px); }
+    }
+    @media (max-width: 380px) {
+      .supervisor-shell, .supervisor-shell.supervisor-mode { padding-right: 7px; padding-left: 7px; }
+      .page { padding-right: 6px; padding-left: 6px; }
+      .sites-panel, .machine-detail-card { padding-right: 10px; padding-left: 10px; }
+      .page-heading > div:last-child > button, .panel-heading > div:last-child > button { flex-basis: 100%; }
+      .identity-actions { width: 100%; }
+      .identity-actions .logout-button { flex: 0 0 auto; }
+    }
+  </style>
 </head>
 <body>
   <header class="topbar">
@@ -3643,6 +3667,8 @@
       page: "site-panel",
       capture: () => {
         const activeView = document.querySelector("[data-supervisor-view].active")?.dataset.supervisorView || (supervisorMode ? "summary" : "sites");
+        const commonHost = Array.from(document.querySelectorAll("[data-common-failures-src]"))
+          .find(host => !host.closest("[hidden]") && host.getClientRects().length);
         const eventsPage = !$('supervisorMileageHistoryBlank').hidden ? "mileage"
           : !$('supervisorMaintenanceHistoryBlank').hidden ? "maintenance"
             : !$('supervisorEventsChooser').hidden ? "chooser" : "";
@@ -3674,7 +3700,8 @@
           } : null,
           ticketSiteQuery: supervisorTicketSiteQuery || "",
           ticketBrandQuery: supervisorTicketBrandQuery || "",
-          ticketEquipmentQuery: supervisorTicketEquipmentQuery || ""
+          ticketEquipmentQuery: supervisorTicketEquipmentQuery || "",
+          commonFailuresState: commonHost ? window.SmartFitCommonFailuresEmbed?.capture(commonHost) || null : null
         };
       },
       restore: state => {
@@ -3699,7 +3726,15 @@
           return;
         }
         if (supervisorMode) {
-          if (view === "common-failures") { renderSupervisorCommonFailures(); return; }
+          if (view === "common-failures") {
+            renderSupervisorCommonFailures();
+            if (state.commonFailuresState) setTimeout(() => {
+              const commonHost = Array.from(document.querySelectorAll("[data-common-failures-src]"))
+                .find(host => !host.closest("[hidden]") && host.getClientRects().length);
+              if (commonHost) window.SmartFitCommonFailuresEmbed?.restore(commonHost, state.commonFailuresState);
+            }, 0);
+            return;
+          }
           if (view === "summary") renderSupervisorSummary();
           else if (view === "tickets") renderSupervisorTickets();
           else if (view === "inventory") renderSupervisorInventory();
@@ -3732,6 +3767,14 @@
             }
           } else renderSiteList();
         } else renderSiteList();
+
+        if (state.commonFailuresState) {
+          setTimeout(() => {
+            const commonHost = Array.from(document.querySelectorAll("[data-common-failures-src]"))
+              .find(host => !host.closest("[hidden]") && host.getClientRects().length);
+            if (commonHost) window.SmartFitCommonFailuresEmbed?.restore(commonHost, state.commonFailuresState);
+          }, 0);
+        }
 
         if (state.siteId) {
           if (supervisorMode) renderSiteList();

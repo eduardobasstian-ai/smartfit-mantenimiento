@@ -505,6 +505,28 @@
 .lightbox-frame.has-record-photo-carousel{display:block!important;position:relative;width:auto;height:auto;max-width:96vw!important;max-height:94dvh!important}
 .record-photo-download[hidden]{display:none!important}.record-photo-download{position:absolute;z-index:2;top:58px;right:12px;width:38px;height:38px;display:grid;place-items:center;padding:0;border:1px solid #d1d3d8;border-radius:50%;background:#fff;color:#17191f;box-shadow:0 2px 12px #0003;cursor:pointer}.record-photo-download:hover{border-color:var(--yellow);color:#8a5a00}
 </style>
+  <style>
+    @media (max-width: 600px) {
+      html, body { width: 100%; max-width: 100%; overflow-x: clip; }
+      .layout { width: 100%; grid-template-columns: minmax(0, 1fr); padding-right: 12px; padding-left: 12px; }
+      .main-content, .view, .panel-card, .chart-card, .page-heading, .panel-heading { min-width: 0; max-width: 100%; }
+      .page-heading > div, .panel-heading > div { min-width: 0; max-width: 100%; }
+      .page-heading > div:last-child, .panel-heading > div:last-child { display: flex; flex-wrap: wrap; gap: 8px; width: 100%; }
+      .page-heading > div:last-child > button, .panel-heading > div:last-child > button { flex: 1 1 135px; min-width: 0; max-width: 100%; white-space: normal; }
+      .topbar, .top-actions, .table-tools, .row-actions, .ticket-assignment-actions, .site-equipment-footer { min-width: 0; max-width: 100%; }
+      .equipment-card, .equipment-actions, .site-equipment-choice, .modal, .modal-body { min-width: 0; max-width: 100%; }
+      input, select, textarea { min-width: 0; max-width: 100%; }
+      .table-wrap, .inventory-list { max-width: 100%; overscroll-behavior-x: contain; }
+      .ticket-assignment-actions, .row-actions, .equipment-actions { flex-wrap: wrap; }
+      .ticket-assignment-actions > button, .row-actions > button { max-width: 100%; }
+    }
+    @media (max-width: 380px) {
+      .layout { padding-right: 8px; padding-left: 8px; }
+      .panel-card { padding: 10px; }
+      .page-heading > div:last-child > button { flex-basis: 100%; }
+      .topbar { gap: 8px; }
+    }
+  </style>
 </head>
 <body>
   <header class="topbar">
@@ -3115,10 +3137,12 @@
           if (!$('mileageHistoryBlank').hidden) historyPage = "mileage";
           else if (!$('maintenanceHistoryBlank').hidden) historyPage = "maintenance";
         }
-        return { view: activeView, historyPage };
+        const commonHost = document.querySelector("#commonFailuresView [data-common-failures-src]");
+        return { view: activeView, historyPage, commonFailuresState: window.SmartFitCommonFailuresEmbed?.capture(commonHost) || null };
       },
       restore: state => {
         showView(state.view || "overview");
+        if (state.commonFailuresState) setTimeout(() => window.SmartFitCommonFailuresEmbed?.restore(document.querySelector("#commonFailuresView [data-common-failures-src]"), state.commonFailuresState), 0);
         if (state.view !== "maintenanceHistory") return;
         $('maintenanceHistoryChooser').hidden = Boolean(state.historyPage);
         $('maintenanceHistoryBlank').hidden = state.historyPage !== "maintenance";

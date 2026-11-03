@@ -2,6 +2,7 @@
   "use strict";
 
   const mounted = new WeakSet();
+  const navigationStates = new WeakMap();
 
   function findById(root, id) {
     return [...root.querySelectorAll("[id]")].find(element => element.id === id) || null;
@@ -25,7 +26,7 @@
     };
   }
 
-  function scopedWindow() {
+  function scopedWindow(host) {
     return new Proxy(window, {
       get(target, property) {
         if (property === "addEventListener") {
@@ -35,6 +36,14 @@
               return;
             }
             target.addEventListener(type, listener, options);
+          };
+        }
+        if (property === "dispatchEvent") {
+          return event => {
+            if (event?.type === "smartfit:common-failures-navigation") {
+              return target.dispatchEvent(new CustomEvent(event.type, { detail: { host, state: event.detail || {} } }));
+            }
+            return target.dispatchEvent(event);
           };
         }
         const value = Reflect.get(target, property, target);
@@ -71,7 +80,7 @@
       if (!appScript) throw new Error("No se encontró el inicializador de Gestión de contenido.");
       const localDocument = scopedDocument(root, host);
       const localLocation = new URL(sourceUrl, window.location.href);
-      Function("document", "location", "window", appScript.textContent).call(window, localDocument, localLocation, scopedWindow());
+      Function("document", "location", "window", "host", appScript.textContent).call(window, localDocument, localLocation, scopedWindow(host), host);
       host.removeAttribute("aria-busy");
     } catch (error) {
       root.replaceChildren();
@@ -89,7 +98,27 @@
     node.querySelectorAll?.("[data-common-failures-src]").forEach(mount);
   }
 
-  window.SmartFitCommonFailuresEmbed = { mount };
+  window.addEventListener("smartfit:common-failures-navigation", event => {
+    const host = event.detail?.host;
+    if (!host) return;
+    const state = event.detail.state || {};
+    navigationStates.set(host, state);
+    host.dataset.commonFailuresState = JSON.stringify(state);
+  });
+
+  function capture(host) {
+    if (!host) return null;
+    if (navigationStates.has(host)) return navigationStates.get(host);
+    try { return JSON.parse(host.dataset.commonFailuresState || "null"); } catch (error) { return null; }
+  }
+
+  function restore(host, state) {
+    if (!host || !state) return false;
+    window.dispatchEvent(new CustomEvent("smartfit:common-failures-restore", { detail: { host, state } }));
+    return true;
+  }
+
+  window.SmartFitCommonFailuresEmbed = { mount, capture, restore };
   scan();
   new MutationObserver(records => records.forEach(record => record.addedNodes.forEach(node => {
     if (node.nodeType === 1) scan(node);
