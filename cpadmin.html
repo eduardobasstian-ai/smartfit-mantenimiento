@@ -13,6 +13,7 @@
   <title>Panel administrador | Mantenimiento</title>
   <link rel="icon" type="image/x-icon" href="IMG/favicon.ico">
   <link rel="icon" type="image/png" href="IMG/favicon.png">
+  <link rel="stylesheet" href="common-failures.css?v=20261102-local-integration-1">
   <script src="./online-only.js?v=20261028-6"></script>
   <style>
     :root {
@@ -530,6 +531,7 @@
       <button class="nav-button" type="button" data-view="inventory">▦ &nbsp; Inventario</button>
       <button class="nav-button" type="button" data-view="tickets">▤ &nbsp; Tickets</button>
       <button class="nav-button" type="button" data-view="maintenanceHistory">▤ &nbsp; Eventos / Registros</button>
+      <button class="nav-button" type="button" data-view="commonFailures">▤ &nbsp; Gestión de contenido</button>
       <button class="nav-button" type="button" data-view="settings">⚙ &nbsp; Configuración</button>
     </nav>
 
@@ -864,6 +866,10 @@
           </table></div>
         </section>
       </section>
+      <section class="view" id="commonFailuresView" hidden aria-labelledby="commonFailuresPageTitle">
+        <h1 id="commonFailuresPageTitle" class="sr-only">Fallas comunes</h1>
+        <iframe class="cf-frame" src="fallas-comunes-local.html?rol=Administrador&amp;v=20261102-knowledge-v1" title="Gestión de fallas comunes del administrador" loading="lazy"></iframe>
+      </section>
     </main>
   </div>
 
@@ -1105,7 +1111,7 @@
   <script src="record-photo-carousel.js?v=20261030-record-carousel-4"></script>
   <script src="mobile-back-navigation.js?v=20261029-mobile-back-1"></script>
   <script src="admin-store.js?v=20261029-performance-stage-2"></script>
-  <script src="supabase-data.js?v=20261029-performance-stage-2"></script>
+  <script src="supabase-data.js?v=20261102-knowledge-v1"></script>
   <script src="pdf-report.js?v=20261029-print-ui-1"></script>
   <script src="EQU/matrix-catalog.js"></script>
   <script src="EQU/booty-catalog.js"></script>

@@ -1,0 +1,36 @@
+.cf-page{color:var(--text,#f4f5f7)}
+.cf-local-note{display:flex;gap:9px;padding:11px 14px;margin:0 0 18px;border:1px solid #55451e;border-radius:11px;background:#2a2418;color:#f7cb67;font-size:12px}
+.cf-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin:0 0 18px}
+.cf-heading h1,.cf-heading h2{margin:0 0 5px}.cf-heading p,.cf-muted{margin:0;color:var(--muted,#aeb2bf);font-size:12px}
+.cf-tabs{display:flex;gap:7px;border-bottom:1px solid var(--line,#343743);margin:12px 0 16px}
+.cf-tab{min-height:38px;padding:0 14px;border:0;border-radius:9px 9px 0 0;background:var(--card,#22252e);color:var(--muted,#aeb2bf);font-weight:750}
+.cf-tab.active{background:var(--yellow,#ffb51b);color:#171717}
+.cf-toolbar{display:grid;grid-template-columns:minmax(180px,1fr) minmax(140px,.5fr) minmax(140px,.5fr) auto;gap:9px;margin:14px 0}
+.cf-control{width:100%;min-height:40px;padding:8px 11px;border:1px solid var(--line,#343743);border-radius:9px;background:var(--field,#111319);color:var(--text,#f4f5f7)}
+.cf-control:focus{outline:2px solid #ffb51b75;border-color:var(--yellow,#ffb51b)}
+.cf-button{min-height:38px;padding:0 12px;border:1px solid var(--line,#343743);border-radius:9px;background:var(--card,#22252e);color:var(--text,#f4f5f7);font-weight:750;cursor:pointer}
+.cf-button.primary{border-color:var(--yellow,#ffb51b);background:var(--yellow,#ffb51b);color:#171717}
+.cf-button.danger{color:#ff9da5;border-color:#583039;background:#321e25}
+.cf-count{margin:10px 0;color:var(--muted,#aeb2bf);font-size:12px}
+.cf-list{display:grid;gap:9px}
+.cf-entry{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:14px;border:1px solid var(--line,#343743);border-radius:12px;background:var(--card,#22252e)}
+.cf-entry h3{margin:0 0 4px;font-size:14px}.cf-entry p{margin:4px 0 0;color:var(--muted,#aeb2bf);font-size:12px;white-space:pre-wrap}
+.cf-tags{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:6px}.cf-tag{padding:3px 8px;border-radius:30px;background:#30333d;color:#e1e3e9;font-size:10px;font-weight:800}
+.cf-entry-actions{display:flex;flex:none;gap:6px}
+.cf-empty{padding:24px 16px;border:1px dashed #414450;border-radius:11px;text-align:center;color:var(--muted,#aeb2bf)}
+.cf-editor{padding:16px;margin:12px 0 16px;border:1px solid var(--line,#343743);border-radius:12px;background:var(--panel,#191b22)}
+.cf-editor h2{margin:0 0 14px;font-size:16px}.cf-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px}
+.cf-field{display:grid;gap:5px;min-width:0}.cf-field label{font-size:11px;font-weight:750}.cf-field textarea{min-height:86px;resize:vertical}.cf-field.full{grid-column:1/-1}
+.cf-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
+.cf-footnote{margin:16px 0 0;color:var(--muted,#aeb2bf);font-size:11px}
+.cf-equipment-context{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 14px;margin:0 0 14px;border:1px solid var(--line,#343743);border-radius:11px;background:var(--card,#22252e)}
+.cf-equipment-context strong{font-size:14px}.cf-readonly{color:#43c994;font-size:11px;font-weight:800}
+.cf-consult-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.cf-consult{padding:15px;border:1px solid var(--line,#343743);border-radius:12px;background:var(--panel,#191b22)}
+.cf-consult h3{margin:0 0 11px;font-size:14px}.cf-consult-item{padding:10px 0;border-bottom:1px solid var(--line,#343743)}.cf-consult-item:last-child{border-bottom:0}
+.cf-consult-item h4{margin:0 0 4px;font-size:13px}.cf-consult-item p{margin:3px 0;color:var(--muted,#aeb2bf);font-size:12px;white-space:pre-wrap}
+.cf-link{color:var(--yellow,#ffb51b);font-weight:750;text-decoration:none}
+.cf-frame{display:block;width:100%;height:calc(100vh - 165px);min-height:620px;border:0;border-radius:12px;background:#101116}
+@media(max-width:760px){.cf-toolbar{grid-template-columns:1fr 1fr}.cf-toolbar input{grid-column:1/-1}.cf-consult-grid{grid-template-columns:1fr}.cf-entry{align-items:flex-start;flex-direction:column}.cf-entry-actions{align-self:flex-end}}
+@media(max-width:500px){.cf-toolbar,.cf-grid{grid-template-columns:1fr}.cf-toolbar input,.cf-field.full{grid-column:auto}.cf-heading{flex-direction:column}.cf-actions{flex-wrap:wrap}}
+@media(max-width:600px){.cf-frame{height:calc(100dvh - 145px);min-height:680px}}

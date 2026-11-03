@@ -13,6 +13,7 @@
   <title>Mis sedes | Mantenimiento de Equipos</title>
   <link rel="icon" type="image/x-icon" href="IMG/favicon.ico">
   <link rel="icon" type="image/png" href="IMG/favicon.png">
+  <link rel="stylesheet" href="common-failures.css?v=20261102-local-integration-1">
   <script src="./online-only.js?v=20261028-6"></script>
   <script src="./form-drafts.js?v=20261026-1"></script>
   <style>
@@ -532,6 +533,7 @@
       <button class="supervisor-nav-item" type="button" data-supervisor-view="tickets">▤ &nbsp; Tickets</button>
       <button class="supervisor-nav-item" type="button" data-supervisor-view="events">▤ &nbsp; Eventos / Registros</button>
       <button class="supervisor-nav-item" type="button" data-supervisor-view="inventory">▦ &nbsp; Inventario</button>
+      <button class="supervisor-nav-item" type="button" data-supervisor-view="common-failures">▤ &nbsp; Gestión de contenido</button>
       <button class="supervisor-nav-item" type="button" disabled aria-disabled="true">⚙ &nbsp; Configuración</button>
     </aside>
 
@@ -749,6 +751,10 @@
       <div class="inventory-table-wrap"><table class="inventory-table"><thead><tr><th>Sede</th><th>Marca</th><th>Equipo</th><th>Modelo</th><th>Activo fijo</th><th>Categoría</th></tr></thead><tbody id="profileInventoryBody"></tbody></table></div>
     </section>
 
+    <section class="sites-panel" id="commonFailuresPanel" aria-label="Gestión de fallas comunes" hidden>
+        <iframe class="cf-frame" src="fallas-comunes-local.html?rol=Supervisor&amp;v=20261102-knowledge-v1" title="Gestión de fallas comunes del supervisor" loading="lazy"></iframe>
+    </section>
+
     <p class="notice" id="notice">Las sedes y cantidades se actualizan desde el panel de administración.</p>
   </main>
   </div>
@@ -786,7 +792,7 @@
   </div>
   <script src="mobile-back-navigation.js?v=20261029-mobile-back-1"></script>
   <script src="admin-store.js?v=20261029-performance-stage-2"></script>
-  <script src="supabase-data.js?v=20261029-performance-stage-2"></script>
+  <script src="supabase-data.js?v=20261102-knowledge-v1"></script>
   <script src="pdf-report.js?v=20261029-print-ui-1"></script>
   <script src="EQU/matrix-catalog.js"></script>
   <script src="EQU/booty-catalog.js"></script>
@@ -1499,6 +1505,13 @@
       $("pageHeading").hidden = true;
       $("notice").hidden = true;
       setSupervisorActiveView("events");
+    }
+
+    function renderSupervisorCommonFailures() {
+      if (!supervisorMode || user?.role !== "Supervisor") return;
+      ["supervisorSummary", "pageHeading", "siteIdentityBar", "supervisorTicketContext", "supervisorTicketsPanel", "sitesPanel", "supervisorRaiseTicketPanel", "supervisorEventsPanel", "inventoryPanel", "notice"].forEach(id => { const node = $(id); if (node) node.hidden = true; });
+      $("commonFailuresPanel").hidden = false;
+      setSupervisorActiveView("common-failures");
     }
 
     function readMaintenanceHistoryRecords() {
@@ -2684,6 +2697,20 @@
       return name.includes("trotadora") || name.includes("treadmill");
     }
 
+    function commonFailuresFrameUrl(machine) {
+      const item = machine?.item || {};
+      const brand = brandDirectory.find(entry => entry.id === item.brandId) || brandDirectory.find(entry => normalizeChartLabel(entry.name) === normalizeChartLabel(item.brandName));
+      const params = new URLSearchParams({
+        rol: "Técnico",
+        v: "20261102-knowledge-v1",
+        brandId: brand?.id || item.brandId || "",
+        brandName: item.brandName || brand?.name || "",
+        equipmentName: item.name || "Equipo",
+        model: item.model || "Sin modelo"
+      });
+      return `fallas-comunes-local.html?${params.toString()}`;
+    }
+
     function renderMachineDetail(machine) {
       if (!machine) return;
       currentMachine = machine;
@@ -2770,6 +2797,7 @@
         <div class="machine-tabs" role="tablist" aria-label="Información de la máquina">
           <button class="machine-tab${currentMachineTab === "maintenance" ? " active" : ""}" type="button" role="tab" aria-selected="${currentMachineTab === "maintenance"}" data-machine-tab="maintenance">Mantenimiento</button>
           <button class="machine-tab${currentMachineTab === "tickets" ? " active" : ""}" type="button" role="tab" aria-selected="${currentMachineTab === "tickets"}" data-machine-tab="tickets">Ver tickets</button>
+          ${user?.role === "Técnico" ? `<button class="machine-tab${currentMachineTab === "common-failures" ? " active" : ""}" type="button" role="tab" aria-selected="${currentMachineTab === "common-failures"}" data-machine-tab="common-failures">Fallas comunes</button>` : ""}
           ${treadmill ? `<button class="machine-tab${currentMachineTab === "mileage" ? " active" : ""}" type="button" role="tab" aria-selected="${currentMachineTab === "mileage"}" data-machine-tab="mileage">Historial de kilometraje (Km)</button>` : ""}
         </div>
         <section class="machine-tab-panel" data-machine-panel="maintenance" ${currentMachineTab === "maintenance" ? "" : "hidden"}>
@@ -2809,6 +2837,7 @@
             </table></div>
           </article>
         </section>
+        ${user?.role === "Técnico" ? `<section class="machine-tab-panel" data-machine-panel="common-failures" ${currentMachineTab === "common-failures" ? "" : "hidden"}><article class="machine-detail-card"><h3>Fallas comunes y tutoriales</h3><iframe class="cf-frame" src="${escapeHtml(commonFailuresFrameUrl(machine))}" title="Fallas comunes de ${escapeHtml(item.name || "este equipo")}" loading="lazy"></iframe></article></section>` : ""}
         ${treadmill ? `<section class="machine-tab-panel" data-machine-panel="mileage" ${currentMachineTab === "mileage" ? "" : "hidden"}>
           <article class="machine-detail-card">
             <h3>Historial de kilometraje (Km)</h3>
@@ -3117,10 +3146,12 @@
     $("supervisorMenu").addEventListener("click", event => {
       const navButton = event.target.closest("[data-supervisor-view]");
       if (!navButton || !supervisorMode || navButton.disabled) return;
+      if (navButton.dataset.supervisorView !== "common-failures") $("commonFailuresPanel").hidden = true;
       if (navButton.dataset.supervisorView === "summary") renderSupervisorSummary();
       else if (navButton.dataset.supervisorView === "sites") renderSiteList();
       else if (navButton.dataset.supervisorView === "tickets") renderSupervisorTickets();
       else if (navButton.dataset.supervisorView === "inventory") renderSupervisorInventory();
+      else if (navButton.dataset.supervisorView === "common-failures") renderSupervisorCommonFailures();
       else if (navButton.dataset.supervisorView === "raise-ticket") renderSupervisorRaiseTicket();
       else if (navButton.dataset.supervisorView === "events") {
         renderSupervisorEvents();
@@ -3633,6 +3664,7 @@
           return;
         }
         if (supervisorMode) {
+          if (view === "common-failures") { renderSupervisorCommonFailures(); return; }
           if (view === "summary") renderSupervisorSummary();
           else if (view === "tickets") renderSupervisorTickets();
           else if (view === "inventory") renderSupervisorInventory();

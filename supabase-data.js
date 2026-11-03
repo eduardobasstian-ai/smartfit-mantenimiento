@@ -7,6 +7,8 @@
   const PENDING_KEY = "smartfit.supabase.pending.v1";
   const PENDING_ACCESS_LOGS_KEY = "smartfit.supabase.pending-access-logs.v1";
   const ACCESS_HISTORY_KEY = "smartfit.admin.access-history.v1";
+  const COMMON_KNOWLEDGE_SYNC_KEY = "smartfit.common-knowledge.changed.v1";
+  const COMMON_KNOWLEDGE_BUCKET = "equipment-knowledge";
   let realtimeClient = null;
   let realtimeChannel = null;
   let realtimeRefreshTimer = null;
@@ -22,6 +24,7 @@
   const recordMediaCache = new Map();
   const ticketMediaCache = new Map();
   const syncedRecordMediaKeys = new Set();
+  const commonKnowledgePhotoUrls = new Map();
 
   function readPendingAccessLogs() {
     const entries = new Map();
@@ -429,6 +432,141 @@
     return rows;
   }
   async function getRows(table, select = "*") { return queryRows(`${table}?select=${encodeURIComponent(select)}`); }
+  function announceCommonKnowledgeChange() {
+    try { localStorage.setItem(COMMON_KNOWLEDGE_SYNC_KEY, String(Date.now())); }
+    catch (error) { /* El aviso en tiempo real de Supabase sigue disponible. */ }
+  }
+  async function listCommonKnowledgeEntries({ brandLegacyId = "", model = "" } = {}) {
+    const filters = [];
+    if (brandLegacyId) filters.push(`brand_legacy_id=eq.${encodeURIComponent(String(brandLegacyId))}`);
+    if (model) filters.push(`model=eq.${encodeURIComponent(String(model))}`);
+    const suffix = filters.length ? `&${filters.join("&")}` : "";
+    return queryRows(`knowledge_entries?select=id,legacy_id,kind,brand_legacy_id,brand_name,equipment_name,model,title,description,symptoms,resolution,url,thumbnail_url,duration,photos,created_by,updated_by,created_at,updated_at&order=updated_at.desc${suffix}`);
+  }
+  async function saveCommonKnowledgeEntry(entry) {
+    if (!entry || !entry.id || !entry.legacyId) throw new Error("El registro de contenido no tiene identificadores válidos.");
+    const role = appSession()?.role;
+    if (!["Administrador", "Supervisor"].includes(role)) throw new Error("Solo Administrador y Supervisor pueden gestionar este contenido.");
+    const actorId = appSession()?.authId || auth()?.user?.id || null;
+    const row = {
+      id: entry.remoteId || entry.id,
+      legacy_id: String(entry.legacyId),
+      kind: entry.kind,
+      brand_legacy_id: String(entry.brandId || ""),
+      brand_name: String(entry.brandName || ""),
+      equipment_name: String(entry.equipmentName || ""),
+      model: String(entry.model || ""),
+      title: String(entry.title || ""),
+      description: String(entry.description || ""),
+      symptoms: String(entry.symptoms || ""),
+      resolution: String(entry.resolution || ""),
+      url: String(entry.url || ""),
+      thumbnail_url: String(entry.thumbnailUrl || ""),
+      duration: String(entry.duration || ""),
+      photos: Array.isArray(entry.photos) ? entry.photos.slice(0, 4) : [],
+      created_by: entry.createdBy || actorId,
+      updated_by: actorId,
+      updated_at: new Date().toISOString()
+    };
+    const rows = await postRows("knowledge_entries", [row], "legacy_id", "id,legacy_id,kind,brand_legacy_id,brand_name,equipment_name,model,title,description,symptoms,resolution,url,thumbnail_url,duration,photos,created_by,updated_by,created_at,updated_at");
+    const saved = rows[0];
+    if (!saved?.id) throw new Error("Supabase no devolvió el registro guardado.");
+    announceCommonKnowledgeChange();
+    return saved;
+  }
+  async function deleteCommonKnowledgeEntry(legacyId, photoPaths = []) {
+    const role = appSession()?.role;
+    if (!["Administrador", "Supervisor"].includes(role)) throw new Error("Solo Administrador y Supervisor pueden eliminar este contenido.");
+    await deleteRow("knowledge_entries", `legacy_id=eq.${encodeURIComponent(String(legacyId))}`);
+    if (photoPaths.length) {
+      try { await deleteCommonKnowledgeImages(photoPaths); }
+      catch (error) { console.warn("El registro se eliminó, pero algunas fotos quedaron pendientes de limpieza.", error); }
+    }
+    announceCommonKnowledgeChange();
+  }
+  function createCommonKnowledgeUuid() { return global.crypto?.randomUUID?.() || "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, char => { const value = Math.random() * 16 | 0; return (char === "x" ? value : value & 3 | 8).toString(16); }); }
+  function encodedStoragePath(path) { return String(path || "").split("/").map(encodeURIComponent).join("/"); }
+  async function uploadCommonKnowledgeImage(entryId, blob, originalName = "fotografia", dimensions = {}) {
+    if (!(blob instanceof Blob) || !blob.size) throw new Error("La fotografía seleccionada está vacía.");
+    const role = appSession()?.role;
+    if (!["Administrador", "Supervisor"].includes(role)) throw new Error("Solo Administrador y Supervisor pueden subir fotografías.");
+    const mime = ["image/webp", "image/jpeg", "image/png"].includes(blob.type) ? blob.type : "image/jpeg";
+    const extension = mime === "image/webp" ? "webp" : mime === "image/png" ? "png" : "jpg";
+    const path = `${entryId}/${createCommonKnowledgeUuid()}.${extension}`;
+    const response = await authorizedFetch(`${URL}/storage/v1/object/${COMMON_KNOWLEDGE_BUCKET}/${encodedStoragePath(path)}`, {
+      method: "POST",
+      headers: { "Content-Type": mime, "cache-control": "31536000", "x-upsert": "false" },
+      body: blob
+    });
+    if (!response.ok) throw new Error(`No se pudo subir la fotografía (${response.status}): ${await response.text()}`);
+    return { path, name: String(originalName || "fotografia").slice(0, 180), type: mime, size: blob.size, width: Number(dimensions.width) || null, height: Number(dimensions.height) || null };
+  }
+  async function deleteCommonKnowledgeImages(paths = []) {
+    const uniquePaths = [...new Set((Array.isArray(paths) ? paths : []).map(String).filter(Boolean))];
+    if (!uniquePaths.length) return;
+    const response = await authorizedFetch(`${URL}/storage/v1/object/${COMMON_KNOWLEDGE_BUCKET}`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prefixes: uniquePaths })
+    });
+    if (!response.ok) throw new Error(`No se pudieron eliminar las fotografías (${response.status}): ${await response.text()}`);
+    uniquePaths.forEach(path => commonKnowledgePhotoUrls.delete(path));
+  }
+  async function getCommonKnowledgeImageUrls(paths = []) {
+    const uniquePaths = [...new Set((Array.isArray(paths) ? paths : []).map(String).filter(Boolean))];
+    const urls = {};
+    await Promise.all(uniquePaths.map(async path => {
+      const cached = commonKnowledgePhotoUrls.get(path);
+      if (cached && cached.expiresAt > Date.now() + 60000) { urls[path] = cached.url; return; }
+      const response = await authorizedFetch(`${URL}/storage/v1/object/sign/${COMMON_KNOWLEDGE_BUCKET}/${encodedStoragePath(path)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ expiresIn: 3600 })
+      });
+      const text = await response.text();
+      let result = {};
+      try { result = text ? JSON.parse(text) : {}; } catch (error) {}
+      if (!response.ok) throw new Error(`No se pudo abrir una fotografía (${response.status}): ${result.message || text}`);
+      const signed = result.signedURL || result.signedUrl;
+      if (!signed) throw new Error("Supabase no devolvió el enlace temporal de la fotografía.");
+      const url = signed.startsWith("http") ? signed : `${URL}/storage/v1${signed.startsWith("/") ? "" : "/"}${signed}`;
+      commonKnowledgePhotoUrls.set(path, { url, expiresAt: Date.now() + 3500000 });
+      urls[path] = url;
+    }));
+    return urls;
+  }
+  async function importLocalCommonKnowledge(entries = []) {
+    const role = appSession()?.role;
+    if (!["Administrador", "Supervisor"].includes(role)) return { imported: 0 };
+    const remote = await listCommonKnowledgeEntries();
+    const known = new Set(remote.map(row => String(row.legacy_id)));
+    const missing = (Array.isArray(entries) ? entries : []).filter(entry => entry?.id && !known.has(String(entry.id)));
+    if (!missing.length) return { imported: 0 };
+    const actorId = appSession()?.authId || auth()?.user?.id || null;
+    const rows = missing.map(entry => ({
+      id: createCommonKnowledgeUuid(),
+      legacy_id: String(entry.id),
+      kind: entry.kind === "tutorial" ? "tutorial" : "failure",
+      brand_legacy_id: String(entry.brandId || ""),
+      brand_name: String(entry.brandName || ""),
+      equipment_name: String(entry.equipmentName || ""),
+      model: String(entry.model || ""),
+      title: String(entry.title || ""),
+      description: String(entry.description || ""),
+      symptoms: String(entry.symptoms || ""),
+      resolution: String(entry.resolution || ""),
+      url: String(entry.url || ""),
+      thumbnail_url: String(entry.thumbnailUrl || ""),
+      duration: String(entry.duration || ""),
+      photos: [],
+      created_by: actorId,
+      updated_by: actorId,
+      updated_at: entry.updatedAt || new Date().toISOString()
+    }));
+    const importedRows = await postRows("knowledge_entries", rows, "legacy_id", "legacy_id");
+    if (importedRows.length) announceCommonKnowledgeChange();
+    return { imported: importedRows.length };
+  }
   async function postRow(table, row, conflict = "legacy_id") {
     const token = auth()?.access_token;
     if (!token) throw new Error("No hay una sesión autenticada de Supabase.");
@@ -753,6 +891,10 @@
     realtimeChannel = realtimeClient.channel("smartfit-live-sync", { config: { private: true } });
     const scheduleRefresh = payload => {
       const changedTable = String(payload?.payload?.table || "");
+      if (changedTable === "knowledge_entries") {
+        announceCommonKnowledgeChange();
+        return;
+      }
       if (!changedTable || changedTable === "part_requests") return;
       if (["admin_user_access", "audit_log"].includes(changedTable) && appSession()?.role !== "Administrador") return;
       pendingRealtimeTables.add(changedTable);
@@ -1663,5 +1805,5 @@
     try { return JSON.parse(sessionStorage.getItem(key) || "null"); } catch (error) { return null; }
   }
 
-  global.SmartFitSupabaseData = { hydrate, manageUser, persistSite, persistBrand, deleteBrand, deleteSite, recordAccess, syncPendingAccessLogs, startRealtimeSync, persistTicket: persistTicketQueued, assignTicketTechnician, listAssignableTicketTechnicians, persistMachineRecord, retryPending: flushPending, getReportImages, loadMachineRecordMedia, prepareMachineRecordStorage, writeMachineRecordCache, getMachineRecordWithCachedMediaSync, prepareTicketStorage, writeTicketCache, getTicketsWithCachedMediaSync };
+  global.SmartFitSupabaseData = { hydrate, manageUser, persistSite, persistBrand, deleteBrand, deleteSite, recordAccess, syncPendingAccessLogs, startRealtimeSync, persistTicket: persistTicketQueued, assignTicketTechnician, listAssignableTicketTechnicians, persistMachineRecord, retryPending: flushPending, getReportImages, loadMachineRecordMedia, prepareMachineRecordStorage, writeMachineRecordCache, getMachineRecordWithCachedMediaSync, prepareTicketStorage, writeTicketCache, getTicketsWithCachedMediaSync, listCommonKnowledgeEntries, saveCommonKnowledgeEntry, deleteCommonKnowledgeEntry, uploadCommonKnowledgeImage, deleteCommonKnowledgeImages, getCommonKnowledgeImageUrls, importLocalCommonKnowledge };
 })(window);

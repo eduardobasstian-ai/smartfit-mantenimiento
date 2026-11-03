@@ -18,3 +18,7 @@ Para activar la publicación, configura GitHub Pages del repositorio con **GitHu
 ## Desarrollo local
 
 Abre `index.html` en un servidor web local. El acceso requiere usuarios habilitados en Supabase.
+
+## Base de conocimiento de fallas y tutoriales
+
+Antes de publicar la versión que conecta **Gestión de contenido** con Supabase, ejecuta una sola vez `supabase/migrations/202611020001_common_knowledge_storage.sql` desde el SQL Editor del proyecto. La migración crea `knowledge_entries`, el bucket privado `equipment-knowledge`, sus políticas RLS y el aviso Realtime. Administradores y Supervisores pueden gestionar contenido; los usuarios autenticados pueden consultarlo. Las fotografías se guardan en Storage y la tabla conserva solo sus rutas y metadatos.
