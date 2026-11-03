@@ -13,7 +13,7 @@
   <title>Panel administrador | Mantenimiento</title>
   <link rel="icon" type="image/x-icon" href="IMG/favicon.ico">
   <link rel="icon" type="image/png" href="IMG/favicon.png">
-  <link rel="stylesheet" href="common-failures.css?v=20261102-local-integration-1">
+  <link rel="stylesheet" href="common-failures.css?v=20261102-inline-content-1">
   <script src="./online-only.js?v=20261028-6"></script>
   <style>
     :root {
@@ -868,7 +868,7 @@
       </section>
       <section class="view" id="commonFailuresView" hidden aria-labelledby="commonFailuresPageTitle">
         <h1 id="commonFailuresPageTitle" class="sr-only">Fallas comunes</h1>
-        <iframe class="cf-frame" src="fallas-comunes-local.html?rol=Administrador&amp;v=20261102-knowledge-v1" title="Gestión de fallas comunes del administrador" loading="lazy"></iframe>
+        <div class="cf-frame cf-embed" data-common-failures-src="fallas-comunes-local.html?rol=Administrador&amp;v=20261102-knowledge-v1" aria-label="Gestión de fallas comunes del administrador"></div>
       </section>
     </main>
   </div>
@@ -1116,6 +1116,7 @@
   <script src="EQU/matrix-catalog.js"></script>
   <script src="EQU/booty-catalog.js"></script>
   <script src="EQU/other-catalogs.js?v=20261026-ubian-rack"></script>
+  <script src="common-failures-embed.js?v=20261102-inline-content-1"></script>
   <script>
     "use strict";
 

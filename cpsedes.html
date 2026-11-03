@@ -13,7 +13,7 @@
   <title>Mis sedes | Mantenimiento de Equipos</title>
   <link rel="icon" type="image/x-icon" href="IMG/favicon.ico">
   <link rel="icon" type="image/png" href="IMG/favicon.png">
-  <link rel="stylesheet" href="common-failures.css?v=20261102-local-integration-1">
+  <link rel="stylesheet" href="common-failures.css?v=20261102-inline-content-1">
   <script src="./online-only.js?v=20261028-6"></script>
   <script src="./form-drafts.js?v=20261026-1"></script>
   <style>
@@ -752,7 +752,7 @@
     </section>
 
     <section class="sites-panel" id="commonFailuresPanel" aria-label="Gestión de fallas comunes" hidden>
-        <iframe class="cf-frame" src="fallas-comunes-local.html?rol=Supervisor&amp;v=20261102-knowledge-v1" title="Gestión de fallas comunes del supervisor" loading="lazy"></iframe>
+        <div class="cf-frame cf-embed" data-common-failures-src="fallas-comunes-local.html?rol=Supervisor&amp;v=20261102-knowledge-v1" aria-label="Gestión de fallas comunes del supervisor"></div>
     </section>
 
     <p class="notice" id="notice">Las sedes y cantidades se actualizan desde el panel de administración.</p>
@@ -797,6 +797,7 @@
   <script src="EQU/matrix-catalog.js"></script>
   <script src="EQU/booty-catalog.js"></script>
   <script src="EQU/other-catalogs.js?v=20261026-ubian-rack"></script>
+  <script src="common-failures-embed.js?v=20261102-inline-content-1"></script>
   <script src="inventory-export.js?v=20261027-profile1"></script>
   <script src="qr-scanner.js?v=20261030-lazy-decoder-1"></script>
   <script>
@@ -2837,7 +2838,7 @@
             </table></div>
           </article>
         </section>
-        ${user?.role === "Técnico" ? `<section class="machine-tab-panel" data-machine-panel="common-failures" ${currentMachineTab === "common-failures" ? "" : "hidden"}><article class="machine-detail-card"><h3>Fallas comunes y tutoriales</h3><iframe class="cf-frame" src="${escapeHtml(commonFailuresFrameUrl(machine))}" title="Fallas comunes de ${escapeHtml(item.name || "este equipo")}" loading="lazy"></iframe></article></section>` : ""}
+        ${user?.role === "Técnico" ? `<section class="machine-tab-panel" data-machine-panel="common-failures" ${currentMachineTab === "common-failures" ? "" : "hidden"}><article class="machine-detail-card"><h3>Fallas comunes y tutoriales</h3><div class="cf-frame cf-embed" data-common-failures-src="${escapeHtml(commonFailuresFrameUrl(machine))}" aria-label="Fallas comunes de ${escapeHtml(item.name || "este equipo")}"></div></article></section>` : ""}
         ${treadmill ? `<section class="machine-tab-panel" data-machine-panel="mileage" ${currentMachineTab === "mileage" ? "" : "hidden"}>
           <article class="machine-detail-card">
             <h3>Historial de kilometraje (Km)</h3>
