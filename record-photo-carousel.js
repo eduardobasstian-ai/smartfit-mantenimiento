@@ -6,7 +6,8 @@
   const PHOTO_ITEMS = "[data-enlarge-image], [data-history-image], [data-ticket-enlarge]";
 
   function create(options) {
-    const $ = id => document.getElementById(id);
+    const root = options.root || document;
+    const $ = id => root.getElementById(id);
     const overlay = $(options.overlayId);
     const frame = $(options.frameId);
     const originalImage = $(options.imageId);
