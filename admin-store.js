@@ -213,7 +213,7 @@
       throw new Error("La clave debe tener al menos 6 caracteres.");
     }
     const role = fields.role || "Técnico";
-    if (!["Técnico", "Supervisor", "Líder", "Administrador"].includes(role)) {
+    if (!["Técnico", "Supervisor", "Líder", "Coordinador", "Administrador"].includes(role)) {
       throw new Error("Selecciona un rol válido.");
     }
     return { name, username, password, role };

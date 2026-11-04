@@ -5,7 +5,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
-const roles = ["Administrador", "Supervisor", "Técnico", "Líder"];
+const roles = ["Administrador", "Supervisor", "Técnico", "Líder", "Coordinador"];
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 const fail = (message: string, status = 400) => json({ error: message }, status);
 
