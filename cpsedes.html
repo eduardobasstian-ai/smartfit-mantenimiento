@@ -2327,7 +2327,10 @@
         const brand = brandDirectory.find(entry => entry.id === item.brandId) ||
           brandDirectory.find(entry => entry.name.toLocaleLowerCase("es") === String(item.brandName || "").toLocaleLowerCase("es"));
         const key = brand ? brand.id : String(item.brandName || "");
-        equipmentByBrand.set(key, (equipmentByBrand.get(key) || 0) + (Number(item.quantity) || 0));
+        const assignedUnits = Array.isArray(item.units) && item.units.length
+          ? item.units.length
+          : Math.max(0, Number(item.quantity) || 0);
+        equipmentByBrand.set(key, (equipmentByBrand.get(key) || 0) + assignedUnits);
         const units = Array.isArray(item.units) && item.units.length
           ? item.units
           : Array.from({ length: Math.max(0, Number(item.quantity) || 0) }, () => ({}));
@@ -2338,7 +2341,7 @@
           ticketsByBrand.set(key, (ticketsByBrand.get(key) || 0) + matchingTickets);
         });
       });
-      const recordedMachines = inventory.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0);
+      const recordedMachines = [...equipmentByBrand.values()].reduce((sum, count) => sum + count, 0);
       const hasUnclassifiedInventory = !recordedMachines && Number(site.machineCount) > 0;
       $("pageHeading").hidden = true;
       $("pageTitle").textContent = `${site.name} — ${user.role} ${user.name}`;
@@ -2354,10 +2357,10 @@
       $("backToSites").hidden = false;
       $("backToSites").textContent = "← Volver a sedes";
       $("siteGrid").className = "brand-grid";
-      const cards = brandDirectory.map(brand => {
+      const cards = brandDirectory.filter(brand => (equipmentByBrand.get(brand.id) || 0) > 0).map(brand => {
         const count = equipmentByBrand.get(brand.id) || 0;
         const ticketCount = ticketsByBrand.get(brand.id) || 0;
-        const countText = hasUnclassifiedInventory ? "Detalle pendiente" : `${count} ${count === 1 ? "equipo" : "equipos"}`;
+        const countText = `${count} ${count === 1 ? "equipo" : "equipos"}`;
         return `<button class="brand-card" type="button" data-open-brand="${escapeHtml(brand.id)}"><span class="brand-name">${escapeHtml(brand.name)}</span><span class="brand-count">${countText} · Ver equipos →</span>${ticketCount > 0 ? `<span class="site-ticket-badge"><span class="site-ticket-badge-icon" aria-hidden="true">✓</span>Tickets <strong>${ticketCount}</strong></span>` : ""}</button>`;
       }).join("");
       const notice = hasUnclassifiedInventory
