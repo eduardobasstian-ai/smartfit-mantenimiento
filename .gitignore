@@ -12,6 +12,7 @@ supabase/.temp/
 /supabase-migrate.js
 /supabase-migrate-activity.js
 /_site/
+/tmp/
 
 # User/account exports and provisioning files (contain emails and temporary passwords)
 /profiles_rows*.csv

@@ -21,6 +21,9 @@
   let pendingAccessSyncInFlight = null;
   let refreshWhenVisible = false;
   let recordMediaDbPromise = null;
+  let syncOutboxDbPromise = null;
+  let persistentStoragePromise = null;
+  let pendingRetryTimer = null;
   const recordMediaCache = new Map();
   const ticketMediaCache = new Map();
   const syncedRecordMediaKeys = new Set();
@@ -133,6 +136,67 @@
       }).catch(error => { recordMediaDbPromise = null; throw error; });
     }
     return recordMediaDbPromise;
+  }
+  function openSyncOutboxDb() {
+    if (!global.indexedDB) return Promise.reject(new Error("IndexedDB no está disponible en este navegador."));
+    if (!syncOutboxDbPromise) {
+      syncOutboxDbPromise = new Promise((resolve, reject) => {
+        const request = global.indexedDB.open("smartfit-sync-outbox", 1);
+        request.onupgradeneeded = () => {
+          if (!request.result.objectStoreNames.contains("pending")) request.result.createObjectStore("pending");
+        };
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error || new Error("No se pudo abrir la cola de sincronización."));
+        request.onblocked = () => reject(new Error("La cola de sincronización está ocupada."));
+      }).catch(error => { syncOutboxDbPromise = null; throw error; });
+    }
+    return syncOutboxDbPromise;
+  }
+  async function writeOutboxItem(key, value) {
+    const database = await openSyncOutboxDb();
+    await new Promise((resolve, reject) => {
+      const transaction = database.transaction("pending", "readwrite");
+      transaction.objectStore("pending").put(value, String(key));
+      transaction.oncomplete = resolve;
+      transaction.onerror = () => reject(transaction.error || new Error("No se pudo guardar la cola de sincronización."));
+      transaction.onabort = () => reject(transaction.error || new Error("Se canceló el guardado de la cola de sincronización."));
+    });
+  }
+  async function deleteOutboxItem(key) {
+    try {
+      const database = await openSyncOutboxDb();
+      await new Promise((resolve, reject) => {
+        const transaction = database.transaction("pending", "readwrite");
+        transaction.objectStore("pending").delete(String(key));
+        transaction.oncomplete = resolve;
+        transaction.onerror = () => reject(transaction.error || new Error("No se pudo limpiar la cola local."));
+        transaction.onabort = () => reject(transaction.error || new Error("Se canceló la limpieza de la cola local."));
+      });
+    } catch (error) { console.warn("El registro remoto está guardado, pero no se pudo limpiar su copia local pendiente.", error); }
+  }
+  async function readOutboxItems() {
+    try {
+      const database = await openSyncOutboxDb();
+      return await new Promise((resolve, reject) => {
+        const request = database.transaction("pending", "readonly").objectStore("pending").getAll();
+        request.onsuccess = () => resolve(Array.isArray(request.result) ? request.result : []);
+        request.onerror = () => reject(request.error || new Error("No se pudo leer la cola de sincronización."));
+      });
+    } catch (error) {
+      console.warn("No se pudo leer la cola local de sincronización.", error);
+      return [];
+    }
+  }
+  function requestPersistentStorage() {
+    if (!persistentStoragePromise) {
+      persistentStoragePromise = (async () => {
+        try {
+          if (global.navigator?.storage?.persist) return await global.navigator.storage.persist();
+        } catch (error) { console.info("El navegador no concedió almacenamiento persistente; IndexedDB seguirá funcionando normalmente."); }
+        return false;
+      })();
+    }
+    return persistentStoragePromise;
   }
   async function putRecordMedia(recordKey, record) {
     const writes = [];
@@ -300,6 +364,19 @@
       compact[key] = stripRecordMedia(record);
     });
     return compact;
+  }
+  function overlayOutboxRecord(baseRecord, outboxItem, durableRecord) {
+    const result = { maintenance: [], mileage: [] };
+    for (const kind of ["maintenance", "mileage"]) {
+      const after = Array.isArray(durableRecord?.[kind]) ? durableRecord[kind] : [];
+      const afterIds = new Set(after.map(entry => String(entry.id)));
+      const removedIds = new Set((outboxItem?.before?.[kind] || [])
+        .map(entry => String(entry.id))
+        .filter(id => !afterIds.has(id)));
+      const base = Array.isArray(baseRecord?.[kind]) ? baseRecord[kind] : [];
+      result[kind] = mergeById(base.filter(entry => !removedIds.has(String(entry.id))), after);
+    }
+    return result;
   }
   function getMachineRecordWithCachedMediaSync(recordKey, record) {
     const hydrated = stripRecordMedia(record);
@@ -567,10 +644,10 @@
     if (importedRows.length) announceCommonKnowledgeChange();
     return { imported: importedRows.length };
   }
-  async function postRow(table, row, conflict = "legacy_id") {
+  async function postRow(table, row, conflict = "legacy_id", returning = "id,legacy_id") {
     const token = auth()?.access_token;
     if (!token) throw new Error("No hay una sesión autenticada de Supabase.");
-    const response = await authorizedFetch(`${URL}/rest/v1/${table}?on_conflict=${conflict}&select=id,legacy_id`, {
+    const response = await authorizedFetch(`${URL}/rest/v1/${table}?on_conflict=${encodeURIComponent(conflict)}&select=${encodeURIComponent(returning)}`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Prefer: "resolution=merge-duplicates,return=representation" },
       body: JSON.stringify(row)
@@ -951,11 +1028,32 @@
   const cleanName = value => String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLocaleLowerCase("es");
   const dateOnly = value => String(value || "").slice(0, 10);
   function setLocal(key, value) { localStorage.setItem(key, JSON.stringify(value)); }
+  function emptyPending() { return { tickets: [], records: {} }; }
   function readPending() {
+    const currentActorId = appSession()?.authId || auth()?.user?.id || "";
+    try {
+      const backup = JSON.parse(global.sessionStorage.getItem(PENDING_KEY) || "null");
+      if (backup && typeof backup === "object" && !Array.isArray(backup)) {
+        if (backup.actorId && currentActorId && backup.actorId !== currentActorId) return emptyPending();
+        return backup;
+      }
+    } catch (error) { /* intenta la copia compacta */ }
     const value = parseLocal(PENDING_KEY, {});
-    return value && typeof value === "object" && !Array.isArray(value) ? value : { tickets: [], records: {} };
+    if (!value || typeof value !== "object" || Array.isArray(value)) return emptyPending();
+    if (value.actorId && currentActorId && value.actorId !== currentActorId) return emptyPending();
+    return value;
   }
-  function savePending(value) { setLocal(PENDING_KEY, value); }
+  function savePending(value) {
+    const actorId = appSession()?.authId || auth()?.user?.id || "";
+    const ownedValue = Object.assign({}, value, actorId ? { actorId } : {});
+    try {
+      setLocal(PENDING_KEY, ownedValue);
+      try { global.sessionStorage.removeItem(PENDING_KEY); } catch (error) {}
+    } catch (error) {
+      try { global.sessionStorage.setItem(PENDING_KEY, JSON.stringify(ownedValue)); }
+      catch (sessionError) { console.warn("La cola durable está en IndexedDB; no se pudo actualizar su copia compacta.", sessionError); }
+    }
+  }
 
   async function lookupOne(table, select, field, value) {
     const rows = await queryRows(`${table}?select=${encodeURIComponent(select)}&${field}=eq.${encodeURIComponent(String(value))}`);
@@ -1014,6 +1112,7 @@
   function cleanMetadata(value, photoField) {
     const metadata = Object.assign({}, value || {});
     delete metadata[photoField];
+    delete metadata.imagesChanged;
     return metadata;
   }
   async function ticketUuidForLegacy(ticketId) {
@@ -1025,7 +1124,7 @@
     if (!actor?.authId || !ticket?.id) throw new Error("No se identificó la sesión o el ticket.");
     const siteUuid = await siteUuidForLegacy(ticket.siteId);
     if (!siteUuid) throw new Error("La sede del ticket todavía no está vinculada a Supabase.");
-    const existing = await lookupOne("tickets", "id,created_by,technician_id,technician_name,metadata", "legacy_id", ticket.id);
+    const existing = await lookupOne("tickets", "id,created_by,technician_id,technician_name,metadata,photos", "legacy_id", ticket.id);
     const site = AdminStore.listSites().find(row => String(row.id) === String(ticket.siteId));
     const equipmentId = ticket.machineRecordKey ? await equipmentForRecordKey(ticket.machineRecordKey) : null;
     const creatorId = existing?.created_by || await profileIdForLegacy(ticket.createdById || ticket.leaderId, actor) || actor.authId;
@@ -1038,7 +1137,12 @@
     const ticketType = cleanName(ticket.type).includes("infraestructura") ? "Infraestructura" : "Mantenimiento";
     const statusName = cleanName(ticket.status || "Pendiente");
     const status = statusName.includes("ejecucion") ? "En ejecución" : statusName.includes("ejecutad") ? "Ejecutado" : statusName.includes("cerrad") ? "Cerrado" : statusName.includes("rechaz") ? "Rechazado" : "Pendiente";
-    const photos = Array.isArray(ticket.images) ? ticket.images : [];
+    const incomingPhotos = Array.isArray(ticket.images) ? ticket.images.slice(0, 4) : [];
+    // Una actualización de estado o metadatos desde otro dispositivo suele traer
+    // images=[] porque no tiene la caché local. En ese caso conserva lo remoto.
+    const photos = incomingPhotos.length
+      ? incomingPhotos
+      : Array.isArray(existing?.photos) ? existing.photos.slice(0, 4) : incomingPhotos;
     const savedTicket = await postRow("tickets", {
       legacy_id: String(ticket.id), ticket_number: String(ticket.ticketNumber || ticket.id), ticket_type: ticketType,
       site_id: siteUuid, equipment_id: equipmentId,
@@ -1053,7 +1157,11 @@
         ...(existing?.metadata?.technicianAssignment ? { technicianAssignment: existing.metadata.technicianAssignment } : {})
       }),
       created_at: ticket.createdAt || new Date().toISOString(), updated_at: new Date().toISOString()
-    });
+    }, "legacy_id", "id,photos");
+    const savedPhotos = Array.isArray(savedTicket?.photos) ? savedTicket.photos : [];
+    if (!savedTicket?.id || savedPhotos.length !== photos.length || !photos.every((photo, index) => savedPhotos[index] === photo)) {
+      throw new Error("Supabase no confirmó todas las fotografías del ticket. Se conservará la copia local para reintentar.");
+    }
     const mediaKey = `ticket::${ticket.id}`;
     await deleteStoredMedia(mediaKey);
     return savedTicket;
@@ -1098,7 +1206,11 @@
     const siteUuid = await siteUuidForLegacy(siteLegacyId);
     if (!actor?.authId || !siteUuid || !entry?.id) throw new Error("No se pudo vincular el evento con una sesión y sede válidas.");
     const legacyId = `${recordKey}::maintenance::${entry.id}`;
-    const existing = await lookupOne("maintenance_events", "id,registered_by,created_at", "legacy_id", legacyId);
+    const incomingPhotos = Array.isArray(entry.images) ? entry.images.slice(0, 4) : [];
+    // Leer las fotos remotas salvo que el usuario haya editado explícitamente
+    // la galería. Así una edición de texto desde otro dispositivo no puede
+    // reemplazar fotos ya guardadas por [] o por una caché incompleta.
+    const existing = await lookupOne("maintenance_events", entry.imagesChanged ? "id,registered_by,created_at" : "id,registered_by,created_at,photos", "legacy_id", legacyId);
     const site = AdminStore.listSites().find(row => String(row.id) === siteLegacyId);
     const ticketUuid = Array.isArray(entry.ticketIds) && entry.ticketIds.length ? await ticketUuidForLegacy(entry.ticketIds[0]) : null;
     const technician = AdminStore.listUsers().find(user => user.name === entry.technician && user.role === "Técnico");
@@ -1106,7 +1218,12 @@
     const equipment = localEquipmentForRecordKey(recordKey) || {};
     const date = String(entry.date || entry.recordedAt || new Date().toISOString()).slice(0, 10);
     const details = [entry.work, entry.replacement ? `Repuesto: ${entry.replacement}` : "", entry.observations ? `Observaciones: ${entry.observations}` : ""].filter(Boolean).join("\n");
-    await postRow("maintenance_events", {
+    const photos = entry.imagesChanged
+      ? incomingPhotos
+      : Array.isArray(existing?.photos) && existing.photos.length
+        ? existing.photos.slice(0, 4)
+        : incomingPhotos;
+    const saved = await postRow("maintenance_events", {
       legacy_id: legacyId, source_record_key: recordKey, site_id: siteUuid,
       equipment_id: await equipmentForRecordKey(recordKey), equipment_name: equipment.name || "Equipo",
       equipment_model: equipment.model, fixed_asset: equipment.fixedAsset, event_type: normalizeEventType(entry.type),
@@ -1115,11 +1232,14 @@
       supervisor_id: await profileIdForLegacy(supervisor?.id, actor), supervisor_name: supervisor?.name || site?.supervisor || null,
       registered_by: existing?.registered_by || await profileIdForLegacy(entry.recordedById, actor) || actor.authId,
       registered_by_name: entry.recordedByName || actor.name || null,
-      photos: Array.isArray(entry.images) ? entry.images : [], occurred_at: `${date}T12:00:00.000Z`,
+      photos, occurred_at: `${date}T12:00:00.000Z`,
       created_at: existing?.created_at || entry.recordedAt || new Date().toISOString(), updated_at: new Date().toISOString(),
       metadata: cleanMetadata(entry, "images")
-    });
-    const saved = await lookupOne("maintenance_events", "id", "legacy_id", legacyId);
+    }, "legacy_id", "id,photos");
+    const savedPhotos = Array.isArray(saved?.photos) ? saved.photos : [];
+    if (!saved?.id || savedPhotos.length !== photos.length || !photos.every((photo, index) => savedPhotos[index] === photo)) {
+      throw new Error("Supabase no confirmó todas las fotografías del mantenimiento. Se conservará la copia local para reintentar.");
+    }
     const ticketIds = [...new Set(Array.isArray(entry.ticketIds) ? entry.ticketIds : [])];
     if (saved?.id) {
       const links = [];
@@ -1201,30 +1321,49 @@
   }
 
   async function persistTicketQueued(ticket) {
+    const actorId = appSession()?.authId || auth()?.user?.id || "";
     try {
       await putTicketMedia([ticket]);
-      await persistTicket(ticket);
+      await writeOutboxItem(`ticket::${ticket.id}`, {
+        type: "ticket", actorId, ticket: stripTicketMedia([ticket])[0], savedAt: Date.now()
+      });
       const pending = readPending();
+      pending.tickets = [...new Set([...(pending.tickets || []), String(ticket.id)])];
+      savePending(pending);
+      await persistTicket(ticket);
       pending.tickets = (pending.tickets || []).filter(id => String(id) !== String(ticket.id));
       savePending(pending);
+      await deleteOutboxItem(`ticket::${ticket.id}`);
     } catch (error) {
       const pending = readPending();
       pending.tickets = [...new Set([...(pending.tickets || []), String(ticket.id)])];
       savePending(pending);
+      try {
+        await writeOutboxItem(`ticket::${ticket.id}`, {
+          type: "ticket", actorId, ticket: stripTicketMedia([ticket])[0], savedAt: Date.now()
+        });
+      } catch (queueError) { console.warn("No se pudo guardar la copia durable del ticket pendiente.", queueError); }
       throw error;
     }
   }
   async function persistMachineRecord(recordKey, before, after) {
+    const actorId = appSession()?.authId || auth()?.user?.id || "";
     const queued = readPending().records?.[recordKey] || { maintenance: [], mileage: [] };
     const beforeForSync = {
       maintenance: [...(before?.maintenance || []), ...(queued.maintenance || []).map(id => ({ id }))],
       mileage: [...(before?.mileage || []), ...(queued.mileage || []).map(id => ({ id }))]
     };
     try {
+      await writeOutboxItem(`record::${recordKey}`, {
+        type: "record", actorId, recordKey,
+        before: stripRecordMedia(beforeForSync),
+        record: stripRecordMedia(after), savedAt: Date.now()
+      });
       await persistMachineRecordNow(recordKey, beforeForSync, after);
       const pending = readPending();
       delete pending.records?.[recordKey];
       savePending(pending);
+      await deleteOutboxItem(`record::${recordKey}`);
     } catch (error) {
       const pending = readPending();
       const deleted = { maintenance: [...(queued.maintenance || [])], mileage: [...(queued.mileage || [])] };
@@ -1243,27 +1382,71 @@
       }
       pending.records = Object.assign({}, pending.records, { [recordKey]: deleted });
       savePending(pending);
+      try {
+        await writeOutboxItem(`record::${recordKey}`, {
+          type: "record", actorId, recordKey,
+          before: stripRecordMedia(beforeForSync),
+          record: stripRecordMedia(after), savedAt: Date.now()
+        });
+      } catch (queueError) { console.warn("No se pudo guardar la copia durable del evento pendiente.", queueError); }
       throw error;
     }
   }
   async function flushPendingNow() {
+    if (global.navigator && global.navigator.onLine === false) return { skipped: true, offline: true };
+    const currentActorId = appSession()?.authId || auth()?.user?.id || "";
+    const outbox = (await readOutboxItems()).filter(item => item?.actorId && item.actorId === currentActorId);
     const pending = readPending();
-    const localTickets = parseLocal(TICKETS_KEY, []);
+    pending.tickets = Array.isArray(pending.tickets) ? pending.tickets : [];
+    pending.records = pending.records && typeof pending.records === "object" ? pending.records : {};
+    const outboxTickets = new Map(outbox.filter(item => item?.type === "ticket" && item.ticket?.id)
+      .map(item => [String(item.ticket.id), item.ticket]));
+    outboxTickets.forEach((_ticket, id) => { if (!pending.tickets.includes(id)) pending.tickets.push(id); });
+    const localTicketsById = new Map((Array.isArray(parseLocal(TICKETS_KEY, [])) ? parseLocal(TICKETS_KEY, []) : [])
+      .map(ticket => [String(ticket.id), ticket]));
+    outboxTickets.forEach((ticket, id) => localTicketsById.set(id, Object.assign({}, localTicketsById.get(id) || {}, ticket)));
+    const localTickets = [...localTicketsById.values()];
     const ticketsWithPhotos = await restoreTicketMedia(localTickets);
     for (const id of pending.tickets || []) {
       const ticket = ticketsWithPhotos.find(row => String(row.id) === String(id));
       if (!ticket) continue;
-      try { await persistTicket(ticket); pending.tickets = pending.tickets.filter(value => String(value) !== String(id)); }
+      try {
+        await persistTicket(ticket);
+        pending.tickets = pending.tickets.filter(value => String(value) !== String(id));
+        await deleteOutboxItem(`ticket::${id}`);
+      }
       catch (error) { console.warn("Pendiente de sincronizar ticket", id, error); }
     }
     const localRecords = parseLocal(RECORDS_KEY, {});
-    for (const [recordKey, deleted] of Object.entries(pending.records || {})) {
-      const after = localRecords[recordKey] || { maintenance: [], mileage: [] };
-      const before = {
+    const outboxRecords = new Map(outbox.filter(item => item?.type === "record" && item.recordKey)
+      .map(item => [String(item.recordKey), item]));
+    outboxRecords.forEach((item, key) => {
+      const queued = pending.records[key] || { maintenance: [], mileage: [] };
+      pending.records[key] = queued;
+      for (const kind of ["maintenance", "mileage"]) {
+        queued[kind] = [...new Set([...(queued[kind] || []), ...(item.before?.[kind] || []).map(row => String(row.id))
+          .filter(id => !(item.record?.[kind] || []).some(row => String(row.id) === id))])];
+      }
+      const current = localRecords[key] || { maintenance: [], mileage: [] };
+      localRecords[key] = {
+        maintenance: mergeById(current.maintenance, item.record?.maintenance || []),
+        mileage: mergeById(current.mileage, item.record?.mileage || [])
+      };
+    });
+    for (const [recordKey, deleted] of Object.entries(pending.records)) {
+      const outboxItem = outboxRecords.get(recordKey);
+      const after = outboxItem?.record
+        ? await restoreRecordMedia(recordKey, outboxItem.record)
+        : localRecords[recordKey] || { maintenance: [], mileage: [] };
+      const before = outboxItem?.before || {
         maintenance: (deleted.maintenance || []).map(id => ({ id })),
         mileage: (deleted.mileage || []).map(id => ({ id }))
       };
-      try { await persistMachineRecordNow(recordKey, before, after); delete pending.records[recordKey]; }
+      try {
+        await persistMachineRecordNow(recordKey, before, after);
+        delete pending.records[recordKey];
+        await deleteOutboxItem(`record::${recordKey}`);
+      }
       catch (error) { console.warn("Pendiente de sincronizar registro", recordKey, error); }
     }
     savePending(pending);
@@ -1352,10 +1535,19 @@
   }
   if (!global.__smartfitPendingOnlineBound) {
     global.__smartfitPendingOnlineBound = true;
-    global.addEventListener("online", () => {
+    const retryPendingWhenReady = () => {
       if (!auth()?.access_token) return;
+      if (global.navigator && global.navigator.onLine === false) return;
+      if (global.document?.visibilityState === "hidden") return;
       flushPending().catch(error => console.warn("No se pudieron sincronizar los cambios al recuperar la conexión.", error));
+    };
+    global.addEventListener("online", retryPendingWhenReady);
+    global.addEventListener("pageshow", retryPendingWhenReady);
+    global.addEventListener("focus", retryPendingWhenReady);
+    global.document?.addEventListener("visibilitychange", () => {
+      if (global.document.visibilityState === "visible") retryPendingWhenReady();
     });
+    if (!pendingRetryTimer) pendingRetryTimer = global.setInterval(retryPendingWhenReady, 60000);
   }
 
   function mergeById(localRows, remoteRows) {
@@ -1497,6 +1689,9 @@
     // Inicializa IndexedDB a la vez que se consulta Supabase. La preparación
     // sigue completándose antes de combinar/restaurar registros con fotografías.
     const localStorageReady = Promise.all([prepareMachineRecordStorage(), prepareTicketStorage()]);
+    const currentActorId = appSession()?.authId || auth()?.user?.id || "";
+    const durableOutboxPromise = readOutboxItems().then(items => items.filter(item => item?.actorId && item.actorId === currentActorId));
+    requestPersistentStorage();
     const canReadAccountEmails = appSession()?.role === "Administrador";
     const loaders = {
       sites: () => getRows("sites", "id,legacy_id,name,region,internal_code,active"),
@@ -1519,9 +1714,10 @@
     const requestedTables = useSnapshot
       ? [...new Set(refreshTables)].filter(table => refreshableTables.includes(table))
       : refreshableTables;
-    const [loadedValues] = await Promise.all([
+    const [loadedValues, , durableOutbox] = await Promise.all([
       Promise.all(requestedTables.map(table => loaders[table]())),
-      localStorageReady
+      localStorageReady,
+      durableOutboxPromise
     ]);
     const nextSnapshot = useSnapshot ? Object.assign({}, hydrationSnapshot) : {};
     requestedTables.forEach((table, index) => { nextSnapshot[table] = loadedValues[index]; });
@@ -1661,10 +1857,16 @@
       setLocal(ACCESS_HISTORY_KEY, mergedAccesses.slice(0, 500));
     }
     if (refreshTickets) {
-      const localTickets = await restoreTicketMedia(parseLocal(TICKETS_KEY, []));
+      const outboxTickets = new Map((durableOutbox || []).filter(item => item?.type === "ticket" && item.ticket?.id)
+        .map(item => [String(item.ticket.id), item.ticket]));
+      const cachedTickets = Array.isArray(parseLocal(TICKETS_KEY, [])) ? parseLocal(TICKETS_KEY, []) : [];
+      const cachedTicketMap = new Map(cachedTickets.map(ticket => [String(ticket.id), ticket]));
+      outboxTickets.forEach((ticket, id) => cachedTicketMap.set(id, Object.assign({}, cachedTicketMap.get(id) || {}, ticket)));
+      const localTickets = await restoreTicketMedia([...cachedTicketMap.values()]);
       const localById = new Map(localTickets.map(ticket => [String(ticket.id), ticket]));
       const pending = readPending();
       pending.tickets = Array.isArray(pending.tickets) ? pending.tickets : [];
+      outboxTickets.forEach((_ticket, id) => { if (!pending.tickets.includes(id)) pending.tickets.push(id); });
       const remoteTicketsWithRecoveredMedia = hydratedTickets.map(ticket => {
         const localTicket = localById.get(String(ticket.id));
         const remoteHasPhotos = Array.isArray(ticket.images) && ticket.images.length > 0;
@@ -1682,10 +1884,18 @@
         }
       }
       const mergedTickets = mergeById(localTickets, remoteTicketsWithRecoveredMedia);
+      outboxTickets.forEach((ticket, id) => {
+        const local = localById.get(id);
+        const index = mergedTickets.findIndex(row => String(row.id) === id);
+        const queuedTicket = Object.assign({}, ticket, local?.images?.length ? { images: local.images } : {});
+        if (index >= 0) mergedTickets.splice(index, 1, queuedTicket);
+        else mergedTickets.push(queuedTicket);
+      });
       cacheTicketMedia(mergedTickets);
       const syncedKeys = [];
       for (const ticket of remoteTicketsWithRecoveredMedia) {
         if (!Array.isArray(ticket.images) || !ticket.images.length) continue;
+        if (outboxTickets.has(String(ticket.id))) continue;
         const key = `ticket::${ticket.id}`;
         syncedKeys.push(key);
       }
@@ -1700,6 +1910,22 @@
       const mergedRecords = Object.assign({}, localRecords && typeof localRecords === "object" ? localRecords : {});
       const pending = readPending();
       pending.records = Object.assign({}, pending.records || {});
+      const outboxRecords = new Map((durableOutbox || []).filter(item => item?.type === "record" && item.recordKey)
+        .map(item => [String(item.recordKey), item]));
+      outboxRecords.forEach((item, recordKey) => {
+        const cached = mergedRecords[recordKey] || { maintenance: [], mileage: [] };
+        mergedRecords[recordKey] = {
+          maintenance: mergeById(cached.maintenance, item.record?.maintenance || []),
+          mileage: mergeById(cached.mileage, item.record?.mileage || [])
+        };
+        const queued = pending.records[recordKey] || { maintenance: [], mileage: [] };
+        for (const kind of ["maintenance", "mileage"]) {
+          queued[kind] = [...new Set([...(queued[kind] || []), ...(item.before?.[kind] || [])
+            .map(row => String(row.id))
+            .filter(id => !(item.record?.[kind] || []).some(row => String(row.id) === id))])];
+        }
+        pending.records[recordKey] = queued;
+      });
       const queueRecordEntry = (recordKey, kind, id) => {
         if (!id) return;
         const queued = pending.records[recordKey] || { maintenance: [], mileage: [] };
@@ -1722,7 +1948,7 @@
             const remoteHasImages = Array.isArray(item.images) && item.images.length > 0;
             const localHasImages = Array.isArray(localItem?.images) && localItem.images.length > 0;
             const mediaKey = recordMediaKey(recordKey, kind, item.id);
-            if (remoteHasImages) {
+            if (remoteHasImages && !outboxRecords.has(recordKey)) {
               syncedRecordMediaKeys.add(mediaKey);
               syncedMediaKeys.push(mediaKey);
             }
@@ -1747,10 +1973,17 @@
         }
         await deleteStoredMedia(syncedMediaKeys);
         cacheRecordMedia(recordKey, remoteWithRecoveredMedia);
-        mergedRecords[recordKey] = {
+        const durableRecord = outboxRecords.get(recordKey);
+        const durableWithMedia = durableRecord?.record
+          ? await restoreRecordMedia(recordKey, durableRecord.record)
+          : { maintenance: [], mileage: [] };
+        const mergedRecord = {
           maintenance: mergeById(localWithMedia.maintenance, remoteWithRecoveredMedia.maintenance),
           mileage: mergeById(localWithMedia.mileage, remoteWithRecoveredMedia.mileage)
         };
+        mergedRecords[recordKey] = durableRecord
+          ? overlayOutboxRecord(mergedRecord, durableRecord, durableWithMedia)
+          : mergedRecord;
       }
       // También reintenta copias locales de sedes que todavía no aparecen entre
       // los eventos remotos para esta cuenta.
@@ -1760,7 +1993,13 @@
         for (const kind of ["maintenance", "mileage"]) {
           for (const item of localWithMedia[kind] || []) queueRecordEntry(recordKey, kind, item.id);
         }
-        mergedRecords[recordKey] = localWithMedia;
+        const durableRecord = outboxRecords.get(recordKey);
+        const durableWithMedia = durableRecord?.record
+          ? await restoreRecordMedia(recordKey, durableRecord.record)
+          : null;
+        mergedRecords[recordKey] = durableRecord
+          ? overlayOutboxRecord(localWithMedia, durableRecord, durableWithMedia)
+          : localWithMedia;
       }
       savePending(pending);
       setLocal(RECORDS_KEY, stripRecordsMedia(mergedRecords));

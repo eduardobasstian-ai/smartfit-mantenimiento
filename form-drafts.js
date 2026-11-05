@@ -6,6 +6,8 @@
   var PREFIX = "smartfit.form-draft.v1.";
   var databasePromise;
   var restoredForms = new WeakSet();
+  var pendingFieldWrites = new Map();
+  var fieldWriteTimers = new Map();
 
   function storageKey(key) { return PREFIX + encodeURIComponent(String(key)); }
 
@@ -27,6 +29,9 @@
   function saveFields(key, fields) {
     try { localStorage.setItem(storageKey(key), JSON.stringify({ fields: fields, savedAt: Date.now() })); }
     catch (error) { console.warn("No se pudo guardar el borrador del formulario.", error); }
+    pendingFieldWrites.set(String(key), { fields: fields, savedAt: Date.now() });
+    global.clearTimeout(fieldWriteTimers.get(String(key)));
+    fieldWriteTimers.set(String(key), global.setTimeout(function () { persistFields(String(key)); }, 250));
   }
 
   function readFields(key) {
@@ -34,6 +39,35 @@
       var saved = JSON.parse(localStorage.getItem(storageKey(key)) || "null");
       return saved && saved.fields && typeof saved.fields === "object" ? saved.fields : null;
     } catch (_error) { return null; }
+  }
+
+  async function persistFields(key) {
+    var value = pendingFieldWrites.get(key);
+    if (!value) return;
+    try {
+      var database = await openDatabase();
+      await new Promise(function (resolve, reject) {
+        var transaction = database.transaction(STORE, "readwrite");
+        transaction.objectStore(STORE).put(value, storageKey(key) + ".fields");
+        transaction.oncomplete = resolve;
+        transaction.onerror = function () { reject(transaction.error || new Error("No se pudo conservar el borrador.")); };
+        transaction.onabort = function () { reject(transaction.error || new Error("Se canceló el guardado del borrador.")); };
+      });
+      if (pendingFieldWrites.get(key) === value) pendingFieldWrites.delete(key);
+    } catch (error) { console.warn("No se pudo guardar el borrador duradero del formulario.", error); }
+  }
+
+  async function readFieldsDurable(key) {
+    try {
+      var database = await openDatabase();
+      var durable = await new Promise(function (resolve, reject) {
+        var request = database.transaction(STORE, "readonly").objectStore(STORE).get(storageKey(key) + ".fields");
+        request.onsuccess = function () { resolve(request.result || null); };
+        request.onerror = function () { reject(request.error || new Error("No se pudo recuperar el borrador.")); };
+      });
+      if (durable && durable.fields && typeof durable.fields === "object") return durable.fields;
+    } catch (error) { /* recupera la copia compatible con versiones anteriores */ }
+    return readFields(key);
   }
 
   function applyFields(form, fields) {
@@ -91,11 +125,15 @@
 
   async function clear(key) {
     try { localStorage.removeItem(storageKey(key)); } catch (_error) {}
+    pendingFieldWrites.delete(String(key));
+    global.clearTimeout(fieldWriteTimers.get(String(key)));
+    fieldWriteTimers.delete(String(key));
     try {
       var database = await openDatabase();
       await new Promise(function (resolve) {
         var transaction = database.transaction(STORE, "readwrite");
         transaction.objectStore(STORE).delete(storageKey(key) + ".images");
+        transaction.objectStore(STORE).delete(storageKey(key) + ".fields");
         transaction.oncomplete = resolve;
         transaction.onerror = resolve;
         transaction.onabort = resolve;
@@ -140,7 +178,7 @@
     var key = form.dataset.smartfitDraftKey;
     if (!key) return;
     restoredForms.add(form);
-    var fields = readFields(key);
+    var fields = await readFieldsDurable(key);
     applyFields(form, fields);
     var images = await readImages(key);
     if (!form.isConnected || form.dataset.smartfitDraftKey !== key) return;
@@ -184,6 +222,7 @@
 
   global.SmartFitFormDrafts = {
     readFields: readFields,
+    readFieldsDurable: readFieldsDurable,
     saveFields: saveFields,
     saveImages: saveImages,
     readImages: readImages,

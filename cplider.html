@@ -14,7 +14,7 @@
   <link rel="icon" type="image/x-icon" href="IMG/favicon.ico">
   <link rel="icon" type="image/png" href="IMG/favicon.png">
   <script src="./online-only.js?v=20261028-6"></script>
-  <script src="./form-drafts.js?v=20261026-1"></script>
+  <script src="./form-drafts.js?v=20261105-offline-queue-1"></script>
   <style>
     :root {
       --bg: #101116;
@@ -654,7 +654,7 @@
   </div>
   <script src="mobile-back-navigation.js?v=20261029-mobile-back-1"></script>
   <script src="admin-store.js?v=20261029-performance-stage-2"></script>
-  <script src="supabase-data.js?v=20261102-knowledge-v1"></script>
+  <script src="supabase-data.js?v=20261105-offline-queue-1"></script>
   <script src="pdf-report.js?v=20261029-print-ui-1"></script>
   <script src="EQU/other-catalogs.js?v=20261026-ubian-rack"></script>
   <script src="inventory-export.js?v=20261027-profile1"></script>
@@ -704,6 +704,7 @@
     let currentBrandEquipment = [];
     let editingMachineRecord = null;
     let maintenanceImages = [];
+    let maintenanceImagesChanged = false;
     let maintenanceImageContext = "";
     let leaderTicketDraft = { recordKey: "", title: "", description: "" };
     let requestReturnTo = null;
@@ -719,6 +720,7 @@
       }
       if (form && Array.isArray(images) && ["machineMaintenanceForm", "leaderMaintenanceTicketForm"].includes(form.id)) {
         maintenanceImages = images.slice(0, 4);
+        if (form.id === "machineMaintenanceForm") maintenanceImagesChanged = maintenanceImages.length > 0;
       }
     });
     const brandDirectory = AdminStore.listBrands();
@@ -1674,6 +1676,7 @@
           if (!currentMachine || currentMachine.recordKey !== machineKey) return close();
           if (maintenanceImages.length >= maxImages) throw new Error(`Ya alcanzaste el máximo de ${maxImages} fotografías.`);
           maintenanceImages.push(image);
+          maintenanceImagesChanged = true;
           saveDraftImagesFor($("siteGrid").querySelector("form[data-smartfit-draft-key]"), maintenanceImages);
           close();
           renderMachineDetail(currentMachine);
@@ -1755,6 +1758,7 @@
         maintenanceImages = leaderTicketMode
           ? []
           : Array.isArray(editingMaintenance?.images) ? editingMaintenance.images.slice(0, 4) : [];
+        maintenanceImagesChanged = false;
       }
       const maintenanceImageMarkup = maintenanceImages.map((image, index) => `
         <div class="maintenance-image-thumb-wrap">
@@ -2176,6 +2180,7 @@
       if (removeImageButton) {
         const draftKey = removeImageButton.closest("form")?.dataset.smartfitDraftKey || "";
         maintenanceImages.splice(Number(removeImageButton.dataset.removeMaintenanceImage), 1);
+        maintenanceImagesChanged = true;
         if (draftKey) document.dispatchEvent(new CustomEvent("smartfit:form-draft-save-images", { detail: { key: draftKey, images: maintenanceImages } }));
         renderMachineDetail(currentMachine);
         return;
@@ -2230,6 +2235,7 @@
         const compressedImages = await Promise.all(selectedFiles.map(compressMaintenanceImage));
         if (!currentMachine || currentMachine.recordKey !== machineRecordKey) return;
         maintenanceImages.push(...compressedImages);
+        maintenanceImagesChanged = true;
         if (draftKey) document.dispatchEvent(new CustomEvent("smartfit:form-draft-save-images", { detail: { key: draftKey, images: maintenanceImages } }));
         renderMachineDetail(currentMachine);
       } catch (error) {
@@ -2315,6 +2321,7 @@
           technician: existingMaintenance ? (existingMaintenance.technician || "Sin responsable registrado") : $("maintenanceTechnician").value.trim(),
           observations: $("maintenanceObservations").value.trim(),
           images: maintenanceImages.slice(0, 4),
+          imagesChanged: maintenanceImagesChanged,
           recordedById: existingMaintenance?.recordedById || user.id,
           recordedByName: existingMaintenance?.recordedByName || user.name,
           recordedByRole: existingMaintenance?.recordedByRole || user.role,
@@ -2343,6 +2350,7 @@
         editingMachineRecord = null;
         maintenanceImageContext = "";
         maintenanceImages = [];
+        maintenanceImagesChanged = false;
         currentMachineTab = "maintenance";
         renderMachineDetail(currentMachine);
       } else if (event.target.id === "machineMileageForm") {

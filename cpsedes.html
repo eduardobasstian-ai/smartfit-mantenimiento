@@ -15,7 +15,7 @@
   <link rel="icon" type="image/png" href="IMG/favicon.png">
   <link rel="stylesheet" href="common-failures.css?v=20261102-inline-content-1">
   <script src="./online-only.js?v=20261028-6"></script>
-  <script src="./form-drafts.js?v=20261026-1"></script>
+  <script src="./form-drafts.js?v=20261105-offline-queue-1"></script>
   <style>
     :root {
       --bg: #101116;
@@ -816,7 +816,7 @@
   </div>
   <script src="mobile-back-navigation.js?v=20261029-mobile-back-1"></script>
   <script src="admin-store.js?v=20261029-performance-stage-2"></script>
-  <script src="supabase-data.js?v=20261102-knowledge-v1"></script>
+  <script src="supabase-data.js?v=20261105-offline-queue-1"></script>
   <script src="pdf-report.js?v=20261029-print-ui-1"></script>
   <script src="EQU/matrix-catalog.js"></script>
   <script src="EQU/booty-catalog.js"></script>
@@ -865,6 +865,7 @@
     let currentBrandEquipment = [];
     let editingMachineRecord = null;
     let maintenanceImages = [];
+    let maintenanceImagesChanged = false;
     let maintenanceImageContext = "";
     let maintenanceDraft = null;
     let requestReturnTo = null;
@@ -880,7 +881,12 @@
       if (!form) return;
       if (form.id === "machineMaintenanceForm" && currentMachine) {
         maintenanceDraft = { recordKey: currentMachine.recordKey, recordId: editingMachineRecord?.id || "", date: fields?.maintenanceDate || currentLocalDate(), type: fields?.maintenanceType || "Mantenimiento preventivo", work: fields?.maintenanceWork || "", replacement: fields?.maintenanceReplacement || "", observations: fields?.maintenanceObservations || "" };
-        if (Array.isArray(images)) maintenanceImages = images.slice(0, 4);
+        if (Array.isArray(images)) {
+          maintenanceImages = images.slice(0, 4);
+          // Un borrador vacío también puede significar que el navegador no
+          // encontró su copia local; no debe interpretarse como borrar fotos.
+          maintenanceImagesChanged = maintenanceImages.length > 0;
+        }
       }
       if (form.id === "supervisorRaiseTicketForm" && supervisorTicketEquipment) {
         supervisorTicketDraft = { recordKey: supervisorTicketEquipment.recordKey, title: fields?.supervisorTicketTitle || "", description: fields?.supervisorTicketDescription || "" };
@@ -2666,6 +2672,7 @@
           if (!currentMachine || currentMachine.recordKey !== machineKey) return close();
           if (maintenanceImages.length >= 4) throw new Error("Ya alcanzaste el máximo de 4 fotografías.");
           maintenanceImages.push(image);
+          maintenanceImagesChanged = true;
           saveDraftImagesFor($("machineMaintenanceForm"), maintenanceImages);
           captureMaintenanceDraft();
           close();
@@ -2751,6 +2758,7 @@
       if (maintenanceImageContext !== imageContext) {
         maintenanceImageContext = imageContext;
         maintenanceImages = Array.isArray(editingMaintenance?.images) ? editingMaintenance.images.slice(0, 4) : [];
+        maintenanceImagesChanged = false;
       }
       const maintenanceImageMarkup = maintenanceImages.map((image, index) => `
         <div class="maintenance-image-thumb-wrap">
@@ -3319,6 +3327,7 @@
       if (removeImageButton) {
         const draftKey = removeImageButton.closest("form")?.dataset.smartfitDraftKey || "";
         maintenanceImages.splice(Number(removeImageButton.dataset.removeMaintenanceImage), 1);
+        maintenanceImagesChanged = true;
         if (draftKey) document.dispatchEvent(new CustomEvent("smartfit:form-draft-save-images", { detail: { key: draftKey, images: maintenanceImages } }));
         renderMachineDetail(currentMachine);
         return;
@@ -3379,6 +3388,7 @@
         const compressedImages = await Promise.all(selectedFiles.map(compressMaintenanceImage));
         if (!currentMachine || currentMachine.recordKey !== machineRecordKey) return;
         maintenanceImages.push(...compressedImages);
+        maintenanceImagesChanged = true;
         if (draftKey) document.dispatchEvent(new CustomEvent("smartfit:form-draft-save-images", { detail: { key: draftKey, images: maintenanceImages } }));
         renderMachineDetail(currentMachine);
       } catch (error) {
@@ -3408,6 +3418,7 @@
           technician: existingMaintenance ? (existingMaintenance.technician || "Sin responsable registrado") : (assignedMachineTicket(currentMachine)?.technician || $("maintenanceTechnician").value.trim()),
           observations: $("maintenanceObservations").value.trim(),
           images: maintenanceImages.slice(0, 4),
+          imagesChanged: maintenanceImagesChanged,
           ticketIds: existingMaintenance && Array.isArray(existingMaintenance.ticketIds) ? [...existingMaintenance.ticketIds] : [],
           recordedById: existingMaintenance?.recordedById || user.id,
           recordedByName: existingMaintenance?.recordedByName || user.name,
@@ -3462,6 +3473,7 @@
         maintenanceDraft = null;
         maintenanceImageContext = "";
         maintenanceImages = [];
+        maintenanceImagesChanged = false;
         currentMachineTab = "maintenance";
         renderMachineDetail(currentMachine);
       } else if (event.target.id === "machineMileageForm") {
