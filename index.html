@@ -194,6 +194,15 @@
       height: 12px;
       margin: 0 12px 0 0;
       vertical-align: middle;
+      transform-origin: center bottom;
+      animation: intro-dot-bounce .9s infinite;
+    }
+
+    @keyframes intro-dot-bounce {
+      0%, 72%, 100% { transform: translateY(0) scaleX(1.14) scaleY(.78); }
+      8% { transform: translateY(-1px) scaleX(.96) scaleY(1.08); }
+      38% { transform: translateY(-11px) scaleX(.9) scaleY(1.12); }
+      58% { transform: translateY(-5px) scaleX(.95) scaleY(1.04); }
     }
 
     h1 {
@@ -203,6 +212,8 @@
       margin: 0;
       letter-spacing: -.8px;
     }
+
+    .intro-title-accent { color: var(--text); }
 
     .login-card {
       width: 100%;
@@ -882,6 +893,7 @@
     }
 
     @media (prefers-reduced-motion: reduce) {
+      .intro .environment-dot { animation: none; }
       *,
       *::before,
       *::after {
@@ -907,7 +919,7 @@
 
   <main>
     <section class="intro">
-      <h1><span class="environment-dot" aria-hidden="true"></span>PORTAL DE ACCESO</h1>
+      <h1><span class="environment-dot" aria-hidden="true"></span><span class="intro-title-accent">PORTAL</span> DE <span class="intro-title-accent">ACCESO</span></h1>
     </section>
 
     <section class="login-card" aria-labelledby="login-title">
