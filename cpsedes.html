@@ -847,7 +847,7 @@
       entry.id === session.id && entry.active && (adminMode ? entry.role === "Administrador" : entry.role !== "Administrador")
     );
     if (!user && session?.authId && session.active &&
-        (adminMode ? session.role === "Administrador" : ["Técnico", "Supervisor"].includes(session.role))) {
+        (adminMode ? session.role === "Administrador" : ["Técnico", "Supervisor", "Coordinador"].includes(session.role))) {
       // El acceso ya fue validado por Supabase; no exigir que el usuario exista también
       // en el catálogo local para evitar redirigir sesiones Auth válidas al login.
       user = Object.assign({}, session);

@@ -887,9 +887,6 @@
     <div class="environment">
       <span class="environment-dot" aria-hidden="true"></span>
       <span>Portal de acceso</span>
-      <button type="button" class="access-button" id="accessButton" aria-haspopup="dialog">Acceso Supervisor</button>
-      <button type="button" class="leader-button" id="leaderButton" aria-haspopup="dialog">Acceso Líder</button>
-      <button type="button" class="admin-button" id="adminButton">Administrador</button>
     </div>
   </header>
 
@@ -906,26 +903,12 @@
 
       <form id="loginForm" novalidate>
         <div class="field">
-          <div class="field-label" id="technicianLabel">
-            <span>Nombre del técnico
-              <span class="required">*</span>
-            </span>
-          </div>
-
-          <div class="picker" id="technicianPicker">
-            <button type="button" class="picker-trigger" id="technicianTrigger" aria-haspopup="listbox" aria-expanded="false" aria-labelledby="technicianLabel technicianValue">
-              <span class="field-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.5"></circle><path d="M5 20c.8-3.2 3.2-5 7-5s6.2 1.8 7 5"></path></svg></span>
-              <span class="picker-value placeholder" id="technicianValue">Cargando nómina...</span>
-              <span class="picker-actions" aria-hidden="true"><span>⌄</span></span>
-            </button>
-            <div class="picker-menu" id="technicianMenu" hidden>
-              <input class="picker-search" id="technicianSearch" type="search" placeholder="Buscar nombre o usuario..." autocomplete="off" aria-label="Buscar en la nómina">
-              <div class="options-list" id="technicianOptions" role="listbox" aria-label="Técnicos activos"></div>
-            </div>
-          </div>
-          <div class="control username-wrap" id="usernameFallback" hidden>
+          <label class="field-label" for="loginUsername">
+            <span>RUT o nombre de usuario <span class="required">*</span></span>
+          </label>
+          <div class="control username-wrap">
             <span class="field-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.5"></circle><path d="M5 20c.8-3.2 3.2-5 7-5s6.2 1.8 7 5"></path></svg></span>
-            <input id="technicianUsername" name="username" type="text" placeholder="Ingresa tu RUT o usuario" autocomplete="username">
+            <input id="loginUsername" name="username" type="text" placeholder="Ingresa tu RUT o nombre de usuario" autocomplete="username" required>
           </div>
         </div>
 
@@ -959,7 +942,7 @@
              role="status" aria-live="polite"></div>
 
         <button type="submit" class="continue-btn">
-          Continuar <span aria-hidden="true">→</span>
+          Ingresar <span aria-hidden="true">→</span>
         </button>
       </form>
 
@@ -1000,14 +983,11 @@
 
   <script src="admin-store.js?v=20261029-performance-stage-2"></script>
   <script src="supabase-data.js?v=20261102-knowledge-v1"></script>
-  <script src="supabase-auth.js"></script>
+  <script src="supabase-auth.js?v=unified-login-20261105"></script>
   <script>
     "use strict";
 
     const $ = (id) => document.getElementById(id);
-    let loginDirectory = [];
-    let selectedLoginAccount = null;
-    const LOGIN_DIRECTORY_CACHE_KEY = "smartfit.login-directory.cache.v1";
     const notificationItems = [
       {
         title: "Panel de notificaciones",
@@ -1036,114 +1016,6 @@
       element.textContent = message;
     }
 
-    function closeTechnicianPicker() {
-      $("technicianMenu").hidden = true;
-      $("technicianTrigger").setAttribute("aria-expanded", "false");
-    }
-
-    function renderLoginDirectory() {
-      const list = $("technicianOptions");
-      const query = $("technicianSearch").value.trim().toLocaleLowerCase("es");
-      const filtered = loginDirectory.filter(account =>
-        `${account.name} ${account.username} ${account.role}`.toLocaleLowerCase("es").includes(query)
-      );
-      list.replaceChildren();
-      if (!filtered.length) {
-        const empty = document.createElement("div");
-        empty.className = "empty-options";
-        empty.textContent = loginDirectory.length ? "No se encontraron coincidencias." : "No hay cuentas activas disponibles.";
-        list.appendChild(empty);
-        return;
-      }
-      filtered.forEach(account => {
-        const option = document.createElement("button");
-        option.type = "button";
-        option.className = "option";
-        option.setAttribute("role", "option");
-        option.setAttribute("aria-selected", String(selectedLoginAccount?.username === account.username));
-        const label = document.createElement("span");
-        label.textContent = account.name;
-        const detail = document.createElement("small");
-        detail.textContent = `${account.username} · ${account.role}`;
-        label.appendChild(detail);
-        option.appendChild(label);
-        const icon = document.createElement("span");
-        icon.className = "option-user-icon";
-        icon.setAttribute("aria-hidden", "true");
-        icon.innerHTML = '<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.5"></circle><path d="M5 20c.8-3.2 3.2-5 7-5s6.2 1.8 7 5"></path></svg>';
-        option.prepend(icon);
-        option.addEventListener("click", () => {
-          selectedLoginAccount = account;
-          $("technicianValue").textContent = account.name;
-          $("technicianValue").classList.remove("placeholder");
-          closeTechnicianPicker();
-          showMessage("", "");
-          $("technicianTrigger").focus();
-        });
-        list.appendChild(option);
-      });
-    }
-
-    $("technicianTrigger").addEventListener("click", () => {
-      const opening = $("technicianMenu").hidden;
-      closeTechnicianPicker();
-      if (!opening) return;
-      $("technicianMenu").hidden = false;
-      $("technicianTrigger").setAttribute("aria-expanded", "true");
-      $("technicianSearch").value = "";
-      renderLoginDirectory();
-      $("technicianSearch").focus();
-    });
-    $("technicianSearch").addEventListener("input", renderLoginDirectory);
-    $("technicianSearch").addEventListener("keydown", event => {
-      if (event.key === "Escape") {
-        closeTechnicianPicker();
-        $("technicianTrigger").focus();
-      } else if (event.key === "Enter") {
-        event.preventDefault();
-        $("technicianOptions").querySelector(".option")?.click();
-      }
-    });
-    document.addEventListener("click", event => {
-      if (!$("technicianPicker").contains(event.target)) closeTechnicianPicker();
-    });
-
-    function applyLoginDirectory(accounts) {
-      loginDirectory = (Array.isArray(accounts) ? accounts : []).filter(account => account.role === "Técnico");
-      $("technicianPicker").hidden = !loginDirectory.length;
-      $("usernameFallback").hidden = Boolean(loginDirectory.length);
-      if (selectedLoginAccount && !loginDirectory.some(account => account.username === selectedLoginAccount.username)) {
-        selectedLoginAccount = null;
-      }
-      $("technicianValue").textContent = loginDirectory.length ? "Selecciona un técnico..." : "No hay técnicos activos";
-      $("technicianValue").classList.add("placeholder");
-      if (!loginDirectory.length) showMessage("error", "No hay técnicos activos en la nómina. Puedes ingresar tu RUT o usuario manualmente.");
-      else showMessage("", "");
-    }
-
-    async function loadLoginDirectory() {
-      try {
-        const cached = JSON.parse(sessionStorage.getItem(LOGIN_DIRECTORY_CACHE_KEY) || "null");
-        if (Array.isArray(cached?.accounts) && Date.now() - Number(cached.savedAt) < 5 * 60 * 1000) {
-          applyLoginDirectory(cached.accounts);
-        }
-      } catch (error) { /* la nómina se solicita al servidor */ }
-      try {
-        const accounts = await SmartFitSupabaseAuth.listLoginDirectory();
-        sessionStorage.setItem(LOGIN_DIRECTORY_CACHE_KEY, JSON.stringify({ accounts, savedAt: Date.now() }));
-        applyLoginDirectory(accounts);
-      } catch (error) {
-        if (!loginDirectory.length) {
-          $("technicianPicker").hidden = true;
-          $("usernameFallback").hidden = false;
-          showMessage("error", "No se pudo cargar la nómina. Ingresa tu RUT o usuario manualmente.");
-        }
-        console.warn("No se pudo cargar la nómina para el acceso:", error);
-      }
-    }
-
-    loadLoginDirectory();
-
     $("togglePassword").addEventListener("click", () => {
       const input = $("password");
       const button = $("togglePassword");
@@ -1156,11 +1028,12 @@
 
     $("loginForm").addEventListener("submit", async event => {
       event.preventDefault();
-      const username = selectedLoginAccount?.username || $("technicianUsername").value.trim();
+      const submitButton = $("loginForm").querySelector('[type="submit"]');
+      if (submitButton.disabled) return;
+      const username = $("loginUsername").value.trim();
       if (!username) {
-        showMessage("error", "Selecciona tu nombre de la nómina.");
-        if ($("usernameFallback").hidden) $("technicianTrigger").focus();
-        else $("technicianUsername").focus();
+        showMessage("error", "Ingresa tu RUT o nombre de usuario.");
+        $("loginUsername").focus();
         return;
       }
       if (!$("password").value.trim()) {
@@ -1176,8 +1049,16 @@
         $("password").focus();
         return;
       }
-      if (authenticatedUser.role !== "Técnico") {
-        showMessage("error", "Este acceso está habilitado únicamente para técnicos activos. Usa el acceso correspondiente a tu perfil.");
+      const destinations = {
+        "Administrador": ["cpadmin.html", "smartfit.admin.session"],
+        "Líder": ["cplider.html", "smartfit.leader.session"],
+        "Supervisor": ["cpsedes.html", "smartfit.site.session"],
+        "Técnico": ["cpsedes.html", "smartfit.site.session"],
+        "Coordinador": ["cpsedes.html", "smartfit.site.session"],
+      };
+      const destination = destinations[authenticatedUser.role];
+      if (!destination) {
+        showMessage("error", "El perfil de esta cuenta no está habilitado para acceder.");
         SmartFitSupabaseAuth.clearSession();
         return;
       }
@@ -1187,8 +1068,9 @@
         console.warn("No se pudo sincronizar el acceso; se conserva en este navegador.", error);
         AdminStore.recordAccess(authenticatedUser);
       }
-      sessionStorage.setItem("smartfit.site.session", JSON.stringify(authenticatedUser));
-      window.location.href = authenticatedUser.mustChangePassword ? "change-password.html" : "cpsedes.html";
+      ["smartfit.admin.session", "smartfit.leader.session", "smartfit.site.session"].forEach(key => sessionStorage.removeItem(key));
+      sessionStorage.setItem(destination[1], JSON.stringify(authenticatedUser));
+      window.location.href = authenticatedUser.mustChangePassword ? "change-password.html" : destination[0];
     });
     function openModal(title, items) {
       $("modalTitle").textContent = title;
@@ -1228,205 +1110,11 @@
       $("modalClose").focus();
     }
 
-    function openAdminModal() {
-      const modal = $("modalBackdrop").querySelector(".modal");
-      const body = $("modalBody");
-      modal.classList.add("admin-mode");
-      $("modalTitle").textContent = "Acceso a Administrador";
-      $("modalIcon").hidden = false;
-      body.innerHTML = `
-        <form class="admin-login-form" id="adminLoginForm">
-          <div class="field">
-            <label class="field-label" for="adminRut">RUT (sin puntos ni guión)</label>
-            <div class="control admin-control-wrap">
-              <span class="admin-field-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.5"></circle><path d="M5 20c.8-3.2 3.2-5 7-5s6.2 1.8 7 5"></path></svg></span>
-              <input class="admin-input" id="adminRut" name="rut" type="text" placeholder="RUT" autocomplete="username" required>
-            </div>
-          </div>
-          <div class="field">
-            <label class="field-label" for="adminPassword">Clave</label>
-            <div class="control admin-control-wrap">
-              <span class="admin-field-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="11" rx="2"></rect><path d="M8 10V7a4 4 0 0 1 8 0v3"></path></svg></span>
-              <input class="admin-input" id="adminPassword" name="password" type="password" autocomplete="current-password" required>
-              <button class="show-password" type="button" id="toggleAdminPassword" aria-pressed="false">Mostrar</button>
-            </div>
-          </div>
-          <div class="message" id="adminMessage" role="status" aria-live="polite"></div>
-          <button type="submit" class="continue-btn">Ingresar</button>
-        </form>`;
-      $("modalBackdrop").hidden = false;
-      $("adminRut").focus();
-      $("toggleAdminPassword").addEventListener("click", () => {
-        const input = $("adminPassword");
-        const button = $("toggleAdminPassword");
-        const showing = input.type === "text";
-        input.type = showing ? "password" : "text";
-        button.textContent = showing ? "Mostrar" : "Ocultar";
-        button.setAttribute("aria-pressed", String(!showing));
-      });
-      $("adminLoginForm").addEventListener("submit", async event => {
-        event.preventDefault();
-        const message = $("adminMessage");
-        let admin;
-        try {
-          admin = await SmartFitSupabaseAuth.login($("adminRut").value, $("adminPassword").value);
-        } catch (error) {
-          message.className = "message visible error";
-          message.textContent = error.message || "RUT o clave incorrectos, o la cuenta está inactiva.";
-          return;
-        }
-        if (admin.role !== "Administrador") {
-          SmartFitSupabaseAuth.clearSession();
-          message.className = "message visible error";
-          message.textContent = "Esta cuenta no tiene el perfil Administrador.";
-          return;
-        }
-        try {
-          await SmartFitSupabaseData.recordAccess(admin);
-        } catch (error) {
-          console.warn("No se pudo sincronizar el acceso; se conserva en este navegador.", error);
-          AdminStore.recordAccess(admin);
-        }
-        sessionStorage.setItem("smartfit.admin.session", JSON.stringify(admin));
-        window.location.href = admin.mustChangePassword ? "change-password.html" : "cpadmin.html";
-      });
-    }
-
-    function openLeaderModal() {
-      const modal = $("modalBackdrop").querySelector(".modal");
-      modal.classList.add("admin-mode");
-      $("modalTitle").textContent = "Acceso a Líder";
-      $("modalIcon").hidden = false;
-      $("modalBody").innerHTML = `
-        <form class="admin-login-form" id="leaderLoginForm">
-          <div class="field">
-            <label class="field-label" for="leaderRut">RUT (sin puntos ni guión)</label>
-            <div class="control admin-control-wrap">
-              <span class="admin-field-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.5"></circle><path d="M5 20c.8-3.2 3.2-5 7-5s6.2 1.8 7 5"></path></svg></span>
-              <input class="admin-input" id="leaderRut" name="username" type="text" placeholder="RUT" autocomplete="username" required>
-            </div>
-          </div>
-          <div class="field">
-            <label class="field-label" for="leaderPassword">Clave</label>
-            <div class="control admin-control-wrap">
-              <span class="admin-field-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="11" rx="2"></rect><path d="M8 10V7a4 4 0 0 1 8 0v3"></path></svg></span>
-              <input class="admin-input" id="leaderPassword" name="password" type="password" autocomplete="current-password" required>
-              <button class="show-password" type="button" id="toggleLeaderPassword" aria-pressed="false">Mostrar</button>
-            </div>
-          </div>
-          <div class="message" id="leaderMessage" role="status" aria-live="polite"></div>
-          <button type="submit" class="continue-btn">Ingresar</button>
-        </form>`;
-      $("modalBackdrop").hidden = false;
-      $("leaderRut").focus();
-      $("toggleLeaderPassword").addEventListener("click", () => {
-        const input = $("leaderPassword");
-        const button = $("toggleLeaderPassword");
-        const showing = input.type === "text";
-        input.type = showing ? "password" : "text";
-        button.textContent = showing ? "Mostrar" : "Ocultar";
-        button.setAttribute("aria-pressed", String(!showing));
-      });
-      $("leaderLoginForm").addEventListener("submit", async event => {
-        event.preventDefault();
-        let leader;
-        try {
-          leader = await SmartFitSupabaseAuth.login($("leaderRut").value, $("leaderPassword").value);
-        } catch (error) {
-          $("leaderMessage").className = "message visible error";
-          $("leaderMessage").textContent = error.message || "RUT o clave incorrectos, o la cuenta no está activa con el rol Líder.";
-          return;
-        }
-        if (leader.role !== "Líder") {
-          SmartFitSupabaseAuth.clearSession();
-          $("leaderMessage").className = "message visible error";
-          $("leaderMessage").textContent = "Esta cuenta no tiene el perfil Líder.";
-          return;
-        }
-        try {
-          await SmartFitSupabaseData.recordAccess(leader);
-        } catch (error) {
-          console.warn("No se pudo sincronizar el acceso; se conserva en este navegador.", error);
-          AdminStore.recordAccess(leader);
-        }
-        sessionStorage.setItem("smartfit.leader.session", JSON.stringify(leader));
-        window.location.href = leader.mustChangePassword ? "change-password.html" : "cplider.html";
-      });
-    }
-
-    function openSupervisorModal() {
-      const modal = $("modalBackdrop").querySelector(".modal");
-      modal.classList.add("admin-mode");
-      $("modalTitle").textContent = "Acceso a Supervisor";
-      $("modalIcon").hidden = false;
-      $("modalBody").innerHTML = `
-        <form class="admin-login-form" id="supervisorLoginForm">
-          <div class="field">
-            <label class="field-label" for="supervisorRut">RUT o nombre de usuario</label>
-            <div class="control admin-control-wrap">
-              <span class="admin-field-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.5"></circle><path d="M5 20c.8-3.2 3.2-5 7-5s6.2 1.8 7 5"></path></svg></span>
-              <input class="admin-input" id="supervisorRut" name="username" type="text" placeholder="RUT o usuario" autocomplete="username" required>
-            </div>
-          </div>
-          <div class="field">
-            <label class="field-label" for="supervisorPassword">Clave</label>
-            <div class="control admin-control-wrap">
-              <span class="admin-field-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="11" rx="2"></rect><path d="M8 10V7a4 4 0 0 1 8 0v3"></path></svg></span>
-              <input class="admin-input" id="supervisorPassword" name="password" type="password" autocomplete="current-password" required>
-              <button class="show-password" type="button" id="toggleSupervisorPassword" aria-pressed="false">Mostrar</button>
-            </div>
-          </div>
-          <div class="message" id="supervisorMessage" role="status" aria-live="polite"></div>
-          <button type="submit" class="continue-btn">Ingresar</button>
-        </form>`;
-      $("modalBackdrop").hidden = false;
-      $("supervisorRut").focus();
-      $("toggleSupervisorPassword").addEventListener("click", () => {
-        const input = $("supervisorPassword");
-        const button = $("toggleSupervisorPassword");
-        const showing = input.type === "text";
-        input.type = showing ? "password" : "text";
-        button.textContent = showing ? "Mostrar" : "Ocultar";
-        button.setAttribute("aria-pressed", String(!showing));
-      });
-      $("supervisorLoginForm").addEventListener("submit", async event => {
-        event.preventDefault();
-        const message = $("supervisorMessage");
-        let supervisor;
-        try {
-          supervisor = await SmartFitSupabaseAuth.login($("supervisorRut").value, $("supervisorPassword").value);
-        } catch (error) {
-          message.className = "message visible error";
-          message.textContent = error.message || "RUT, usuario o clave incorrectos, o la cuenta está inactiva.";
-          return;
-        }
-        if (supervisor.role !== "Supervisor") {
-          SmartFitSupabaseAuth.clearSession();
-          message.className = "message visible error";
-          message.textContent = "Esta cuenta no tiene el perfil Supervisor.";
-          return;
-        }
-        try {
-          await SmartFitSupabaseData.recordAccess(supervisor);
-        } catch (error) {
-          console.warn("No se pudo sincronizar el acceso; se conserva en este navegador.", error);
-          AdminStore.recordAccess(supervisor);
-        }
-        sessionStorage.setItem("smartfit.site.session", JSON.stringify(supervisor));
-        window.location.href = supervisor.mustChangePassword ? "change-password.html" : "cpsedes.html";
-      });
-    }
-
     function closeModal() {
       $("modalBackdrop").hidden = true;
       $("modalIcon").hidden = true;
       $("modalBackdrop").querySelector(".modal").classList.remove("admin-mode");
     }
-
-    $("accessButton").addEventListener("click", openSupervisorModal);
-
-    $("adminButton").addEventListener("click", openAdminModal);
-    $("leaderButton").addEventListener("click", openLeaderModal);
 
     $("notificationsButton").addEventListener("click", () => {
       openModal("Notificaciones", notificationItems);
