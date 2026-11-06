@@ -79,6 +79,15 @@
       gap: 13px;
     }
 
+    .brand-copy { min-width: 0; }
+
+    .brand-heading {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px 10px;
+    }
+
     .brand-mark {
       display: block;
       width: auto;
@@ -115,6 +124,8 @@
       background: var(--yellow);
       border-radius: 50%;
     }
+
+    .environment .brand-title { color: var(--text); }
 
     .admin-button {
       padding: 8px 12px;
@@ -803,7 +814,6 @@
       }
 
       .environment {
-        margin-left: auto;
         font-size: 10px;
       }
 
@@ -852,8 +862,8 @@
       .topbar { gap: 10px; padding-right: 11px; padding-left: 11px; }
       .brand { gap: 8px; }
       .brand-mark { height: 32px; max-width: 86px; }
-      .environment { width: 100%; justify-content: flex-start; flex-wrap: wrap; gap: 7px; }
-      .environment > span:nth-child(2) { margin-right: auto; }
+      .brand-heading { gap: 6px 8px; }
+      .environment { gap: 6px; }
       .access-button, .admin-button, .leader-button { padding: 7px 8px; font-size: 9px; }
       main { padding-right: 10px; padding-left: 10px; }
       .login-card { padding: 20px 14px; }
@@ -878,15 +888,16 @@
   <header class="topbar">
     <div class="brand">
       <img class="brand-mark" src="IMG/logo-header.png" alt="Smart Fit">
-      <div>
-        <p class="brand-title">MANTENIMIENTO</p>
+      <div class="brand-copy">
+        <div class="brand-heading">
+          <p class="brand-title">MANTENIMIENTO</p>
+          <div class="environment">
+            <span class="environment-dot" aria-hidden="true"></span>
+            <span class="brand-title">PORTAL DE ACCESO</span>
+          </div>
+        </div>
         <p class="brand-subtitle">Gestión de equipos y sedes</p>
       </div>
-    </div>
-
-    <div class="environment">
-      <span class="environment-dot" aria-hidden="true"></span>
-      <span>Portal de acceso</span>
     </div>
   </header>
 
