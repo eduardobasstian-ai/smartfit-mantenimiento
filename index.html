@@ -188,6 +188,14 @@
       margin-bottom: 30px;
     }
 
+    .intro .environment-dot {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      margin: 0 12px 0 0;
+      vertical-align: middle;
+    }
+
     h1 {
       color: var(--yellow);
       font-size: clamp(27px, 4vw, 38px);
@@ -891,10 +899,6 @@
       <div class="brand-copy">
         <div class="brand-heading">
           <p class="brand-title">MANTENIMIENTO</p>
-          <div class="environment">
-            <span class="environment-dot" aria-hidden="true"></span>
-            <span class="brand-title">PORTAL DE ACCESO</span>
-          </div>
         </div>
         <p class="brand-subtitle">Gestión de equipos y sedes</p>
       </div>
@@ -903,7 +907,7 @@
 
   <main>
     <section class="intro">
-      <h1>Sistema de mantenimiento</h1>
+      <h1><span class="environment-dot" aria-hidden="true"></span>PORTAL DE ACCESO</h1>
     </section>
 
     <section class="login-card" aria-labelledby="login-title">
