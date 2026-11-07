@@ -9,6 +9,7 @@
   const ACCESS_HISTORY_KEY = "smartfit.admin.access-history.v1";
   const COMMON_KNOWLEDGE_SYNC_KEY = "smartfit.common-knowledge.changed.v1";
   const COMMON_KNOWLEDGE_BUCKET = "equipment-knowledge";
+  const INSPECTION_BUCKET = "site-inspections";
   let realtimeClient = null;
   let realtimeChannel = null;
   let realtimeRefreshTimer = null;
@@ -612,6 +613,131 @@
     }));
     return urls;
   }
+  function inspectionPhotoBlob(value) {
+    if (value instanceof Blob) return value;
+    const source = String(value || "");
+    const match = source.match(/^data:(image\/(?:jpeg|png|webp));base64,([\s\S]+)$/i);
+    if (!match) throw new Error("Una fotografía de la inspección no tiene un formato compatible.");
+    const binary = atob(match[2]);
+    const bytes = new Uint8Array(binary.length);
+    for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
+    return new Blob([bytes], { type: match[1].toLowerCase() });
+  }
+  async function uploadInspectionPhoto(siteUuid, inspectionId, entryId, index, dataUrl) {
+    const blob = inspectionPhotoBlob(dataUrl);
+    const extension = blob.type === "image/webp" ? "webp" : blob.type === "image/png" ? "png" : "jpg";
+    const safeInspectionId = String(inspectionId).replace(/[^a-z0-9-]/gi, "");
+    const safeEntryId = String(entryId).replace(/[^a-z0-9-]/gi, "");
+    const path = `${siteUuid}/${safeInspectionId}/${safeEntryId}-${index + 1}.${extension}`;
+    const response = await authorizedFetch(`${URL}/storage/v1/object/${INSPECTION_BUCKET}/${encodedStoragePath(path)}`, {
+      method: "POST",
+      headers: { "Content-Type": blob.type, "cache-control": "31536000", "x-upsert": "true" },
+      body: blob
+    });
+    if (!response.ok) throw new Error(`No se pudo subir una foto de inspección (${response.status}): ${await response.text()}`);
+    return { path, type: blob.type, size: blob.size };
+  }
+  async function saveInspectionBatch(siteLegacyId, inspectionId, entries = []) {
+    const actor = appSession();
+    if (!actor?.authId || !inspectionId || !Array.isArray(entries) || !entries.length) throw new Error("La inspección no contiene equipos para enviar.");
+    if (!["Administrador", "Supervisor"].includes(actor.role)) throw new Error("Solo el administrador o supervisor puede enviar inspecciones.");
+    const siteUuid = await siteUuidForLegacy(siteLegacyId);
+    if (!siteUuid) throw new Error("La sede de la inspección no está vinculada a Supabase.");
+    const site = AdminStore.listSites().find(row => String(row.id) === String(siteLegacyId));
+    const users = AdminStore.listUsers();
+    const supervisor = actor.role === "Supervisor" ? users.find(row => row.authId === actor.authId) : users.find(row => row.id === site?.supervisorUserId);
+    const technician = users.find(row => row.id === site?.technicianUserId && row.role === "Técnico")
+      || users.find(row => row.role === "Técnico" && (row.siteIds || []).includes(String(siteLegacyId)));
+    const saved = [];
+    for (const entry of entries) {
+      if (!entry?.id || !entry.recordKey || !String(entry.finding || "").trim()) throw new Error("Un equipo de la inspección tiene datos incompletos.");
+      const equipmentId = await equipmentForRecordKey(entry.recordKey);
+      if (!equipmentId) throw new Error(`No se pudo vincular ${entry.equipment || "un equipo"} con la sede en Supabase.`);
+      const photos = await Promise.all((Array.isArray(entry.photos) ? entry.photos.slice(0, 4) : [])
+        .map((photo, index) => uploadInspectionPhoto(siteUuid, inspectionId, entry.id, index, photo)));
+      const row = {
+        inspection_id: inspectionId,
+        legacy_id: `${inspectionId}::${entry.id}`,
+        site_id: siteUuid,
+        site_legacy_id: String(siteLegacyId),
+        equipment_id: equipmentId,
+        equipment_legacy_id: String(entry.recordKey),
+        equipment_name: String(entry.equipment || "Equipo"),
+        equipment_model: String(entry.model || "") || null,
+        brand_name: String(entry.brand || "") || null,
+        fixed_asset: entry.activeFixed == null || String(entry.activeFixed) === "" ? null : String(entry.activeFixed),
+        technician_id: technician?.authId || null,
+        technician_name: technician?.name || site?.technician || null,
+        supervisor_id: supervisor?.authId || (actor.role === "Supervisor" ? actor.authId : null),
+        supervisor_name: supervisor?.name || (actor.role === "Supervisor" ? actor.name : site?.supervisor) || null,
+        registered_by: actor.authId,
+        registered_by_name: actor.name || null,
+        occurred_at: String(entry.date || new Date().toISOString()).slice(0, 10),
+        finding: String(entry.finding).trim(),
+        observations: String(entry.observations || "").trim() || null,
+        status: "Pendiente",
+        photos,
+        updated_at: new Date().toISOString()
+      };
+      const result = await postRow("inspection_records", row, "legacy_id", "id,legacy_id,status,inspection_number,inspection_counter");
+      if (!result?.id) throw new Error(`Supabase no confirmó la inspección de ${entry.equipment || "un equipo"}.`);
+      saved.push(result);
+    }
+    try { localStorage.setItem("smartfit.inspection.records.changed.v1", String(Date.now())); } catch (error) {}
+    return { saved: saved.length, inspectionId, inspectionNumber: saved.find(row => row.inspection_number)?.inspection_number || null };
+  }
+  async function listInspectionRecords() {
+     const rows = await getRows("inspection_records", "id,inspection_id,inspection_number,inspection_counter,legacy_id,site_id,site_legacy_id,equipment_id,equipment_legacy_id,equipment_name,equipment_model,brand_name,fixed_asset,technician_id,technician_name,supervisor_id,supervisor_name,registered_by,registered_by_name,occurred_at,finding,observations,correction,corrected_by,corrected_by_name,corrected_at,status,execution_started_at,photos,deleted_at,deleted_by,deleted_by_name,created_at,updated_at");
+    const sites = await getRows("sites", "id,legacy_id,name,internal_code");
+    const siteNames = new Map(sites.map(site => [site.id, site.name || ""]));
+    const siteCodes = new Map(sites.map(site => [site.id, site.internal_code ?? null]));
+    return rows.map(row => Object.assign({}, row, { site_name: siteNames.get(row.site_id) || row.site_legacy_id || "Sede", site_internal_code: siteCodes.get(row.site_id) }));
+  }
+  async function getInspectionPhotoUrls(paths = []) {
+    const uniquePaths = [...new Set((Array.isArray(paths) ? paths : []).map(String).filter(Boolean))];
+    const urls = {};
+    await Promise.all(uniquePaths.map(async path => {
+      const response = await authorizedFetch(`${URL}/storage/v1/object/sign/${INSPECTION_BUCKET}/${encodedStoragePath(path)}`, {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ expiresIn: 3600 })
+      });
+      const text = await response.text();
+      let result = {}; try { result = text ? JSON.parse(text) : {}; } catch (error) {}
+      if (!response.ok) throw new Error(`No se pudo abrir una foto de inspección (${response.status}).`);
+      const signed = result.signedURL || result.signedUrl;
+      if (!signed) throw new Error("Supabase no devolvió el enlace temporal de la fotografía.");
+      urls[path] = signed.startsWith("http") ? signed : `${URL}/storage/v1${signed.startsWith("/") ? "" : "/"}${signed}`;
+    }));
+    return urls;
+  }
+  async function updateInspectionStatus(recordId, status, correction = "") {
+    if (!["Pendiente", "En ejecución", "Ejecutado", "Eliminado"].includes(status)) throw new Error("Estado de inspección no válido.");
+    const actor = appSession();
+    const completed = status === "Ejecutado";
+    const deleted = status === "Eliminado";
+    const response = await authorizedFetch(`${URL}/rest/v1/inspection_records?id=eq.${encodeURIComponent(String(recordId))}`, {
+      method: "PATCH", headers: { "Content-Type": "application/json", Prefer: "return=representation" },
+      body: JSON.stringify(Object.assign({ status, updated_at: new Date().toISOString() }, completed ? { correction: String(correction || "").trim() || null, corrected_by: actor?.authId || null, corrected_by_name: actor?.name || null, corrected_at: new Date().toISOString() } : {}, deleted ? { deleted_at: new Date().toISOString(), deleted_by: actor?.authId || null, deleted_by_name: actor?.name || null } : {}))
+    });
+    const text = await response.text();
+    if (!response.ok) throw new Error(`No se pudo actualizar la inspección (${response.status}): ${text}`);
+    const result = text ? JSON.parse(text) : [];
+    if (!result.length) throw new Error("No tienes acceso para actualizar esta inspección.");
+    try { localStorage.setItem("smartfit.inspection.records.changed.v1", String(Date.now())); } catch (error) {}
+    return result[0];
+  }
+  async function startInspectionExecution(recordId) {
+    const now = new Date().toISOString();
+    const response = await authorizedFetch(`${URL}/rest/v1/inspection_records?id=eq.${encodeURIComponent(String(recordId))}&status=eq.Pendiente`, {
+      method: "PATCH", headers: { "Content-Type": "application/json", Prefer: "return=representation" },
+      body: JSON.stringify({ status: "En ejecución", execution_started_at: now, updated_at: now })
+    });
+    const text = await response.text();
+    if (!response.ok) throw new Error(`No se pudo iniciar la inspección (${response.status}): ${text}`);
+    const result = text ? JSON.parse(text) : [];
+    if (!result.length) throw new Error("La inspección ya cambió de estado o no tienes acceso para iniciarla.");
+    try { localStorage.setItem("smartfit.inspection.records.changed.v1", String(Date.now())); } catch (error) {}
+    return result[0];
+  }
   async function importLocalCommonKnowledge(entries = []) {
     const role = appSession()?.role;
     if (!["Administrador", "Supervisor"].includes(role)) return { imported: 0 };
@@ -970,6 +1096,10 @@
       const changedTable = String(payload?.payload?.table || "");
       if (changedTable === "knowledge_entries") {
         announceCommonKnowledgeChange();
+        return;
+      }
+      if (changedTable === "inspection_records") {
+        global.dispatchEvent(new CustomEvent("smartfit:inspection-records-changed"));
         return;
       }
       if (!changedTable || changedTable === "part_requests") return;
@@ -2044,5 +2174,5 @@
     try { return JSON.parse(sessionStorage.getItem(key) || "null"); } catch (error) { return null; }
   }
 
-  global.SmartFitSupabaseData = { hydrate, manageUser, persistSite, persistBrand, deleteBrand, deleteSite, recordAccess, syncPendingAccessLogs, startRealtimeSync, persistTicket: persistTicketQueued, assignTicketTechnician, listAssignableTicketTechnicians, persistMachineRecord, retryPending: flushPending, getReportImages, loadMachineRecordMedia, prepareMachineRecordStorage, writeMachineRecordCache, getMachineRecordWithCachedMediaSync, prepareTicketStorage, writeTicketCache, getTicketsWithCachedMediaSync, listCommonKnowledgeEntries, saveCommonKnowledgeEntry, deleteCommonKnowledgeEntry, uploadCommonKnowledgeImage, deleteCommonKnowledgeImages, getCommonKnowledgeImageUrls, importLocalCommonKnowledge };
+  global.SmartFitSupabaseData = { hydrate, manageUser, persistSite, persistBrand, deleteBrand, deleteSite, recordAccess, syncPendingAccessLogs, startRealtimeSync, persistTicket: persistTicketQueued, assignTicketTechnician, listAssignableTicketTechnicians, persistMachineRecord, retryPending: flushPending, getReportImages, loadMachineRecordMedia, prepareMachineRecordStorage, writeMachineRecordCache, getMachineRecordWithCachedMediaSync, prepareTicketStorage, writeTicketCache, getTicketsWithCachedMediaSync, listCommonKnowledgeEntries, saveCommonKnowledgeEntry, deleteCommonKnowledgeEntry, uploadCommonKnowledgeImage, deleteCommonKnowledgeImages, getCommonKnowledgeImageUrls, saveInspectionBatch, listInspectionRecords, getInspectionPhotoUrls, updateInspectionStatus, startInspectionExecution, importLocalCommonKnowledge };
 })(window);

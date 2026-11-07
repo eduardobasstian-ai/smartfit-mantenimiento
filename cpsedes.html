@@ -108,6 +108,36 @@
     .site-search { width: min(230px, 36vw); min-height: 36px; padding: 0 10px; border: 1px solid #383b47; border-radius: 9px; background: #111319; color: var(--text); font: inherit; font-size: 11px; }
     .site-search:focus-visible { outline: 2px solid var(--yellow); outline-offset: 2px; }
     .site-grid, .brand-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    .inspection-choice-grid, .inspection-equipment-grid, .inspection-review-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    .inspection-choice-card, .inspection-equipment-card, .inspection-review-card { min-width: 0; padding: 16px; border: 1px solid #343743; border-radius: 12px; background: #22252e; color: var(--text); }
+    .inspection-choice-card { display: grid; gap: 8px; min-height: 130px; text-align: left; cursor: pointer; }
+    .inspection-choice-card:hover, .inspection-choice-card:focus-visible, .inspection-equipment-card:hover { border-color: var(--yellow); }
+    .inspection-choice-card strong, .inspection-equipment-card strong, .inspection-review-card strong { font-size: 14px; }
+    .inspection-choice-card span, .inspection-equipment-card span, .inspection-review-card p { color: var(--muted); font-size: 11px; line-height: 1.5; }
+    .inspection-choice-icon { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 10px; background: #3b321d; color: var(--yellow) !important; font-size: 18px !important; }
+    .inspection-status-note { margin: 12px 0 0; padding: 10px 12px; border: 1px solid #4b4028; border-radius: 9px; background: #2c261b; color: #f4d58c; font-size: 11px; line-height: 1.5; }
+    .inspection-form { display: grid; gap: 12px; padding: 16px; border: 1px solid #343743; border-radius: 12px; background: #191b22; }
+    .inspection-form h3 { margin: 0; font-size: 15px; }
+    .inspection-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    .inspection-form label { display: grid; gap: 6px; color: #dedfe4; font-size: 11px; font-weight: 750; }
+    .inspection-form label.full { grid-column: 1 / -1; }
+    .inspection-form input, .inspection-form textarea { width: 100%; min-height: 40px; padding: 9px 11px; border: 1px solid #383b47; border-radius: 9px; background: #111319; color: var(--text); font: inherit; font-size: 12px; }
+    .inspection-form input[readonly] { color: #c9cad0; }
+    .inspection-form textarea { min-height: 100px; resize: vertical; }
+    .inspection-form-actions, .inspection-photo-list { display: flex; flex-wrap: wrap; gap: 8px; }
+    .inspection-photo-list { gap: 9px; }
+    .inspection-photo-list img { width: 72px; height: 72px; border: 1px solid #3d404b; border-radius: 9px; object-fit: cover; cursor: zoom-in; }
+    .inspection-equipment-card { display: grid; gap: 7px; cursor: pointer; text-align: left; }
+    .inspection-equipment-card .inspection-equipment-meta { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+    .inspection-review-card { display: grid; gap: 7px; }
+    .inspection-review-card p { margin: 0; white-space: pre-wrap; }
+    .inspection-review-card img { width: 58px; height: 58px; border-radius: 8px; object-fit: cover; cursor: zoom-in; }
+    .inspection-review-heading { display: flex; align-items: center; gap: 11px; min-width: 0; }
+    .inspection-review-equipment-thumb { display: grid; flex: 0 0 64px; width: 64px; height: 64px; place-items: center; padding: 3px; overflow: hidden; border: 1px solid #3d404b; border-radius: 10px; background: #f5f5f5; cursor: zoom-in; }
+    .inspection-review-equipment-thumb img { width: 100%; height: 100%; border-radius: 6px; object-fit: contain; }
+    .inspection-review-identity { display: grid; gap: 5px; min-width: 0; }
+    .inspection-review-photos { display: flex; flex-wrap: wrap; gap: 6px; }
+    .inspection-toolbar-count { color: var(--muted); font-size: 10px; white-space: nowrap; }
     .site-card {
       display: block;
       width: 100%;
@@ -133,6 +163,22 @@
     .site-ticket-badge-icon { color: var(--yellow); font-size: 12px; }
     .site-ticket-badge strong { display: inline-grid; min-width: 18px; height: 18px; place-items: center; padding: 0 5px; border-radius: 50px; background: var(--yellow); color: #171717; font-size: 10px; }
     .brand-card .site-ticket-badge, .machine-info .site-ticket-badge { display: flex; width: fit-content; margin-top: 8px; }
+    .site-inspection-badge { display:inline-flex; align-items:center; gap:5px; padding:4px 7px; border-radius:999px; background:#111319; color:var(--text); font-size:10px; font-weight:750; white-space:nowrap; }
+    .site-inspection-badge-icon { display:inline-grid; width:18px; height:18px; place-items:center; border-radius:50%; background:#17324a; color:#57b8ff; font-size:12px; font-weight:900; }
+    .site-inspection-badge strong { display:inline-grid; min-width:18px; height:18px; place-items:center; padding:0 5px; border-radius:50px; background:#2589cb; color:#fff; font-size:10px; }
+    .brand-card .site-inspection-badge,.machine-info .site-inspection-badge { display:flex; width:fit-content; margin-top:8px; }
+    .inspection-tab-mark { display:inline-grid; min-width:18px; height:18px; place-items:center; margin-left:5px; padding:0 5px; border-radius:50px; background:#2589cb; color:#fff; font-size:10px; font-weight:850; vertical-align:middle; }
+    .inspection-row-status { display:inline-flex; align-items:center; gap:6px; padding:5px 9px; border-radius:20px; font-size:11px; font-weight:800; white-space:nowrap; }
+    .inspection-row-status.is-pending { color:#ff6874; background:rgba(255,74,91,.12); }
+    .inspection-row-status.is-progress { color:#a9d7ff; background:rgba(71,151,211,.16); }
+    .inspection-row-status.is-done { color:#45c99a; background:rgba(69,201,154,.12); }
+    .inspection-row-status.is-deleted { color:#9ba0aa; background:rgba(155,160,170,.14); }
+    .inspection-record-card { display:grid; grid-template-columns:74px minmax(0,1fr); gap:14px; align-items:center; padding:14px; border:1px solid var(--border-color,#343844); border-radius:14px; background:var(--card-bg,#20232b); margin-bottom:10px; }
+    .inspection-record-card .machine-image-button,.inspection-record-card .image-placeholder { width:74px; height:74px; }
+    .inspection-record-copy { display:flex; flex-wrap:wrap; align-items:center; gap:8px 14px; min-width:0; }
+    .inspection-record-copy > span { color:var(--muted,#aab0bf); font-size:13px; }
+    .inspection-record-title { display:flex; align-items:center; justify-content:space-between; gap:10px; flex:1 1 100%; }
+    @media(max-width:620px){.inspection-record-card{grid-template-columns:56px minmax(0,1fr);gap:10px;padding:10px}.inspection-record-card .machine-image-button,.inspection-record-card .image-placeholder{width:56px;height:56px}.inspection-record-copy{align-items:flex-start;flex-direction:column}.inspection-record-title{align-items:flex-start;flex-direction:column}}
     .supervisor-summary[hidden], #sitesPanel[hidden], #supervisorTicketsPanel[hidden], #supervisorRaiseTicketPanel[hidden], #supervisorEventsPanel[hidden], #inventoryPanel[hidden] { display: none !important; }
     .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
     .supervisor-summary { display: grid; gap: 18px; }
@@ -317,6 +363,15 @@
     .machine-tickets-table th:nth-child(5), .machine-tickets-table td:nth-child(5) { width: 20%; }
     .machine-tickets-table .ticket-status-badge { white-space: normal; }
     .machine-tickets-table .back-button { min-height: 32px; padding: 0 7px; white-space: normal; }
+    .machine-inspection-table th:first-child, .machine-inspection-table td:first-child { width: 24%; }
+    .machine-inspection-table th:nth-child(2), .machine-inspection-table td:nth-child(2) { width: 16%; }
+    .machine-inspection-table th:nth-child(3), .machine-inspection-table td:nth-child(3) { width: 42%; white-space: normal; }
+    .machine-inspection-table th:nth-child(4), .machine-inspection-table td:nth-child(4) { width: 18%; }
+    .inspection-table-details { display: grid; gap: 5px; margin-top: 6px; color: var(--muted); font-size: 10px; line-height: 1.45; }
+    .inspection-table-details .machine-log-photos { margin-top: 3px; }
+    .inspection-table-details .maintenance-image-thumb { width: 54px; height: 54px; }
+    .inspection-status-and-view { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; }
+    .inspection-status-and-view .back-button { min-height: 32px; padding: 0 8px; white-space: nowrap; }
     .ticket-status-badge { display: inline-flex; padding: 5px 9px; border-radius: 999px; font-size: 11px; font-weight: 750; white-space: nowrap; }
     .ticket-status-badge.pending { color: #f7d98a; background: #3b321d; }
     .ticket-status-badge.in-progress { color: #a9d7ff; background: #1d3042; }
@@ -329,6 +384,21 @@
     .maintenance-ticket-action > div { display: grid; min-width: 0; gap: 3px; }
     .maintenance-ticket-action strong { font-size: 11px; }
     .maintenance-ticket-action span:not(.ticket-status-badge) { color: var(--muted); font-size: 10px; overflow-wrap: anywhere; }
+    .maintenance-ticket-action.inspection-executing { align-items: flex-start; flex-wrap: wrap; }
+    .inspection-execution-table { overflow: hidden; border: 1px solid var(--border); border-radius: 12px; }
+    .inspection-execution-table table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+    .inspection-execution-table th, .inspection-execution-table td { padding: 12px; text-align: left; vertical-align: middle; border-bottom: 1px solid var(--border); }
+    .inspection-execution-table th { color: var(--muted); font-size: 12px; font-weight: 700; }
+    .inspection-execution-table tr:last-child td { border-bottom: 0; }
+    .inspection-execution-table td:first-child strong, .inspection-execution-table td:first-child span { display: block; }
+    .inspection-execution-table td:first-child span { margin-top: 3px; color: var(--muted); font-size: 12px; }
+    .inspection-execution-table .inspection-action-cell { width: 126px; text-align: right; }
+    @media (max-width: 680px) {
+      .inspection-execution-table th:nth-child(3), .inspection-execution-table td:nth-child(3) { display: none; }
+      .inspection-execution-table th, .inspection-execution-table td { padding: 10px 8px; font-size: 12px; }
+      .inspection-execution-table .inspection-action-cell { width: 104px; }
+      .inspection-execution-table .back-button { white-space: nowrap; padding-inline: 10px; }
+    }
     .maintenance-ticket-link { margin: 7px 0 0 !important; color: var(--yellow) !important; font-size: 11px !important; }
     .supervisor-tickets-table th, .supervisor-tickets-table td { padding: 11px 10px; border-bottom: 1px solid #30323c; text-align: left; font-size: 11px; }
     .supervisor-tickets-table th { color: var(--muted); font-weight: 750; }
@@ -396,6 +466,8 @@
       .site-grid { grid-template-columns: 1fr; }
       .brand-grid { grid-template-columns: 1fr; }
       .machine-grid { grid-template-columns: 1fr; }
+      .inspection-choice-grid, .inspection-equipment-grid, .inspection-review-list, .inspection-form-grid { grid-template-columns: 1fr; }
+      .inspection-form label.full { grid-column: auto; }
       .machine-form-grid, .machine-data-grid { grid-template-columns: 1fr; }
       .machine-form-field.full { grid-column: auto; }
       .machine-tabs { overflow: visible; flex-wrap: wrap; }
@@ -447,6 +519,11 @@
       .machine-tickets-table th:nth-child(5), .machine-tickets-table td:nth-child(5) { width: 20%; }
       .machine-tickets-table td:nth-child(3) { font-size: 8px; }
       .machine-tickets-table .back-button { padding: 0 3px; font-size: 8px; }
+      .machine-inspection-table th:first-child, .machine-inspection-table td:first-child { width: 25%; }
+      .machine-inspection-table th:nth-child(2), .machine-inspection-table td:nth-child(2) { width: 17%; }
+      .machine-inspection-table th:nth-child(3), .machine-inspection-table td:nth-child(3) { width: 38%; white-space: normal; }
+      .machine-inspection-table th:nth-child(4), .machine-inspection-table td:nth-child(4) { width: 20%; }
+      .machine-inspection-table .inspection-row-status { padding: 4px 5px; font-size: 8px; }
       .image-lightbox { padding: 8px; }
       .image-lightbox-frame { max-width: 98vw; max-height: 94dvh; }
       .image-lightbox-frame img { max-width: 96vw; max-height: 92dvh; }
@@ -703,7 +780,7 @@
       <div id="supervisorMaintenanceHistoryBlank" hidden>
         <div class="panel-heading">
           <div>
-            <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;"><h2 style="margin:0">Mantenimiento</h2><button class="back-button" id="openSupervisorMileageHistoryPage" type="button">Historial KM</button></div>
+            <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;"><h2 style="margin:0">Mantenimiento</h2><button class="back-button" id="openSupervisorMileageHistoryPage" type="button">Historial KM</button><button class="back-button" id="openSupervisorInspectionHistoryPage" type="button">Historial Revisión</button></div>
             <p>Registro de eventos preventivos, correctivos e inspecciones de tus sedes.</p>
           </div>
           <button class="back-button" id="backToSupervisorEvents" type="button">← Volver</button>
@@ -723,6 +800,18 @@
             <tbody id="supervisorMaintenanceHistoryBody"></tbody>
           </table>
         </div>
+      </div>
+      <div id="supervisorInspectionHistoryBlank" hidden>
+        <div class="panel-heading"><div><h2>Historial Revisión</h2><p>Inspecciones de tus sedes asignadas.</p></div><button class="back-button" id="backToSupervisorMaintenanceFromInspection" type="button">← Volver</button></div>
+        <div class="supervisor-history-filters" aria-label="Filtros del historial de inspecciones">
+          <label>Desde<input class="supervisor-chart-filter" id="supervisorInspectionDateFrom" type="date"></label>
+          <label>Hasta<input class="supervisor-chart-filter" id="supervisorInspectionDateTo" type="date"></label>
+          <label>Técnico<select class="supervisor-chart-filter" id="supervisorInspectionTechnician"><option value="*">Todos</option></select></label>
+          <label>Sede<select class="supervisor-chart-filter" id="supervisorInspectionSite"><option value="*">Todas</option></select></label>
+          <label>Estado<select class="supervisor-chart-filter" id="supervisorInspectionStatus"><option value="*">Todos</option><option>Pendiente</option><option>En ejecución</option><option>Ejecutado</option><option>Eliminado</option></select></label>
+        </div>
+        <div class="supervisor-history-tools"><span id="supervisorInspectionResultCount" aria-live="polite">Cargando inspecciones…</span><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="back-button" id="exportSupervisorInspectionPdf" type="button">PDF Full</button><button class="back-button" id="exportSupervisorInspectionLitePdf" type="button">PDF Lite</button><button class="back-button" id="clearSupervisorInspectionFilters" type="button">Limpiar filtros</button></div></div>
+        <div class="supervisor-history-wrap"><table class="supervisor-history-table"><thead><tr><th>N.º inspección</th><th>Fecha</th><th>Sede</th><th>Equipo</th><th>Activo fijo</th><th>Técnico</th><th>Supervisor</th><th>Estado</th><th>Acciones</th></tr></thead><tbody id="supervisorInspectionHistoryBody"></tbody></table></div>
       </div>
       <div id="supervisorMileageHistoryBlank" hidden>
         <div class="panel-heading">
@@ -754,7 +843,9 @@
         <div class="panel-tools">
           <input class="site-search" id="siteFilter" type="search" placeholder="Buscar sede..." aria-label="Buscar sede por nombre">
           <button class="back-button" id="requestPartsFromBrands" type="button" hidden>Pedir repuesto</button>
+          <button class="back-button" id="viewInspectionsButton" type="button" hidden>Ver Inspecciones</button>
           <button class="qr-search-button" id="searchQrButton" type="button" hidden>Buscar QR</button>
+          <button class="back-button" id="inspectionReviewButton" type="button" hidden>Revisar inspección <span id="inspectionReviewCount">0</span></button>
           <button class="back-button" id="backToSites" type="button" hidden>← Volver a sedes</button>
         </div>
       </div>
@@ -818,6 +909,7 @@
   <script src="admin-store.js?v=20261029-performance-stage-2"></script>
   <script src="supabase-data.js?v=20261105-offline-queue-1"></script>
   <script src="pdf-report.js?v=20261029-print-ui-1"></script>
+  <script src="inspection-reports.js?v=20261107-inspection-reports-1"></script>
   <script src="EQU/matrix-catalog.js"></script>
   <script src="EQU/booty-catalog.js"></script>
   <script src="EQU/other-catalogs.js?v=20261026-ubian-rack"></script>
@@ -869,6 +961,63 @@
     let maintenanceImageContext = "";
     let maintenanceDraft = null;
     let requestReturnTo = null;
+    let inspectionPhase = "";
+    let inspectionDraft = null;
+    let sharedInspectionRecords = [];
+    let supervisorFilteredInspectionRecords = [];
+    let inspectionRecordsReturnPhase = "brand-list";
+    let activeInspectionExecutionId = "";
+    let inspectionPhotoUrlCache = new Map();
+    let inspectionPhotoUrlLoad = null;
+    let inspectionMachine = null;
+    let inspectionBrandId = "";
+    let inspectionEntryDraft = { finding: "", observations: "", photos: [] };
+    let inspectionSearch = "";
+    let inspectionReviewReturnPhase = "equipment-list";
+    let maintenanceFromActivityChoice = false;
+    let inspectionSaveTimer = 0;
+    const inspectionDraftDb = (() => {
+      let opening;
+      const open = () => {
+        if (opening) return opening;
+        if (!window.indexedDB) return Promise.reject(new Error("IndexedDB no está disponible en este navegador."));
+        opening = new Promise((resolve, reject) => {
+          const request = window.indexedDB.open("smartfit-inspection-local-prototype", 1);
+          request.onupgradeneeded = () => { if (!request.result.objectStoreNames.contains("drafts")) request.result.createObjectStore("drafts", { keyPath: "key" }); };
+          request.onsuccess = () => resolve(request.result);
+          request.onerror = () => reject(request.error || new Error("No se pudo abrir el almacenamiento local."));
+        }).catch(error => { opening = null; throw error; });
+        return opening;
+      };
+      return {
+        async get(key) {
+          const db = await open();
+          return new Promise((resolve, reject) => {
+            const request = db.transaction("drafts", "readonly").objectStore("drafts").get(key);
+            request.onsuccess = () => resolve(request.result || null);
+            request.onerror = () => reject(request.error || new Error("No se pudo leer el borrador local."));
+          });
+        },
+        async put(value) {
+          const db = await open();
+          return new Promise((resolve, reject) => {
+            const transaction = db.transaction("drafts", "readwrite");
+            transaction.objectStore("drafts").put(value);
+            transaction.oncomplete = resolve;
+            transaction.onerror = () => reject(transaction.error || new Error("No se pudo guardar el borrador local."));
+          });
+        },
+        async remove(key) {
+          const db = await open();
+          return new Promise((resolve, reject) => {
+            const transaction = db.transaction("drafts", "readwrite");
+            transaction.objectStore("drafts").delete(key);
+            transaction.oncomplete = resolve;
+            transaction.onerror = () => reject(transaction.error || new Error("No se pudo limpiar el borrador local."));
+          });
+        }
+      };
+    })();
     const supervisorChartColors = ["#ffb51b", "#f47721", "#ec5b68", "#ba78e5", "#7389ff", "#45b8d1", "#45c99a", "#a7c957", "#ff8fba", "#d4a373", "#7eccc1", "#a6a9b6"];
     const supervisorChartSelections = new Map();
     const PARTS_REQUEST_URL = "https://solicitudrepuestos.lovable.app/";
@@ -1533,6 +1682,10 @@
       $("supervisorRaiseTicketPanel").hidden = true;
       $("inventoryPanel").hidden = true;
       $("supervisorEventsPanel").hidden = false;
+      $("supervisorEventsChooser").hidden = false;
+      $("supervisorMaintenanceHistoryBlank").hidden = true;
+      $("supervisorMileageHistoryBlank").hidden = true;
+      $("supervisorInspectionHistoryBlank").hidden = true;
       $("pageHeading").hidden = true;
       $("notice").hidden = true;
       setSupervisorActiveView("events");
@@ -1949,6 +2102,10 @@
     }
 
     function renderSiteList() {
+      inspectionPhase = "";
+      inspectionMachine = null;
+      inspectionBrandId = "";
+      maintenanceFromActivityChoice = false;
       if (supervisorMode) $("supervisorTicketContext").hidden = true;
       currentSite = null;
       currentBrandId = "";
@@ -1977,6 +2134,7 @@
       $("siteFilter").setAttribute("aria-label", "Buscar sede por nombre");
       $("requestPartsFromBrands").hidden = true;
       $("searchQrButton").hidden = true;
+      $("inspectionReviewButton").hidden = true;
       $("backToSites").hidden = true;
       $("siteGrid").className = "site-grid";
       const normalize = value => String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("es");
@@ -1989,13 +2147,438 @@
       $("siteGrid").innerHTML = filteredSites.map(site => {
         const count = Number(site.machineCount) || 0;
         const ticketCount = ticketCounts.get(site.id) || 0;
+        const inspectionCount = pendingInspectionsForSite(site.id).length;
         return `<button class="site-card" type="button" data-open-site="${escapeHtml(site.id)}">
           <span class="site-name">${escapeHtml(site.name)}</span>
-          <span class="site-card-meta"><span class="site-count">${count} ${count === 1 ? "equipo" : "equipos"} · Ver marcas →</span>${ticketCount > 0 ? `<span class="site-ticket-badge"><span class="site-ticket-badge-icon" aria-hidden="true">✓</span>Tickets <strong>${ticketCount}</strong></span>` : ""}</span>
+          <span class="site-card-meta"><span class="site-count">${count} ${count === 1 ? "equipo" : "equipos"} · Ver marcas →</span>${ticketCount > 0 ? `<span class="site-ticket-badge"><span class="site-ticket-badge-icon" aria-hidden="true">✓</span>Tickets <strong>${ticketCount}</strong></span>` : ""}${inspectionBadge(inspectionCount)}</span>
         </button>`;
       }).join("") || (assignedSites.length
         ? '<div class="empty-state">No se encontraron sedes con ese nombre.</div>'
         : '<div class="empty-state">No tienes sedes asignadas todavía.<br>Solicita al administrador que te asigne una sede.</div>');
+    }
+
+    function inspectionStorageKey() {
+      return `inspection-draft:${user?.id || "guest"}:${currentSite?.id || "no-site"}`;
+    }
+
+    function makeInspectionUuid() {
+      if (window.crypto?.randomUUID) return window.crypto.randomUUID();
+      return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, char => {
+        const random = Math.random() * 16 | 0;
+        return (char === "x" ? random : (random & 3 | 8)).toString(16);
+      });
+    }
+
+    function inspectionNormalize(value) {
+      return String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("es").trim();
+    }
+
+    function isPendingInspection(record) {
+      const status = inspectionNormalize(record?.status || "Pendiente");
+      return status !== "ejecutado" && status !== "eliminado";
+    }
+    function inspectionState(record) {
+      const status = inspectionNormalize(record?.status || "Pendiente");
+      return status === "eliminado" || record?.deleted_at ? "Eliminado" : status === "ejecutado" ? "Ejecutado" : status === "en ejecucion" ? "En ejecución" : "Pendiente";
+    }
+    function inspectionExecutionStarted(record) {
+      return Boolean(record?.execution_started_at);
+    }
+    function canExecuteInspection(record) {
+      if (user?.role === "Supervisor") return true;
+      return user?.role === "Técnico" && Boolean(user.authId && String(record?.technician_id || "") === String(user.authId));
+    }
+
+    function inspectionBadge(count) {
+      return count > 0 ? `<span class="site-inspection-badge" title="${count} inspección${count === 1 ? "" : "es"} pendiente${count === 1 ? "" : "s"}"><span class="site-inspection-badge-icon" aria-hidden="true">I</span>Inspección <strong>${count}</strong></span>` : "";
+    }
+
+    function canCurrentUserSeeInspection(record) {
+      return user?.role !== "Técnico" || Boolean(user.authId && String(record.technician_id || "") === String(user.authId));
+    }
+
+    async function ensureInspectionPhotoUrls(records) {
+      const paths = records.flatMap(record => (Array.isArray(record.photos) ? record.photos : []).map(photo => photo?.path).filter(Boolean));
+      const missing = paths.filter(path => !inspectionPhotoUrlCache.has(path));
+      if (!missing.length) return inspectionPhotoUrlCache;
+      if (inspectionPhotoUrlLoad) await inspectionPhotoUrlLoad;
+      const stillMissing = missing.filter(path => !inspectionPhotoUrlCache.has(path));
+      if (stillMissing.length) {
+        inspectionPhotoUrlLoad = SmartFitSupabaseData.getInspectionPhotoUrls(stillMissing).then(urls => {
+          Object.entries(urls || {}).forEach(([path, url]) => inspectionPhotoUrlCache.set(path, url));
+        }).finally(() => { inspectionPhotoUrlLoad = null; });
+        await inspectionPhotoUrlLoad;
+      }
+      return inspectionPhotoUrlCache;
+    }
+
+    function pendingInspectionsForSite(siteId) {
+      return sharedInspectionRecords.filter(record => canCurrentUserSeeInspection(record) && isPendingInspection(record) && String(record.site_legacy_id || "") === String(siteId));
+    }
+
+    function inspectionRecordsForMachine(recordKey) {
+      return sharedInspectionRecords.filter(record => canCurrentUserSeeInspection(record) && String(record.equipment_legacy_id || "") === String(recordKey))
+        .sort((a, b) => String(b.occurred_at || b.created_at || "").localeCompare(String(a.occurred_at || a.created_at || "")));
+    }
+
+    function renderSupervisorInspectionHistory() {
+      const host = $("supervisorInspectionHistoryBody");
+      if (!host) return;
+      const allowedSiteIds = new Set(assignedSites.map(site => String(site.id)));
+      const records = sharedInspectionRecords.filter(row => allowedSiteIds.has(String(row.site_legacy_id || "")));
+      const selectedTech = $("supervisorInspectionTechnician").value;
+      const selectedSite = $("supervisorInspectionSite").value;
+      const technicians = records.map(row => ({ value: row.technician_id || `name:${row.technician_name || ""}`, label: row.technician_name || "Sin técnico" }));
+      setSupervisorHistoryOptions($("supervisorInspectionTechnician"), technicians, "Todos", selectedTech);
+      setSupervisorHistoryOptions($("supervisorInspectionSite"), assignedSites.map(site => ({ value: String(site.id), label: site.name })), "Todas", selectedSite);
+      const from = $("supervisorInspectionDateFrom").value;
+      const to = $("supervisorInspectionDateTo").value;
+      const technician = $("supervisorInspectionTechnician").value;
+      const siteId = $("supervisorInspectionSite").value;
+      const status = $("supervisorInspectionStatus").value;
+      const filtered = records.filter(row => {
+        const date = String(row.occurred_at || row.created_at || "").slice(0, 10);
+        const rowTech = String(row.technician_id || `name:${row.technician_name || ""}`);
+        return (!from || date >= from) && (!to || date <= to)
+          && (technician === "*" || technician === rowTech)
+          && (siteId === "*" || String(row.site_legacy_id || "") === siteId)
+          && (status === "*" || inspectionState(row) === status);
+      });
+      supervisorFilteredInspectionRecords = filtered;
+      $("supervisorInspectionResultCount").textContent = `${filtered.length} ${filtered.length === 1 ? "revisión" : "revisiones"}`;
+      host.innerHTML = filtered.map(row => {
+        const state = inspectionState(row);
+        const done = state === "Ejecutado";
+        const marker = done ? "✓" : state === "Eliminado" ? "×" : "●";
+        return `<tr><td>${escapeHtml(row.inspection_number || "—")}</td><td>${escapeHtml(formatMachineDate(row.occurred_at || row.created_at, false))}</td><td>${escapeHtml(row.site_name || "—")}</td><td><strong>${escapeHtml(row.equipment_name || "Equipo")}</strong>${row.equipment_model ? `<span class="site-count">${escapeHtml(row.equipment_model)}</span>` : ""}</td><td>${escapeHtml(row.fixed_asset || "—")}</td><td>${escapeHtml(row.technician_name || "—")}</td><td>${escapeHtml(row.supervisor_name || "—")}</td><td><span class="inspection-row-status ${done ? "is-done" : state === "Eliminado" ? "is-deleted" : state === "En ejecución" ? "is-progress" : "is-pending"}"><span aria-hidden="true">${marker}</span>${state}</span></td><td><button class="back-button" type="button" data-delete-inspection="${escapeHtml(row.id)}" ${state === "Eliminado" ? "disabled" : ""}>Eliminar</button></td></tr>`;
+      }).join("") || '<tr><td colspan="9" class="empty-state">No hay inspecciones para los filtros seleccionados.</td></tr>';
+    }
+
+    async function exportSupervisorInspectionReport(lite = false) {
+      if (!supervisorFilteredInspectionRecords.length) {
+        window.alert("No hay inspecciones para generar el informe con los filtros seleccionados.");
+        return;
+      }
+      await window.SmartFitInspectionReports?.export(supervisorFilteredInspectionRecords, {
+        lite,
+        generatedBy: user?.name || "Supervisor",
+        getPhotoUrls: paths => SmartFitSupabaseData.getInspectionPhotoUrls(paths)
+      });
+    }
+
+    async function confirmDeleteInspection(recordId) {
+      if (user?.role !== "Supervisor") return;
+      const row = sharedInspectionRecords.find(item => String(item.id) === String(recordId));
+      if (!row || inspectionState(row) === "Eliminado") return;
+      const label = row.inspection_number ? `N.º ${row.inspection_number}` : (row.equipment_name || "esta inspección");
+      if (!window.confirm(`¿Eliminar la inspección ${label}? Se conservará en el historial con estado “Eliminado”.`)) return;
+      try {
+        await SmartFitSupabaseData.updateInspectionStatus(row.id, "Eliminado");
+        await refreshSharedInspectionRecords();
+      } catch (error) {
+        window.alert(error.message || "No se pudo marcar la inspección como eliminada.");
+      }
+    }
+
+    async function openSupervisorInspectionRecord(recordId) {
+      const row = sharedInspectionRecords.find(item => String(item.id) === String(recordId));
+      if (!row || !assignedSites.some(site => String(site.id) === String(row.site_legacy_id))) return;
+      const modal = $("supervisorTicketModal");
+      const title = $("supervisorTicketModalTitle");
+      const body = $("supervisorTicketModalBody");
+      title.textContent = row.inspection_number ? `Inspección ${row.inspection_number}` : "Detalle de inspección";
+      body.innerHTML = '<p class="ticket-detail-value">Cargando los datos de la inspección…</p>';
+      modal.hidden = false;
+      try { await ensureInspectionPhotoUrls([row]); } catch (error) { console.warn("No se pudieron cargar las fotos de esta inspección.", error); }
+      const photos = (Array.isArray(row.photos) ? row.photos : []).map((photo, index) => {
+        const url = inspectionPhotoUrlCache.get(photo?.path);
+        return url ? `<img src="${escapeHtml(url)}" alt="Fotografía ${index + 1} de la inspección" data-inspection-enlarge="${escapeHtml(url)}" loading="lazy">` : "";
+      }).filter(Boolean);
+      const detail = (label, value, full = false) => `<div class="ticket-detail-item${full ? " full" : ""}"><span class="ticket-detail-label">${label}</span><div class="ticket-detail-value">${escapeHtml(value || "—")}</div></div>`;
+      const state = inspectionState(row);
+      body.innerHTML = `<div class="ticket-detail-grid">
+        ${detail("N.º de inspección", row.inspection_number)}
+        ${detail("Estado", state)}
+        ${detail("Fecha", formatMachineDate(row.occurred_at || row.created_at, false))}
+        ${detail("Sede", row.site_name)}
+        ${detail("Activo fijo", row.fixed_asset || "N/A")}
+        ${detail("Marca", row.brand_name)}
+        ${detail("Equipo", row.equipment_name)}
+        ${detail("Modelo", row.equipment_model)}
+        ${detail("Técnico asignado", row.technician_name || "Sin técnico asignado")}
+        ${detail("Supervisor", row.supervisor_name)}
+        ${detail("Registrado por", row.registered_by_name)}
+        ${detail("Hallazgo / revisión", row.finding, true)}
+        ${detail("Observaciones", row.observations, true)}
+        ${state === "Ejecutado" ? detail("Corrección", row.correction || "Registrada", true) : ""}
+        ${row.corrected_by_name ? detail("Ejecutado por", row.corrected_by_name) : ""}
+        ${row.corrected_at ? detail("Fecha de ejecución", formatMachineDate(row.corrected_at, true)) : ""}
+        <div class="ticket-detail-item full"><span class="ticket-detail-label">Registro fotográfico (${photos.length}/${(row.photos || []).length})</span><div class="ticket-detail-photos">${photos.join("") || '<span class="ticket-detail-value">Sin fotografías disponibles.</span>'}</div></div>
+      </div>`;
+      $("closeSupervisorTicket").focus();
+    }
+
+    async function refreshSharedInspectionRecords() {
+      if (!window.SmartFitSupabaseData?.listInspectionRecords) return;
+      try {
+        sharedInspectionRecords = await SmartFitSupabaseData.listInspectionRecords();
+        inspectionPhotoUrlCache = new Map();
+        if (currentMachine) renderMachineDetail(currentMachine);
+        else if (currentSite && inspectionPhase === "inspection-records") renderSiteInspectionRecords();
+        else if (currentSite && currentBrandId && $("siteGrid").classList.contains("machine-grid")) renderBrandEquipment(currentBrandId, { resetFilter: false });
+        else if (currentSite && $("siteGrid").classList.contains("brand-grid") && !inspectionPhase) renderSiteBrands(currentSite);
+        else if (!$("sitesPanel").hidden && $("siteGrid").classList.contains("site-grid")) renderSiteList();
+      if (supervisorMode && !$("supervisorInspectionHistoryBlank").hidden) renderSupervisorInspectionHistory();
+      } catch (error) {
+        console.warn("No se pudo actualizar el historial de inspecciones.", error);
+      }
+    }
+
+    async function persistInspectionDraft() {
+      if (!inspectionDraft || !currentSite) return;
+      inspectionDraft.key = inspectionStorageKey();
+      inspectionDraft.siteId = currentSite.id;
+      inspectionDraft.siteName = currentSite.name;
+      inspectionDraft.updatedAt = new Date().toISOString();
+      try {
+        await inspectionDraftDb.put(inspectionDraft);
+        delete inspectionDraft.storageError;
+        const storageStatus = $("inspectionStorageStatus");
+        if (storageStatus) storageStatus.textContent = "Borrador guardado en este dispositivo.";
+      } catch (error) {
+        inspectionDraft.storageError = error.message || "almacenamiento local no disponible";
+        console.warn("No se pudo conservar la inspección en este dispositivo.", error);
+        const storageStatus = $("inspectionStorageStatus");
+        if (storageStatus) storageStatus.textContent = "No se pudo guardar localmente. Mantén esta página abierta y revisa el espacio disponible del navegador.";
+      }
+    }
+
+    async function loadInspectionDraft() {
+      const key = inspectionStorageKey();
+      if (inspectionDraft?.key === key) return inspectionDraft;
+      let isNewDraft = false;
+      try {
+        const saved = await inspectionDraftDb.get(key);
+        inspectionDraft = saved || { key, siteId: currentSite.id, siteName: currentSite.name, entries: [], pendingEntries: {}, currentEntry: null, createdAt: new Date().toISOString(), status: "draft" };
+        isNewDraft = !saved;
+      } catch (error) {
+        inspectionDraft = { key, siteId: currentSite.id, siteName: currentSite.name, entries: [], pendingEntries: {}, currentEntry: null, createdAt: new Date().toISOString(), status: "draft" };
+        window.alert(`El navegador no permitió abrir el borrador local: ${error.message || "almacenamiento no disponible"}`);
+      }
+      inspectionDraft.entries = Array.isArray(inspectionDraft.entries) ? inspectionDraft.entries : [];
+      inspectionDraft.pendingEntries ||= {};
+      inspectionDraft.inspectionId ||= makeInspectionUuid();
+      if (isNewDraft) await persistInspectionDraft();
+      return inspectionDraft;
+    }
+
+    function setInspectionTools(phase) {
+      const inChoice = phase === "choice";
+      const inBrands = phase === "brand-list";
+      const inList = phase === "equipment-list";
+      const inForm = phase === "equipment-form";
+      const inReview = phase === "review";
+      const inInspectionRecords = phase === "inspection-records";
+      $("requestPartsFromBrands").hidden = true;
+      $("siteFilter").hidden = !(inList || phase === "site-list");
+      $("viewInspectionsButton").hidden = !(inBrands || inList || (phase === "site-brands"));
+      $("searchQrButton").hidden = !(inBrands || inList);
+      $("inspectionReviewButton").hidden = !((inBrands || inList) && (inspectionDraft?.entries?.length || 0) > 0);
+      $("inspectionReviewCount").textContent = String(inspectionDraft?.entries?.length || 0);
+      $("backToSites").hidden = phase === "site-list";
+      if (inChoice) $("backToSites").textContent = "← Volver a sedes";
+      else if (inBrands) $("backToSites").textContent = "← Volver a opciones";
+      else if (inList) $("backToSites").textContent = "← Volver a marcas";
+      else if (inForm) $("backToSites").textContent = "← Volver a equipos";
+      else if (inReview) $("backToSites").textContent = inspectionReviewReturnPhase === "brand-list" ? "← Volver a marcas" : "← Volver a equipos";
+      else if (inInspectionRecords) $("backToSites").textContent = inspectionRecordsReturnPhase === "equipment-list" ? "← Volver a equipos" : inspectionRecordsReturnPhase === "maintenance-brands" ? "← Volver a marcas" : "← Volver a opciones";
+      if (inList) {
+        $("siteFilter").placeholder = "Buscar equipo, modelo o activo fijo...";
+        $("siteFilter").setAttribute("aria-label", "Buscar equipo por nombre, modelo o activo fijo");
+      }
+    }
+
+    function renderSiteActivityChoice() {
+      if (!currentSite || !supervisorMode) return;
+      inspectionPhase = "choice";
+      maintenanceFromActivityChoice = false;
+      currentBrandId = "";
+      currentMachine = null;
+      $("panelHeading").textContent = currentSite.name;
+      $("panelDescription").textContent = "Selecciona el tipo de trabajo que realizarás en esta sede.";
+      $("siteSummary").textContent = `${currentSite.name} — ${user.role} ${user.name}`;
+      $("equipmentSummary").textContent = `${Number(currentSite.machineCount) || 0} equipos`;
+      $("siteFilter").value = "";
+      setInspectionTools("choice");
+      $("siteGrid").className = "inspection-choice-grid";
+      $("siteGrid").innerHTML = `
+        <button class="inspection-choice-card" type="button" data-site-work="inspection"><span class="inspection-choice-icon" aria-hidden="true">✓</span><strong>Inspección</strong><span>Registra hallazgos de varios equipos y envía el conjunto al terminar.</span></button>
+        <button class="inspection-choice-card" type="button" data-site-work="maintenance"><span class="inspection-choice-icon" aria-hidden="true">⚙</span><strong>Mantenimiento</strong><span>Accede al flujo habitual de equipos y mantenimiento.</span></button>
+      `;
+    }
+
+    async function openSiteInspection() {
+      if (!currentSite || !supervisorMode) return;
+      inspectionSearch = "";
+      inspectionBrandId = "";
+      await loadInspectionDraft();
+      renderInspectionBrandsList();
+    }
+
+    function getInspectionEquipment() {
+      return currentBrandEquipmentFromSite(currentSite).map(machine => {
+        const brand = brandDirectory.find(entry => entry.id === machine.item.brandId) || brandDirectory.find(entry => inspectionNormalize(entry.name) === inspectionNormalize(machine.item.brandName));
+        return Object.assign({}, machine, { brandId: brand?.id || machine.item.brandId || "", brandName: brand?.name || machine.item.brandName || "Sin marca", machineName: machine.item.name || "Equipo", machineModel: machine.item.model || "", activeFixed: String(machine.unit?.activeFixed ?? "").trim() });
+      });
+    }
+
+    function renderInspectionBrandsList() {
+      if (!currentSite || !supervisorMode) return;
+      inspectionPhase = "brand-list";
+      inspectionBrandId = "";
+      inspectionSearch = "";
+      const counts = new Map();
+      getInspectionEquipment().forEach(machine => counts.set(machine.brandId, (counts.get(machine.brandId) || 0) + 1));
+      const brands = brandDirectory.filter(brand => (counts.get(brand.id) || 0) > 0);
+      $("panelHeading").textContent = "Marcas de equipos";
+      $("panelDescription").textContent = `${currentSite.name} · Marcas con equipos asignados para inspeccionar`;
+      $("siteSummary").textContent = `${currentSite.name} — ${user.role} ${user.name}`;
+      $("siteFilter").value = "";
+      setInspectionTools("brand-list");
+      $("siteGrid").className = "brand-grid";
+      const cards = brands.map(brand => {
+        const count = counts.get(brand.id) || 0;
+        return `<button class="brand-card" type="button" data-inspection-brand="${escapeHtml(brand.id)}"><span class="brand-name">${escapeHtml(brand.name)}</span><span class="brand-count">${count} ${count === 1 ? "equipo" : "equipos"} · Ver equipos →</span></button>`;
+      }).join("");
+      $("siteGrid").innerHTML = cards || '<div class="empty-state">Esta sede no tiene equipos detallados para inspeccionar.</div>';
+    }
+
+    function renderSiteInspectionRecords() {
+      if (!currentSite) return;
+      const previousPhase = inspectionPhase;
+      if (previousPhase !== "inspection-records") {
+        inspectionRecordsReturnPhase = previousPhase === "equipment-list" ? "equipment-list" : previousPhase === "brand-list" ? "brand-list" : "maintenance-brands";
+      }
+      inspectionPhase = "inspection-records";
+      const records = sharedInspectionRecords
+        .filter(row => canCurrentUserSeeInspection(row) && String(row.site_legacy_id || "") === String(currentSite.id))
+        .sort((a, b) => String(b.occurred_at || b.created_at || "").localeCompare(String(a.occurred_at || a.created_at || "")));
+      $("panelHeading").textContent = "Ver Inspecciones";
+      $("panelDescription").textContent = `${currentSite.name} · Inspecciones vinculadas a los equipos y técnicos de esta sede.`;
+      $("viewInspectionsButton").hidden = true;
+      $("searchQrButton").hidden = true;
+      $("requestPartsFromBrands").hidden = true;
+      $("inspectionReviewButton").hidden = true;
+      $("siteFilter").hidden = true;
+      $("backToSites").hidden = false;
+      $("backToSites").textContent = inspectionRecordsReturnPhase === "equipment-list" ? "← Volver a equipos" : inspectionRecordsReturnPhase === "brand-list" ? "← Volver a opciones" : "← Volver a marcas";
+      $("siteGrid").className = "inspection-records-list";
+      const cards = records.map(row => {
+        const state = inspectionState(row);
+        const marker = state === "Ejecutado" ? "✓" : state === "Eliminado" ? "×" : "●";
+        const machine = inspectionMachineFromKey(row.equipment_legacy_id);
+        const image = machine ? supervisorCatalogImage(machine.item) : "";
+        return `<article class="inspection-record-card">
+          ${image ? `<button class="machine-image-button" type="button" data-enlarge-image="${escapeHtml(image)}" data-image-alt="${escapeHtml(row.equipment_name || "Equipo")}" aria-label="Ampliar fotografía del equipo"><img src="${escapeHtml(image)}" alt="${escapeHtml(row.equipment_name || "Equipo")}" loading="lazy"></button>` : '<span class="image-placeholder">Sin imagen</span>'}
+          <div class="inspection-record-copy"><div class="inspection-record-title"><strong>${escapeHtml(row.equipment_name || "Equipo")}</strong><span class="inspection-row-status ${state === "Ejecutado" ? "is-done" : state === "Eliminado" ? "is-deleted" : "is-pending"}" aria-label="${state}">${marker} ${state}</span></div>
+          <span>${escapeHtml(row.brand_name || "Sin marca")} · ${escapeHtml(row.equipment_model || "Sin modelo")} · AF: ${escapeHtml(row.fixed_asset || "N/A")}</span>
+          <span><b>N.º inspección:</b> ${escapeHtml(row.inspection_number || "—")} · ${escapeHtml(formatMachineDate(row.occurred_at || row.created_at, false))}</span>
+          <button class="back-button" type="button" data-view-inspection-record="${escapeHtml(row.id)}">Ver inspección</button>
+          ${user?.role === "Supervisor" && state !== "Eliminado" ? `<button class="back-button" type="button" data-delete-inspection="${escapeHtml(row.id)}">Eliminar inspección</button>` : ""}</div></article>`;
+      }).join("");
+      $("siteGrid").innerHTML = cards || '<div class="empty-state">Esta sede todavía no tiene inspecciones registradas.</div>';
+    }
+
+    function renderInspectionEquipmentList() {
+      if (!currentSite || !supervisorMode) return;
+      inspectionPhase = "equipment-list";
+      const brand = brandDirectory.find(entry => String(entry.id) === String(inspectionBrandId));
+      const machines = getInspectionEquipment().filter(machine => String(machine.brandId) === String(inspectionBrandId));
+      const query = inspectionNormalize(inspectionSearch);
+      const filtered = machines.filter(machine => [machine.machineName, machine.machineModel, machine.activeFixed].some(value => inspectionNormalize(value).includes(query)));
+      $("panelHeading").textContent = `Equipos ${brand?.name || "de la marca"}`;
+      $("panelDescription").textContent = `${currentSite.name} · ${machines.length} ${machines.length === 1 ? "equipo" : "equipos"} · Busca por activo fijo`;
+      $("siteSummary").textContent = `${currentSite.name} — ${user.role} ${user.name}`;
+      $("siteFilter").value = inspectionSearch;
+      setInspectionTools("equipment-list");
+      $("siteGrid").className = "machine-grid";
+      const cards = filtered.map(machine => {
+        const image = supervisorCatalogImage(machine.item);
+        return `<article class="machine-card inspection-machine-card" data-inspection-equipment="${escapeHtml(machine.recordKey)}" role="button" tabindex="0" aria-label="Abrir inspección de ${escapeHtml(machine.machineName)}">${image ? `<button class="machine-image-button" type="button" data-enlarge-image="${escapeHtml(image)}" data-image-alt="${escapeHtml(machine.machineName)} ${escapeHtml(machine.machineModel)}" aria-label="Ampliar imagen de ${escapeHtml(machine.machineName)}"><img src="${escapeHtml(image)}" alt="${escapeHtml(machine.machineName)}" loading="lazy"><span class="zoom-indicator" aria-hidden="true">⌕</span></button>` : '<span class="image-placeholder">Sin imagen</span>'}<div class="machine-info"><div class="machine-title-row"><h3>${escapeHtml(machine.machineName)}</h3><span class="machine-active-fixed">AF: ${machine.activeFixed ? escapeHtml(machine.activeFixed) : "N/A"}</span></div><p>Modelo: ${escapeHtml(machine.machineModel || "—")}</p><span class="machine-sector">${escapeHtml(supervisorCatalogCategory(machine.item))}</span><span class="site-count">${escapeHtml(currentSite.name)} · Abrir inspección →</span></div></article>`;
+      }).join("");
+      const countNote = `<div class="inspection-status-note" style="grid-column:1/-1">${inspectionDraft?.storageError ? "No se pudo guardar localmente. Mantén esta página abierta y revisa el espacio disponible del navegador." : `Borrador local: ${inspectionDraft?.entries?.length || 0} equipos registrados. Al enviar, sus registros y fotos se guardarán en Supabase.`}</div>`;
+      $("siteGrid").innerHTML = cards + (cards ? countNote : `<div class="empty-state" style="grid-column:1/-1">${query ? "No hay equipos que coincidan con la búsqueda." : "Esta sede no tiene equipos detallados para inspeccionar."}</div>${countNote}`);
+    }
+
+    function inspectionMachineFromKey(recordKey) {
+      return getInspectionEquipment().find(machine => String(machine.recordKey) === String(recordKey)) || null;
+    }
+
+    function renderInspectionForm(machine) {
+      if (!machine || !currentSite) return;
+      inspectionMachine = machine;
+      inspectionPhase = "equipment-form";
+      inspectionDraft.pendingEntries ||= {};
+      inspectionEntryDraft = Object.assign({ date: currentLocalDate(), finding: "", observations: "", photos: [] }, inspectionDraft.pendingEntries[machine.recordKey] || (inspectionDraft.currentEntry?.recordKey === machine.recordKey ? inspectionDraft.currentEntry : {}));
+      inspectionDraft.currentEntry = Object.assign({ recordKey: machine.recordKey }, inspectionEntryDraft);
+      $("panelHeading").textContent = machine.machineName;
+      $("panelDescription").textContent = `${currentSite.name} · ${machine.brandName} · ${machine.machineModel || "Sin modelo"} · AF: ${machine.activeFixed || "Sin activo fijo"}`;
+      setInspectionTools("equipment-form");
+      $("siteGrid").className = "inspection-form-host";
+      const photos = (inspectionEntryDraft.photos || []).map((photo, index) => `<img src="${escapeHtml(photo)}" alt="Foto de inspección ${index + 1}" data-enlarge-image="${escapeHtml(photo)}" data-image-alt="Fotografía ${index + 1} de inspección">`).join("");
+      $("siteGrid").innerHTML = `<form class="inspection-form" id="siteInspectionForm"><h3>Registro del equipo</h3><div class="inspection-form-grid"><label>Fecha<input type="date" id="inspectionDate" value="${escapeHtml(inspectionEntryDraft.date || currentLocalDate())}" required></label><label>Activo fijo<input type="text" value="${escapeHtml(machine.activeFixed || "Sin activo fijo")}" readonly></label><label class="full">Hallazgo / revisión realizada<textarea id="inspectionFinding" required placeholder="Describe lo revisado o el hallazgo detectado...">${escapeHtml(inspectionEntryDraft.finding || "")}</textarea></label><label class="full">Observaciones<textarea id="inspectionObservations" placeholder="Detalle adicional (opcional)">${escapeHtml(inspectionEntryDraft.observations || "")}</textarea></label></div><div class="inspection-form-actions"><button class="machine-save-button" type="submit">Agregar a la inspección</button><button class="back-button" type="button" data-inspection-photo-pick="gallery">Agregar fotos (${(inspectionEntryDraft.photos || []).length}/4)</button><button class="back-button" type="button" data-inspection-photo-pick="camera">Usar cámara</button><input id="inspectionGalleryInput" class="maintenance-image-input" type="file" accept="image/*" multiple><input id="inspectionCameraInput" class="maintenance-image-input" type="file" accept="image/*" capture="environment"></div><div class="inspection-photo-list">${photos}</div><span class="site-count" id="inspectionStorageStatus">${inspectionDraft?.storageError ? "No se pudo guardar localmente. Mantén esta página abierta y revisa el espacio disponible del navegador." : "Borrador guardado en este dispositivo."}</span><span class="site-count">Hasta 4 fotografías. Las imágenes se preparan conservando sus dimensiones y reduciendo su peso.</span></form>`;
+    }
+
+    async function saveCurrentInspectionEntry() {
+      if (!inspectionMachine || !inspectionDraft) return;
+      const finding = $("inspectionFinding")?.value.trim() || "";
+      const observations = $("inspectionObservations")?.value.trim() || "";
+      if (!finding) { $("inspectionFinding")?.focus(); return; }
+      const pending = inspectionDraft.pendingEntries?.[inspectionMachine.recordKey] || inspectionEntryDraft;
+      inspectionDraft.entries = Array.isArray(inspectionDraft.entries) ? inspectionDraft.entries : [];
+      inspectionDraft.entries.push({ id: makeRecordId(), recordKey: inspectionMachine.recordKey, siteId: currentSite.id, siteName: currentSite.name, brand: inspectionMachine.brandName, equipment: inspectionMachine.machineName, model: inspectionMachine.machineModel, activeFixed: inspectionMachine.activeFixed, equipmentImage: supervisorCatalogImage(inspectionMachine.item), date: $("inspectionDate")?.value || pending.date || currentLocalDate(), finding, observations, photos: (pending.photos || []).slice(0, 4), status: "Pendiente de envío local" });
+      delete inspectionDraft.pendingEntries[inspectionMachine.recordKey];
+      inspectionEntryDraft = { finding: "", observations: "", photos: [] };
+      inspectionMachine = null;
+      inspectionDraft.currentEntry = null;
+      await persistInspectionDraft();
+      renderInspectionEquipmentList();
+    }
+
+    function renderInspectionReview(returnPhase = inspectionPhase) {
+      if (!inspectionDraft || !currentSite) return;
+      if (returnPhase !== "review") inspectionReviewReturnPhase = returnPhase === "brand-list" ? "brand-list" : "equipment-list";
+      inspectionDraft.entries = Array.isArray(inspectionDraft.entries) ? inspectionDraft.entries : [];
+      inspectionPhase = "review";
+      $("panelHeading").textContent = "Revisión de inspección";
+      $("panelDescription").textContent = `${currentSite.name} · ${inspectionDraft.entries.length} equipos agregados`;
+      setInspectionTools("review");
+      $("siteGrid").className = "inspection-review-list";
+      const cards = inspectionDraft.entries.map((entry, index) => {
+        const machine = inspectionMachineFromKey(entry.recordKey);
+        const equipmentImage = entry.equipmentImage || (machine ? supervisorCatalogImage(machine.item) : "");
+        const thumbnail = equipmentImage
+          ? `<button class="inspection-review-equipment-thumb" type="button" data-enlarge-image="${escapeHtml(equipmentImage)}" data-image-alt="${escapeHtml(entry.equipment)} · ${escapeHtml(entry.brand)} ${escapeHtml(entry.model || "")}" aria-label="Ampliar imagen de ${escapeHtml(entry.equipment)}"><img src="${escapeHtml(equipmentImage)}" alt="Equipo ${escapeHtml(entry.equipment)}" loading="lazy"></button>`
+          : "";
+        return `<article class="inspection-review-card"><div class="inspection-review-heading">${thumbnail}<div class="inspection-review-identity"><strong>${index + 1}. ${escapeHtml(entry.equipment)}${entry.activeFixed ? ` · AF: ${escapeHtml(entry.activeFixed)}` : ""}</strong><span>${escapeHtml(entry.brand)} · ${escapeHtml(entry.model || "Sin modelo")} · ${escapeHtml(entry.date || "")}</span></div></div><p>${escapeHtml(entry.finding)}</p>${entry.observations ? `<p>Observaciones: ${escapeHtml(entry.observations)}</p>` : ""}<div class="inspection-review-photos">${(entry.photos || []).map((photo, photoIndex) => `<img src="${escapeHtml(photo)}" alt="Foto ${photoIndex + 1} de ${escapeHtml(entry.equipment)}" data-enlarge-image="${escapeHtml(photo)}" data-image-alt="${escapeHtml(entry.equipment)} · foto ${photoIndex + 1}" loading="lazy">`).join("")}</div><span>Estado: ${escapeHtml(entry.status || "Pendiente de envío local")}</span><button class="back-button" type="button" data-inspection-remove="${escapeHtml(entry.id)}">Quitar de este borrador</button></article>`;
+      }).join("");
+      $("siteGrid").innerHTML = `${cards || '<div class="empty-state" style="grid-column:1/-1">Todavía no agregas equipos a esta inspección.</div>'}<div class="inspection-status-note" id="inspectionStorageStatus" style="grid-column:1/-1">La vista local conserva el borrador hasta que Supabase confirme el envío.</div><button class="machine-save-button" type="button" data-inspection-submit ${inspectionDraft.entries.length ? "" : "disabled"}>Enviar inspección</button>`;
+    }
+
+    function openInspectionEquipmentByQr(activeFixed) {
+      if (!currentSite) return;
+      const normalized = String(activeFixed || "").trim();
+      const matches = getInspectionEquipment().filter(machine => machine.activeFixed === normalized);
+      if (matches.length === 1) {
+        inspectionBrandId = matches[0].brandId;
+        inspectionSearch = normalized;
+        renderInspectionEquipmentList();
+        renderInspectionForm(matches[0]);
+      } else if (matches.length > 1) {
+        inspectionSearch = normalized;
+        renderInspectionEquipmentList();
+        window.alert(`El activo fijo ${normalized} aparece más de una vez. Selecciona el equipo correcto en la lista.`);
+      } else window.alert(`No se encontró el activo fijo ${normalized} en la sede seleccionada.`);
     }
 
     function setSupervisorActiveView(view) {
@@ -2317,12 +2900,14 @@
 
     function renderSiteBrands(site) {
       if (!site) return;
+      inspectionPhase = "";
       currentMachine = null;
       currentBrandId = "";
       const inventory = Array.isArray(site.equipment) ? site.equipment : [];
       const equipmentByBrand = new Map();
       const tickets = readLeaderTickets().filter(ticket => String(ticket.siteId) === String(site.id) && isActiveLeaderTicket(ticket));
       const ticketsByBrand = new Map();
+      const inspectionsByBrand = new Map();
       inventory.forEach(item => {
         const brand = brandDirectory.find(entry => entry.id === item.brandId) ||
           brandDirectory.find(entry => entry.name.toLocaleLowerCase("es") === String(item.brandName || "").toLocaleLowerCase("es"));
@@ -2339,6 +2924,8 @@
           const recordKey = `${site.id}::${unitKey}`;
           const matchingTickets = countMachineTickets({ item, unit, recordKey }, tickets, site.id);
           ticketsByBrand.set(key, (ticketsByBrand.get(key) || 0) + matchingTickets);
+          const pendingCount = inspectionRecordsForMachine(recordKey).filter(isPendingInspection).length;
+          if (pendingCount) inspectionsByBrand.set(key, (inspectionsByBrand.get(key) || 0) + pendingCount);
         });
       });
       const recordedMachines = [...equipmentByBrand.values()].reduce((sum, count) => sum + count, 0);
@@ -2353,15 +2940,18 @@
       $("siteFilter").hidden = true;
       $("siteFilter").value = "";
       $("requestPartsFromBrands").hidden = false;
+      $("viewInspectionsButton").hidden = false;
       $("searchQrButton").hidden = false;
+      $("inspectionReviewButton").hidden = true;
       $("backToSites").hidden = false;
-      $("backToSites").textContent = "← Volver a sedes";
+      $("backToSites").textContent = supervisorMode && maintenanceFromActivityChoice ? "← Volver a opciones" : "← Volver a sedes";
       $("siteGrid").className = "brand-grid";
       const cards = brandDirectory.filter(brand => (equipmentByBrand.get(brand.id) || 0) > 0).map(brand => {
         const count = equipmentByBrand.get(brand.id) || 0;
         const ticketCount = ticketsByBrand.get(brand.id) || 0;
+        const inspectionCount = inspectionsByBrand.get(brand.id) || 0;
         const countText = `${count} ${count === 1 ? "equipo" : "equipos"}`;
-        return `<button class="brand-card" type="button" data-open-brand="${escapeHtml(brand.id)}"><span class="brand-name">${escapeHtml(brand.name)}</span><span class="brand-count">${countText} · Ver equipos →</span>${ticketCount > 0 ? `<span class="site-ticket-badge"><span class="site-ticket-badge-icon" aria-hidden="true">✓</span>Tickets <strong>${ticketCount}</strong></span>` : ""}</button>`;
+        return `<button class="brand-card" type="button" data-open-brand="${escapeHtml(brand.id)}"><span class="brand-name">${escapeHtml(brand.name)}</span><span class="brand-count">${countText} · Ver equipos →</span>${ticketCount > 0 ? `<span class="site-ticket-badge"><span class="site-ticket-badge-icon" aria-hidden="true">✓</span>Tickets <strong>${ticketCount}</strong></span>` : ""}${inspectionBadge(inspectionCount)}</button>`;
       }).join("");
       const notice = hasUnclassifiedInventory
         ? `<div class="empty-state">Esta sede tiene ${Number(site.machineCount)} máquinas registradas, pero aún falta asignar su detalle por marca desde el inventario de administración.</div>`
@@ -2384,6 +2974,7 @@
       $("siteGrid").innerHTML = filteredMachines.map(({ machine, index }) => {
         const { item, unit } = machine;
         const ticketCount = countMachineTickets(machine, tickets);
+        const inspectionCount = inspectionRecordsForMachine(machine.recordKey).filter(isPendingInspection).length;
         const image = supervisorCatalogImage(item);
         return `
         <article class="machine-card" data-open-machine="${index}" role="button" tabindex="0" aria-label="Abrir ficha de ${escapeHtml(item.name || "Equipo")}">
@@ -2395,6 +2986,7 @@
             <p>Modelo: ${escapeHtml(item.model || "—")}</p>
             <span class="machine-sector">${escapeHtml(supervisorCatalogCategory(item))}</span>
             ${ticketCount > 0 ? `<span class="site-ticket-badge"><span class="site-ticket-badge-icon" aria-hidden="true">✓</span>Tickets <strong>${ticketCount}</strong></span>` : ""}
+            ${inspectionBadge(inspectionCount)}
           </div>
         </article>`;
       }).join("") || `<div class="empty-state">${search ? "No se encontraron equipos con ese activo fijo." : "No hay equipos de esta marca registrados para la sede seleccionada."}</div>`;
@@ -2402,6 +2994,7 @@
 
     function renderBrandEquipment(brandId, { resetFilter = true } = {}) {
       if (!currentSite) return;
+      inspectionPhase = "";
       const brand = brandDirectory.find(entry => entry.id === brandId);
       if (!brand) return;
       currentBrandId = brandId;
@@ -2427,8 +3020,9 @@
 
       $("panelHeading").textContent = `Equipos ${brand.name}`;
       $("panelDescription").textContent = `${currentSite.name} · ${machines.length} ${machines.length === 1 ? "equipo" : "equipos"}`;
-      $("backToSites").textContent = "← Cambiar de marca";
+      $("backToSites").textContent = supervisorMode && maintenanceFromActivityChoice ? "← Volver a marcas" : "← Cambiar de marca";
       $("searchQrButton").hidden = true;
+      $("inspectionReviewButton").hidden = true;
       $("siteFilter").hidden = false;
       $("siteFilter").placeholder = "Buscar activo fijo...";
       $("siteFilter").setAttribute("aria-label", "Buscar equipo por número de activo fijo");
@@ -2779,6 +3373,12 @@
       const activeFixed = machine.unit.activeFixed === "" || machine.unit.activeFixed === undefined || machine.unit.activeFixed === null
         ? "N/A"
         : machine.unit.activeFixed;
+      const machineInspections = inspectionRecordsForMachine(machine.recordKey);
+      const activeInspection = machineInspections.find(row => String(row.id) === String(activeInspectionExecutionId));
+      if (!activeInspection || inspectionState(activeInspection) !== "En ejecución" || !inspectionExecutionStarted(activeInspection)) {
+        activeInspectionExecutionId = machineInspections.find(row => canExecuteInspection(row) && inspectionState(row) === "En ejecución" && inspectionExecutionStarted(row))?.id || "";
+      }
+      const pendingMachineInspections = machineInspections.filter(isPendingInspection);
       const machineTickets = readLeaderTickets().filter(ticket =>
         ticketBelongsToMachine(ticket, machine) &&
         canViewMachineTicket(ticket)
@@ -2810,6 +3410,22 @@
           return '<div class="maintenance-ticket-action"><div><strong>Ticket ' + escapeHtml(ticket.ticketNumber || "—") + '</strong><span>' + escapeHtml(ticket.title || ticket.type || "Mantenimiento") + '</span></div>' + action + '</div>';
         }).join("")
         : "";
+      const inspectionActionMarkup = inspection => {
+        const state = inspectionState(inspection);
+        const canStart = canExecuteInspection(inspection) && state === "Pendiente" && !inspectionExecutionStarted(inspection);
+        return canStart
+          ? `<button class="back-button" type="button" data-start-inspection="${escapeHtml(inspection.id)}">Ejecutar</button>`
+          : `<span class="inspection-row-status ${state === "Ejecutado" ? "is-done" : state === "Eliminado" ? "is-deleted" : state === "En ejecución" ? "is-progress" : "is-pending"}">${state === "Ejecutado" ? "✓" : state === "Eliminado" ? "×" : "●"} ${state}</span>`;
+      };
+      const inspectionStatusAndViewMarkup = inspection => {
+        const state = inspectionState(inspection);
+        const statusClass = state === "Ejecutado" ? "is-done" : state === "Eliminado" ? "is-deleted" : state === "En ejecución" ? "is-progress" : "is-pending";
+        const statusIcon = state === "Ejecutado" ? "✓" : state === "Eliminado" ? "×" : "●";
+        return `<div class="inspection-status-and-view"><span class="inspection-row-status ${statusClass}">${statusIcon} ${state}</span><button class="back-button" type="button" data-view-inspection-record="${escapeHtml(inspection.id)}">Ver Inspección</button></div>`;
+      };
+      const machineInspectionExecutionMarkup = machineInspections.map(inspection =>
+        `<div class="maintenance-ticket-action"><div><strong>Inspección ${escapeHtml(inspection.inspection_number || "—")}</strong><span>${escapeHtml(inspection.finding || "Sin detalle")}</span></div>${inspectionActionMarkup(inspection)}</div>`
+      ).join("");
       const relatedTicketsById = new Map(readLeaderTickets().map(ticket => [ticket.id, ticket]));
       const maintenanceRows = record.maintenance.map(entry => `
         <article class="machine-log-entry">
@@ -2822,6 +3438,19 @@
       const visibleMileage = sortMileageRecords(record.mileage).filter(entry => !mileageMonthFilter || mileageDateValue(entry).slice(0, 7) === mileageMonthFilter);
       const mileageRows = visibleMileage.map(entry => `
         <tr><td>${escapeHtml(formatMileageDate(entry))}</td><td>${escapeHtml(entry.km)}</td><td>${escapeHtml(entry.observation || "—")}</td><td>${escapeHtml(entry.technician || "—")}</td><td>${escapeHtml(entry.lubrication || "Sin registro")}</td><td><div class="machine-record-actions">${canManageMachineRecords ? `<button class="back-button" type="button" data-edit-machine-record="mileage" data-record-id="${escapeHtml(entry.id)}">Editar</button><button class="back-button" type="button" data-delete-machine-record="mileage" data-record-id="${escapeHtml(entry.id)}">Eliminar</button>` : `<button class="back-button" type="button" data-request-mileage-edit>Modificar</button>`}</div></td></tr>`).join("") || '<tr><td colspan="6">No hay registros de kilometraje.</td></tr>';
+      const inspectionRows = machineInspections.map(inspection => {
+        const state = inspectionState(inspection);
+        const photos = (Array.isArray(inspection.photos) ? inspection.photos : []).map((photo, index) => {
+          const src = inspectionPhotoUrlCache.get(photo.path);
+          return src ? `<button class="maintenance-image-thumb" type="button" data-enlarge-image="${escapeHtml(src)}" data-image-alt="Foto ${index + 1} de inspección" aria-label="Ampliar foto ${index + 1} de inspección"><img src="${escapeHtml(src)}" alt="Foto ${index + 1} de inspección" loading="lazy"></button>` : "";
+        }).join("");
+        const details = [
+          inspection.observations ? `<span><strong>Observaciones:</strong> ${escapeHtml(inspection.observations)}</span>` : "",
+          state === "Ejecutado" ? `<span><strong>Corrección:</strong> ${escapeHtml(inspection.correction || "Registrada")}${inspection.corrected_by_name ? ` · ${escapeHtml(inspection.corrected_by_name)}` : ""}</span>` : "",
+          photos ? `<span class="machine-log-photos">${photos}</span>` : (inspection.photos || []).length ? '<span class="site-count">Cargando fotografías…</span>' : ""
+        ].filter(Boolean).join("");
+        return `<tr><td><strong>${escapeHtml(inspection.inspection_number || "—")}</strong></td><td>${escapeHtml(formatMachineDate(inspection.occurred_at || inspection.created_at, false))}</td><td><strong>Hallazgo:</strong> ${escapeHtml(inspection.finding || "—")}${details ? `<div class="inspection-table-details">${details}</div>` : ""}</td><td>${inspectionStatusAndViewMarkup(inspection)}</td></tr>`;
+      }).join("") || '<tr><td colspan="4" class="empty-state">No hay inspecciones vinculadas a este equipo.</td></tr>';
 
       $("panelHeading").textContent = item.name || "Ficha de máquina";
       $("panelDescription").textContent = `${currentSite.name} · ${item.model || "Sin modelo"} · AF: ${activeFixed}`;
@@ -2833,6 +3462,7 @@
         <div class="machine-tabs" role="tablist" aria-label="Información de la máquina">
           <button class="machine-tab${currentMachineTab === "maintenance" ? " active" : ""}" type="button" role="tab" aria-selected="${currentMachineTab === "maintenance"}" data-machine-tab="maintenance">Mantenimiento</button>
           <button class="machine-tab${currentMachineTab === "tickets" ? " active" : ""}" type="button" role="tab" aria-selected="${currentMachineTab === "tickets"}" data-machine-tab="tickets">Ver tickets</button>
+          ${machineInspections.length ? `<button class="machine-tab${currentMachineTab === "inspections" ? " active" : ""}" type="button" role="tab" aria-selected="${currentMachineTab === "inspections"}" data-machine-tab="inspections">Inspección${pendingMachineInspections.length ? ` <span class="inspection-tab-mark">I ${pendingMachineInspections.length}</span>` : ""}</button>` : ""}
           ${user?.role === "Técnico" ? `<button class="machine-tab${currentMachineTab === "common-failures" ? " active" : ""}" type="button" role="tab" aria-selected="${currentMachineTab === "common-failures"}" data-machine-tab="common-failures">Fallas comunes</button>` : ""}
           ${treadmill ? `<button class="machine-tab${currentMachineTab === "mileage" ? " active" : ""}" type="button" role="tab" aria-selected="${currentMachineTab === "mileage"}" data-machine-tab="mileage">Historial de kilometraje (Km)</button>` : ""}
         </div>
@@ -2840,6 +3470,7 @@
           <article class="machine-detail-card">
             <h3>Agregar actualización de mantenimiento</h3>
             ${machineTicketExecutionMarkup ? `<div class="maintenance-ticket-actions"><h4>Tickets del equipo</h4>${machineTicketExecutionMarkup}</div>` : ""}
+            ${machineInspections.length ? `<div class="maintenance-ticket-actions"><h4>Inspecciones del equipo</h4>${machineInspectionExecutionMarkup}</div>` : ""}
             <form id="machineMaintenanceForm" data-smartfit-draft-key="${escapeHtml(`${user.id}|${user.role}|maintenance|${machine.recordKey}|${editingMaintenance?.id || "new"}`)}">
               <div class="machine-form-grid">
               <div class="machine-form-field"><label for="maintenanceDate">Fecha</label><input id="maintenanceDate" type="date" value="${escapeHtml(savedDraft ? savedDraft.date : editingMaintenance?.date || currentLocalDate())}" required></div>
@@ -2873,6 +3504,7 @@
             </table></div>
           </article>
         </section>
+        ${machineInspections.length ? `<section class="machine-tab-panel" data-machine-panel="inspections" ${currentMachineTab === "inspections" ? "" : "hidden"}><article class="machine-detail-card"><h3>Inspecciones</h3><p>Inspecciones registradas para este equipo y activo fijo AF: ${escapeHtml(activeFixed)}.</p><div class="supervisor-tickets-wrap machine-tickets-wrap"><table class="supervisor-tickets-table machine-tickets-table machine-inspection-table"><thead><tr><th>N.º de inspección</th><th>Fecha</th><th>Hallazgo / detalles</th><th>Estado</th></tr></thead><tbody>${inspectionRows}</tbody></table></div></article></section>` : ""}
         ${user?.role === "Técnico" ? `<section class="machine-tab-panel" data-machine-panel="common-failures" ${currentMachineTab === "common-failures" ? "" : "hidden"}><article class="machine-detail-card"><h3>Fallas comunes y tutoriales</h3><div class="cf-frame cf-embed" data-common-failures-src="${escapeHtml(commonFailuresFrameUrl(machine))}" aria-label="Fallas comunes de ${escapeHtml(item.name || "este equipo")}"></div></article></section>` : ""}
         ${treadmill ? `<section class="machine-tab-panel" data-machine-panel="mileage" ${currentMachineTab === "mileage" ? "" : "hidden"}>
           <article class="machine-detail-card">
@@ -2894,6 +3526,11 @@
         mileageMonthFilter = event.target.value;
         renderMachineDetail(currentMachine);
       });
+      if (currentMachineTab === "inspections" && machineInspections.some(row => (row.photos || []).some(photo => photo?.path && !inspectionPhotoUrlCache.has(photo.path)))) {
+        void ensureInspectionPhotoUrls(machineInspections).then(() => {
+          if (currentMachine && String(currentMachine.recordKey) === String(machine.recordKey) && currentMachineTab === "inspections") renderMachineDetail(currentMachine);
+        }).catch(error => console.warn("No se pudieron cargar las fotos de inspección.", error));
+      }
     }
 
     const machineMediaLoads = new Map();
@@ -2944,6 +3581,25 @@
     }
 
     $("siteGrid").addEventListener("click", event => {
+      const startInspection = event.target.closest("[data-start-inspection]");
+      if (startInspection) {
+        const inspectionId = startInspection.dataset.startInspection;
+        activeInspectionExecutionId = inspectionId;
+        currentMachineTab = "maintenance";
+        void (async () => {
+          try {
+            const inspection = sharedInspectionRecords.find(row => String(row.id) === String(inspectionId));
+            if (inspectionState(inspection) === "Pendiente" && !inspectionExecutionStarted(inspection)) {
+              await SmartFitSupabaseData.startInspectionExecution(inspectionId);
+              await refreshSharedInspectionRecords();
+            } else if (currentMachine) renderMachineDetail(currentMachine);
+          } catch (error) {
+            activeInspectionExecutionId = "";
+            window.alert(error.message || "No se pudo iniciar la inspección.");
+          }
+        })();
+        return;
+      }
       const executeTicket = event.target.closest("[data-start-ticket]");
       if (executeTicket) {
         updateTechnicianTicketStatus(executeTicket.dataset.startTicket, "En ejecución");
@@ -2960,7 +3616,8 @@
       const siteCard = event.target.closest("[data-open-site]");
       if (siteCard) {
         currentSite = assignedSites.find(entry => entry.id === siteCard.dataset.openSite) || null;
-        renderSiteBrands(currentSite);
+        if (supervisorMode) renderSiteActivityChoice();
+        else renderSiteBrands(currentSite);
         return;
       }
       const brandCard = event.target.closest("[data-open-brand]");
@@ -2976,6 +3633,13 @@
       }
     });
     $("siteGrid").addEventListener("keydown", event => {
+      const inspectionCard = event.target.closest("[data-inspection-equipment]");
+      if (inspectionCard && event.target === inspectionCard && (event.key === "Enter" || event.key === " ")) {
+        event.preventDefault();
+        const machine = inspectionMachineFromKey(inspectionCard.dataset.inspectionEquipment);
+        if (machine) renderInspectionForm(machine);
+        return;
+      }
       const machineCard = event.target.closest("[data-open-machine]");
       if (machineCard && event.target === machineCard && (event.key === "Enter" || event.key === " ")) {
         event.preventDefault();
@@ -2989,13 +3653,33 @@
     $("openSupervisorMaintenanceHistory").addEventListener("click", () => {
       $("supervisorEventsChooser").hidden = true;
       $("supervisorMileageHistoryBlank").hidden = true;
+      $("supervisorInspectionHistoryBlank").hidden = true;
       $("supervisorMaintenanceHistoryBlank").hidden = false;
       renderSupervisorMaintenanceHistory();
     });
     $("backToSupervisorEvents").addEventListener("click", () => {
       $("supervisorMaintenanceHistoryBlank").hidden = true;
+      $("supervisorInspectionHistoryBlank").hidden = true;
       $("supervisorEventsChooser").hidden = false;
     });
+    $("openSupervisorInspectionHistoryPage").addEventListener("click", () => {
+      $("supervisorEventsChooser").hidden = true;
+      $("supervisorMaintenanceHistoryBlank").hidden = true;
+      $("supervisorMileageHistoryBlank").hidden = true;
+      $("supervisorInspectionHistoryBlank").hidden = false;
+      renderSupervisorInspectionHistory();
+    });
+    $("backToSupervisorMaintenanceFromInspection").addEventListener("click", () => {
+      $("supervisorInspectionHistoryBlank").hidden = true;
+      $("supervisorMaintenanceHistoryBlank").hidden = false;
+      renderSupervisorMaintenanceHistory();
+    });
+    ["supervisorInspectionDateFrom", "supervisorInspectionDateTo", "supervisorInspectionTechnician", "supervisorInspectionSite", "supervisorInspectionStatus"].forEach(id => {
+      $(id).addEventListener("input", renderSupervisorInspectionHistory);
+      $(id).addEventListener("change", renderSupervisorInspectionHistory);
+    });
+    $("supervisorInspectionSite").addEventListener("change", () => { $("supervisorInspectionTechnician").value = "*"; renderSupervisorInspectionHistory(); });
+    $("supervisorInspectionStatus").addEventListener("change", renderSupervisorInspectionHistory);
     $("openSupervisorMileageHistoryPage").addEventListener("click", () => {
       $("supervisorMaintenanceHistoryBlank").hidden = true;
       $("supervisorMileageHistoryBlank").hidden = false;
@@ -3238,6 +3922,10 @@
       }
     });
     window.addEventListener("storage", event => {
+      if (event.key === "smartfit.inspection.records.changed.v1") {
+        void refreshSharedInspectionRecords();
+        return;
+      }
       if (event.key === TICKETS_STORAGE_KEY) {
         if (supervisorMode && !$("supervisorRaiseTicketPanel").hidden) return;
         if (supervisorMode && !$("supervisorTicketsPanel").hidden) {
@@ -3287,18 +3975,61 @@
     $("backToSites").addEventListener("click", () => {
       if (requestReturnTo) {
         closePartsRequest();
+      } else if (inspectionPhase === "inspection-records") {
+        const returnPhase = inspectionRecordsReturnPhase;
+        inspectionPhase = "";
+        if (returnPhase === "equipment-list") renderInspectionEquipmentList();
+        else if (returnPhase === "brand-list") renderInspectionBrandsList();
+        else renderSiteBrands(currentSite);
+      } else if (supervisorMode && inspectionPhase === "choice") {
+        inspectionPhase = "";
+        renderSiteList();
+      } else if (supervisorMode && inspectionPhase === "brand-list") {
+        inspectionPhase = "choice";
+        renderSiteActivityChoice();
+      } else if (supervisorMode && inspectionPhase === "equipment-list") {
+        inspectionBrandId = "";
+        inspectionSearch = "";
+        renderInspectionBrandsList();
+      } else if (supervisorMode && inspectionPhase === "equipment-form") {
+        const recordKey = inspectionMachine?.recordKey;
+        if (recordKey && inspectionDraft) {
+          inspectionEntryDraft = { recordKey, date: $("inspectionDate")?.value || currentLocalDate(), finding: $("inspectionFinding")?.value || "", observations: $("inspectionObservations")?.value || "", photos: (inspectionEntryDraft.photos || []).slice(0, 4) };
+          inspectionDraft.pendingEntries ||= {};
+          inspectionDraft.pendingEntries[recordKey] = inspectionEntryDraft;
+          inspectionDraft.currentEntry = null;
+        }
+        void persistInspectionDraft();
+        inspectionMachine = null;
+        renderInspectionEquipmentList();
+      } else if (supervisorMode && inspectionPhase === "review") {
+        if (inspectionReviewReturnPhase === "brand-list") renderInspectionBrandsList();
+        else renderInspectionEquipmentList();
+      } else if (supervisorMode && maintenanceFromActivityChoice && !currentMachine && !currentBrandId && $('siteGrid').classList.contains('brand-grid')) {
+        maintenanceFromActivityChoice = false;
+        renderSiteActivityChoice();
       } else if (currentMachine) {
         currentMachine = null;
         renderBrandEquipment(currentBrandId, { resetFilter: false });
       } else if (currentBrandId) {
         currentBrandId = "";
         renderSiteBrands(currentSite);
+      } else if (supervisorMode && maintenanceFromActivityChoice && currentSite && $('siteGrid').classList.contains('machine-grid')) {
+        renderSiteBrands(currentSite);
       } else {
         renderSiteList();
       }
     });
     $("searchQrButton").addEventListener("click", () => {
-      window.SmartFitQrScanner?.open({ onCode: openEquipmentByQr });
+      if (supervisorMode && ["brand-list", "equipment-list"].includes(inspectionPhase)) window.SmartFitQrScanner?.open({ onCode: openInspectionEquipmentByQr });
+      else window.SmartFitQrScanner?.open({ onCode: openEquipmentByQr });
+    });
+    $("viewInspectionsButton").addEventListener("click", () => renderSiteInspectionRecords());
+    $("exportSupervisorInspectionPdf").addEventListener("click", () => { void exportSupervisorInspectionReport(false); });
+    $("exportSupervisorInspectionLitePdf").addEventListener("click", () => { void exportSupervisorInspectionReport(true); });
+    $("supervisorInspectionHistoryBody").addEventListener("click", event => {
+      const button = event.target.closest("[data-delete-inspection]");
+      if (button && !button.disabled) void confirmDeleteInspection(button.dataset.deleteInspection);
     });
     $("siteGrid").addEventListener("click", async event => {
       const imageMenuToggle = event.target.closest("[data-toggle-maintenance-image-menu]");
@@ -3465,12 +4196,26 @@
         } catch (error) {
           maintenanceSyncError = error;
         }
+        let inspectionSyncError = null;
+        const completedInspection = sharedInspectionRecords.find(row => String(row.id) === String(activeInspectionExecutionId) && String(row.equipment_legacy_id || "") === String(currentMachine.recordKey) && canExecuteInspection(row) && inspectionState(row) === "En ejecución" && inspectionExecutionStarted(row));
+        if (completedInspection && entry.type === "Mantenimiento preventivo" && !maintenanceSyncError) {
+          try {
+            await SmartFitSupabaseData.updateInspectionStatus(completedInspection.id, "Ejecutado");
+            activeInspectionExecutionId = "";
+            await refreshSharedInspectionRecords();
+          } catch (error) {
+            inspectionSyncError = error;
+          }
+        }
         if (maintenanceSyncError || ticketSyncError) {
           const messages = [
             maintenanceSyncError ? `El evento quedó guardado en este dispositivo y se reintentará sincronizar. ${maintenanceSyncError.message || ""}` : "El evento y sus fotografías se sincronizaron.",
-            ticketSyncError ? `No se pudo actualizar el ticket asociado. ${ticketSyncError.message || ""}` : ""
+            ticketSyncError ? `No se pudo actualizar el ticket asociado. ${ticketSyncError.message || ""}` : "",
+            inspectionSyncError ? `El mantenimiento quedó guardado, pero la inspección no pudo actualizarse a Ejecutado. ${inspectionSyncError.message || ""}` : ""
           ].filter(Boolean).join("\n");
           window.alert(messages);
+        } else if (inspectionSyncError) {
+          window.alert(`El mantenimiento quedó guardado, pero la inspección no pudo actualizarse a Ejecutado. ${inspectionSyncError.message || ""}`);
         }
         editingMachineRecord = null;
         maintenanceDraft = null;
@@ -3519,8 +4264,123 @@
       }
     });
     $("siteFilter").addEventListener("input", () => {
-      if (currentBrandId && !currentMachine) renderMachineCards();
+      if (supervisorMode && inspectionPhase === "equipment-list") {
+        inspectionSearch = $("siteFilter").value;
+        renderInspectionEquipmentList();
+      } else if (currentBrandId && !currentMachine) renderMachineCards();
       else renderSiteList();
+    });
+    $("inspectionReviewButton").addEventListener("click", () => renderInspectionReview(inspectionPhase));
+    $("siteGrid").addEventListener("click", async event => {
+      const workChoice = event.target.closest("[data-site-work]");
+      if (workChoice && supervisorMode) {
+        if (workChoice.dataset.siteWork === "maintenance") {
+          maintenanceFromActivityChoice = true;
+          renderSiteBrands(currentSite);
+        }
+        else await openSiteInspection();
+        return;
+      }
+      const brandChoice = event.target.closest("[data-inspection-brand]");
+      if (brandChoice && supervisorMode) {
+        inspectionBrandId = brandChoice.dataset.inspectionBrand;
+        inspectionSearch = "";
+        renderInspectionEquipmentList();
+        return;
+      }
+      const equipmentChoice = event.target.closest("[data-inspection-equipment]");
+      if (equipmentChoice && supervisorMode) {
+        if (event.target.closest("[data-enlarge-image]")) return;
+        const machine = inspectionMachineFromKey(equipmentChoice.dataset.inspectionEquipment);
+        if (machine) renderInspectionForm(machine);
+        return;
+      }
+      const photoPicker = event.target.closest("[data-inspection-photo-pick]");
+      if (photoPicker) {
+        if ((inspectionEntryDraft.photos || []).length >= 4) {
+          window.alert("Solo puedes adjuntar un máximo de 4 fotografías por equipo.");
+          return;
+        }
+        const input = $(photoPicker.dataset.inspectionPhotoPick === "camera" ? "inspectionCameraInput" : "inspectionGalleryInput");
+        input?.click();
+        return;
+      }
+      const removeEntry = event.target.closest("[data-inspection-remove]");
+      if (removeEntry && inspectionDraft) {
+        inspectionDraft.entries = inspectionDraft.entries.filter(entry => String(entry.id) !== String(removeEntry.dataset.inspectionRemove));
+        await persistInspectionDraft();
+        renderInspectionReview();
+        return;
+      }
+      if (event.target.closest("[data-inspection-submit]")) {
+        const button = event.target.closest("[data-inspection-submit]");
+        if (!inspectionDraft || !currentSite || !inspectionDraft.entries?.length) return;
+        button.disabled = true;
+        button.textContent = "Enviando inspección…";
+        try {
+          await SmartFitSupabaseData.saveInspectionBatch(currentSite.id, inspectionDraft.inspectionId || makeInspectionUuid(), inspectionDraft.entries);
+          const key = inspectionDraft.key || inspectionStorageKey();
+          await inspectionDraftDb.remove(key);
+          inspectionDraft = null;
+          inspectionEntryDraft = { finding: "", observations: "", photos: [] };
+          inspectionMachine = null;
+          try { localStorage.setItem("smartfit.inspection.records.changed.v1", String(Date.now())); } catch (error) {}
+          window.dispatchEvent(new CustomEvent("smartfit:inspection-records-changed"));
+          await refreshSharedInspectionRecords();
+          window.alert("Inspección enviada y guardada correctamente.");
+          renderInspectionBrandsList();
+        } catch (error) {
+          button.disabled = false;
+          button.textContent = "Enviar inspección";
+          const status = $("inspectionStorageStatus");
+          if (status) status.textContent = `No se confirmó el envío. El borrador se conserva en este dispositivo para reintentar. ${error.message || ""}`;
+          console.error("No se pudo enviar la inspección.", error);
+          window.alert(`No se pudo enviar la inspección. El borrador y sus fotos siguen guardados en este dispositivo. ${error.message || "Revisa la conexión y vuelve a intentarlo."}`);
+        }
+      }
+    });
+    $("siteGrid").addEventListener("input", event => {
+      if (!["inspectionFinding", "inspectionObservations", "inspectionDate"].includes(event.target.id) || !inspectionDraft) return;
+      inspectionEntryDraft = {
+        date: $("inspectionDate")?.value || currentLocalDate(),
+        recordKey: inspectionMachine?.recordKey || "",
+        finding: $("inspectionFinding")?.value || "",
+        observations: $("inspectionObservations")?.value || "",
+        photos: inspectionEntryDraft.photos || []
+      };
+      inspectionDraft.currentEntry = inspectionEntryDraft;
+      if (inspectionMachine) {
+        inspectionDraft.pendingEntries ||= {};
+        inspectionDraft.pendingEntries[inspectionMachine.recordKey] = inspectionEntryDraft;
+      }
+      window.clearTimeout(inspectionSaveTimer);
+      inspectionSaveTimer = window.setTimeout(() => { void persistInspectionDraft(); }, 250);
+    });
+    $("siteGrid").addEventListener("change", async event => {
+      if (!["inspectionGalleryInput", "inspectionCameraInput"].includes(event.target.id)) return;
+      const files = Array.from(event.target.files || []);
+      event.target.value = "";
+      if (!files.length) return;
+      const room = Math.max(0, 4 - (inspectionEntryDraft.photos || []).length);
+      if (files.length > room) window.alert("Puedes adjuntar hasta 4 fotografías por equipo.");
+      try {
+        const images = await Promise.all(files.slice(0, room).map(compressMaintenanceImage));
+        inspectionEntryDraft.photos = [...(inspectionEntryDraft.photos || []), ...images].slice(0, 4);
+        if (inspectionDraft) {
+          inspectionDraft.pendingEntries ||= {};
+          if (inspectionMachine) inspectionDraft.pendingEntries[inspectionMachine.recordKey] = inspectionEntryDraft;
+          inspectionDraft.currentEntry = inspectionEntryDraft;
+          await persistInspectionDraft();
+        }
+        if (inspectionMachine) renderInspectionForm(inspectionMachine);
+      } catch (error) {
+        window.alert(error.message || "No se pudieron preparar las fotografías.");
+      }
+    });
+    $("siteGrid").addEventListener("submit", async event => {
+      if (event.target.id !== "siteInspectionForm") return;
+      event.preventDefault();
+      await saveCurrentInspectionEntry();
     });
     ["profileInventorySearch", "profileInventorySite"].forEach(id => $(id).addEventListener("input", renderProfileInventory));
     $("profileInventoryBrand").addEventListener("change", renderProfileInventory);
@@ -3528,6 +4388,16 @@
     $("profileInventoryPdf").addEventListener("click", () => exportProfileInventory("pdf"));
     $("profileInventoryExcel").addEventListener("click", () => exportProfileInventory("excel"));
     $("siteGrid").addEventListener("click", event => {
+      const deleteInspectionButton = event.target.closest("[data-delete-inspection]");
+      if (deleteInspectionButton && !deleteInspectionButton.disabled) {
+        void confirmDeleteInspection(deleteInspectionButton.dataset.deleteInspection);
+        return;
+      }
+      const viewInspectionButton = event.target.closest("[data-view-inspection-record]");
+      if (viewInspectionButton) {
+        void openSupervisorInspectionRecord(viewInspectionButton.dataset.viewInspectionRecord);
+        return;
+      }
       const saveTicketStatus = event.target.closest("[data-save-ticket-status]");
       if (saveTicketStatus) {
         const select = $("siteGrid").querySelector('[data-ticket-status="' + CSS.escape(saveTicketStatus.dataset.saveTicketStatus) + '"]');
@@ -3585,6 +4455,11 @@
     });
     $("closeSupervisorTicket").addEventListener("click", () => { $("supervisorTicketModal").hidden = true; });
     $("supervisorTicketModal").addEventListener("click", event => {
+      const inspectionPhoto = event.target.closest("[data-inspection-enlarge]");
+      if (inspectionPhoto) {
+        openEquipmentImage(inspectionPhoto.dataset.inspectionEnlarge, inspectionPhoto.alt, inspectionPhoto);
+        return;
+      }
       const ticketPhoto = event.target.closest("[data-ticket-enlarge]");
       if (ticketPhoto) {
         openEquipmentImage(ticketPhoto.dataset.ticketEnlarge, ticketPhoto.alt, ticketPhoto);
@@ -3618,6 +4493,7 @@
     });
     window.addEventListener("smartfit:supabase-data-hydrated", event => {
       const tables = Array.isArray(event.detail?.tables) ? new Set(event.detail.tables) : null;
+      if (!tables || tables.has("inspection_records")) void refreshSharedInspectionRecords();
       if (tables) {
         const has = (...names) => names.some(name => tables.has(name));
         const scopeChanged = has("profiles", "sites", "site_assignments");
@@ -3640,7 +4516,18 @@
         if (!$('supervisorMileageHistoryBlank').hidden && has("mileage_records", "sites", "equipment", "profiles", "site_assignments")) renderSupervisorMileageHistory();
         if (!$('inventoryPanel').hidden && has("sites", "equipment", "brands", "profiles", "site_assignments")) renderSupervisorInventory();
         if (!$('sitesPanel').hidden && has("sites", "equipment", "brands", "profiles", "site_assignments")) {
-          if ($('siteGrid').classList.contains('site-grid')) renderSiteList();
+          if (supervisorMode && inspectionPhase && currentSite) {
+            currentSite = assignedSites.find(site => String(site.id) === String(currentSite.id)) || null;
+            if (!currentSite) renderSiteList();
+            else if (inspectionPhase === "choice") renderSiteActivityChoice();
+            else if (inspectionPhase === "brand-list") renderInspectionBrandsList();
+            else if (inspectionPhase === "equipment-list") renderInspectionEquipmentList();
+            else if (inspectionPhase === "equipment-form") {
+              const machine = inspectionMachineFromKey(inspectionMachine?.recordKey);
+              if (machine) renderInspectionForm(machine);
+              else renderInspectionEquipmentList();
+            } else if (inspectionPhase === "review") renderInspectionReview();
+          } else if ($('siteGrid').classList.contains('site-grid')) renderSiteList();
           else if (currentSite && $('siteGrid').classList.contains('brand-grid')) renderSiteBrands(currentSite);
           else if (currentSite && currentBrandId && $('siteGrid').classList.contains('machine-grid')) renderBrandEquipment(currentBrandId, { resetFilter: false });
         }
@@ -3678,6 +4565,7 @@
         else renderSupervisorTicketSites(true);
       }
     });
+    window.addEventListener("smartfit:inspection-records-changed", () => { void refreshSharedInspectionRecords(); });
     window.SmartFitMobileBack?.start({
       page: "site-panel",
       capture: () => {
@@ -3685,13 +4573,32 @@
         const commonHost = Array.from(document.querySelectorAll("[data-common-failures-src]"))
           .find(host => !host.closest("[hidden]") && host.getClientRects().length);
         const eventsPage = !$('supervisorMileageHistoryBlank').hidden ? "mileage"
-          : !$('supervisorMaintenanceHistoryBlank').hidden ? "maintenance"
+          : !$('supervisorInspectionHistoryBlank').hidden ? "inspection"
+            : !$('supervisorMaintenanceHistoryBlank').hidden ? "maintenance"
             : !$('supervisorEventsChooser').hidden ? "chooser" : "";
         const ticketContent = $('supervisorRaiseTicketContent');
         const ticketPhase = supervisorTicketEquipment ? "form"
           : supervisorTicketBrandId ? "equipment"
             : supervisorTicketSiteId ? "brands"
               : ticketContent?.querySelector("#supervisorTicketSiteSearch") ? "sites" : "chooser";
+        const maintenancePhase = !maintenanceFromActivityChoice ? ""
+          : currentMachine ? "machine"
+            : $('siteGrid').classList.contains('machine-grid') ? "equipment"
+              : $('siteGrid').classList.contains('brand-grid') ? "brands"
+                : $('siteGrid').classList.contains('inspection-choice-grid') ? "choice" : "";
+        if (supervisorMode && inspectionPhase === "equipment-form" && inspectionMachine && inspectionDraft) {
+          inspectionEntryDraft = {
+            recordKey: inspectionMachine.recordKey,
+            date: $("inspectionDate")?.value || currentLocalDate(),
+            finding: $("inspectionFinding")?.value || "",
+            observations: $("inspectionObservations")?.value || "",
+            photos: (inspectionEntryDraft.photos || []).slice(0, 4)
+          };
+          inspectionDraft.pendingEntries ||= {};
+          inspectionDraft.pendingEntries[inspectionMachine.recordKey] = inspectionEntryDraft;
+          inspectionDraft.currentEntry = inspectionEntryDraft;
+          void persistInspectionDraft();
+        }
         return {
           mainView: activeView,
           siteId: currentSite?.id || "",
@@ -3716,10 +4623,18 @@
           ticketSiteQuery: supervisorTicketSiteQuery || "",
           ticketBrandQuery: supervisorTicketBrandQuery || "",
           ticketEquipmentQuery: supervisorTicketEquipmentQuery || "",
+          inspectionPhase: inspectionPhase || "",
+          inspectionSiteId: inspectionPhase ? currentSite?.id || "" : "",
+          inspectionBrandId: inspectionBrandId || "",
+          inspectionSearch: inspectionSearch || "",
+          inspectionMachineKey: inspectionMachine?.recordKey || "",
+          inspectionReviewReturnPhase,
+          maintenanceFromActivityChoice,
+          maintenancePhase,
           commonFailuresState: commonHost ? window.SmartFitCommonFailuresEmbed?.capture(commonHost) || null : null
         };
       },
-      restore: state => {
+      restore: async state => {
         $("supervisorMenu").classList.remove("open");
         $("supervisorMenuToggle").setAttribute("aria-expanded", "false");
         const view = state.mainView || (supervisorMode ? "summary" : "sites");
@@ -3741,6 +4656,25 @@
           return;
         }
         if (supervisorMode) {
+          if (state.inspectionPhase && state.inspectionSiteId) {
+            renderSiteList();
+            currentSite = assignedSites.find(site => String(site.id) === String(state.inspectionSiteId)) || null;
+            if (!currentSite) return;
+            if (state.inspectionPhase === "choice") renderSiteActivityChoice();
+            else {
+              await loadInspectionDraft();
+              inspectionBrandId = state.inspectionBrandId || "";
+              inspectionSearch = state.inspectionSearch || "";
+              if (state.inspectionPhase === "equipment-form") {
+                const machine = inspectionMachineFromKey(state.inspectionMachineKey);
+                if (machine) renderInspectionForm(machine);
+                else renderInspectionEquipmentList();
+              } else if (state.inspectionPhase === "review") renderInspectionReview(state.inspectionReviewReturnPhase || "equipment-list");
+              else if (state.inspectionPhase === "brand-list") renderInspectionBrandsList();
+              else renderInspectionEquipmentList();
+            }
+            return;
+          }
           if (view === "common-failures") {
             renderSupervisorCommonFailures();
             if (state.commonFailuresState) setTimeout(() => {
@@ -3779,6 +4713,10 @@
               $('supervisorEventsChooser').hidden = true;
               $('supervisorMileageHistoryBlank').hidden = false;
               renderSupervisorMileageHistory();
+            } else if (state.eventsPage === "inspection") {
+              $('supervisorEventsChooser').hidden = true;
+              $('supervisorInspectionHistoryBlank').hidden = false;
+              renderSupervisorInspectionHistory();
             }
           } else renderSiteList();
         } else renderSiteList();
@@ -3794,7 +4732,27 @@
         if (state.siteId) {
           if (supervisorMode) renderSiteList();
           currentSite = assignedSites.find(site => String(site.id) === String(state.siteId)) || null;
-          if (currentSite) renderSiteBrands(currentSite);
+          if (currentSite && supervisorMode && state.maintenanceFromActivityChoice) {
+            maintenanceFromActivityChoice = true;
+            const maintenancePhase = state.maintenancePhase || (state.brandId ? "equipment" : "brands");
+            if (maintenancePhase === "choice") {
+              renderSiteActivityChoice();
+            } else {
+              renderSiteBrands(currentSite);
+              maintenanceFromActivityChoice = true;
+              const brandId = state.brandId || state.maintenanceBrandId || "";
+              if (brandId) renderBrandEquipment(brandId, { resetFilter: false });
+              if (state.machineKey) {
+                const machine = currentBrandEquipment.find(entry => String(entry.recordKey) === String(state.machineKey));
+                if (machine) {
+                  currentMachineTab = state.machineTab || "maintenance";
+                  renderMachineDetail(machine);
+                  void loadMachineDetailMedia(machine);
+                }
+              }
+            }
+            return;
+          } else if (currentSite) renderSiteBrands(currentSite);
           if (currentSite && state.brandId) renderBrandEquipment(state.brandId, { resetFilter: false });
           if (currentSite && state.machineKey) {
             const machine = currentBrandEquipment.find(entry => String(entry.recordKey) === String(state.machineKey));
@@ -3811,7 +4769,7 @@
     SmartFitSupabaseData.hydrate().then(result => {
       if (!result.skipped) {
         SmartFitSupabaseData.startRealtimeSync();
-        window.dispatchEvent(new CustomEvent("smartfit:supabase-data-hydrated", { detail: { tables: ["sites", "brands", "equipment", "tickets", "maintenance_events", "mileage_records", "maintenance_event_tickets", "profiles", "site_assignments", "admin_user_access", "audit_log"] } }));
+        window.dispatchEvent(new CustomEvent("smartfit:supabase-data-hydrated", { detail: { tables: ["sites", "brands", "equipment", "tickets", "maintenance_events", "mileage_records", "maintenance_event_tickets", "inspection_records", "profiles", "site_assignments", "admin_user_access", "audit_log"] } }));
       }
     }).catch(error => console.error("No se pudieron cargar los datos de Supabase:", error));
   </script>

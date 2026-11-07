@@ -272,6 +272,11 @@
     .inventory-site-suggestions .empty-state { padding: 12px; font-size: 12px; }
     .history-table { min-width: 1120px; }
     .event-status { display: inline-flex; padding: 5px 8px; border-radius: 20px; background: #30333d; color: #e7e7eb; font-size: 10px; font-weight: 800; white-space: nowrap; }
+    .inspection-history-status { display:inline-flex; align-items:center; gap:6px; padding:5px 9px; border-radius:20px; font-size:11px; font-weight:800; white-space:nowrap; }
+    .inspection-history-status.is-pending { color:#ff6874; background:rgba(255,74,91,.12); }
+    .inspection-history-status.is-progress { color:#a9d7ff; background:rgba(71,151,211,.16); }
+    .inspection-history-status.is-done { color:#45c99a; background:rgba(69,201,154,.12); }
+    .inspection-history-status.is-deleted { color:#9ba0aa; background:rgba(155,160,170,.14); }
     .event-ticket-mark { display: inline-flex; align-items: center; gap: 5px; padding: 4px 8px; border-radius: 20px; background: #3b321d; color: var(--yellow); font-size: 10px; font-weight: 800; white-space: nowrap; }
     .event-ticket-mark[aria-label] { cursor: help; }
     .history-event-detail { display: block; max-width: 320px; margin-top: 4px; color: var(--muted); font-size: 10px; line-height: 1.45; white-space: normal; }
@@ -849,6 +854,7 @@
             <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
               <h1 id="maintenanceHistoryBlankTitle" style="font-size: 21px;">Mantenimiento</h1>
               <button class="secondary-button" id="openMileageHistoryPage" type="button">Historial KM</button>
+              <button class="secondary-button" id="openInspectionHistoryPage" type="button">Historial Revisión</button>
             </div>
             <button class="secondary-button" id="backToMaintenanceHistory" type="button">← Volver</button>
           </div>
@@ -875,6 +881,19 @@
               <tbody id="maintenanceHistoryBody"></tbody>
             </table>
           </div>
+        </section>
+        <section id="inspectionHistoryBlank" class="panel-card" aria-labelledby="inspectionHistoryPageTitle" style="padding:24px" hidden>
+          <div class="page-heading" style="margin:0;align-items:center"><div><h1 id="inspectionHistoryPageTitle" style="font-size:21px">Historial Revisión</h1><p class="page-description">Inspecciones registradas en todas las sedes.</p></div><button class="secondary-button" id="backToMaintenanceFromInspection" type="button">← Volver</button></div>
+          <div class="history-filters" aria-label="Filtros del historial de inspecciones">
+            <label class="history-filter">Desde<input class="form-control" id="inspectionHistoryDateFrom" type="date"></label>
+            <label class="history-filter">Hasta<input class="form-control" id="inspectionHistoryDateTo" type="date"></label>
+            <label class="history-filter">Técnico<select class="form-control" id="inspectionHistoryTechnician"><option value="*">Todos</option></select></label>
+            <label class="history-filter">Supervisor<select class="form-control" id="inspectionHistorySupervisor"><option value="*">Todos</option></select></label>
+            <label class="history-filter">Sede<select class="form-control" id="inspectionHistorySite"><option value="*">Todas</option></select></label>
+            <label class="history-filter">Estado<select class="form-control" id="inspectionHistoryStatus"><option value="*">Todos</option><option>Pendiente</option><option>En ejecución</option><option>Ejecutado</option><option>Eliminado</option></select></label>
+          </div>
+          <div class="table-tools" style="justify-content:space-between;margin:0 0 10px"><span class="subtext" id="inspectionHistoryResultCount" aria-live="polite">Cargando inspecciones…</span><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="secondary-button" id="exportInspectionHistoryPdf" type="button">PDF Full</button><button class="secondary-button" id="exportInspectionHistoryLitePdf" type="button">PDF Lite</button><button class="secondary-button" id="clearInspectionHistoryFilters" type="button">Limpiar filtros</button></div></div>
+          <div class="table-wrap"><table class="history-table"><thead><tr><th>N.º inspección</th><th>Fecha</th><th>Sede</th><th>Equipo</th><th>Activo fijo</th><th>Técnico</th><th>Supervisor</th><th>Estado</th><th>Acciones</th></tr></thead><tbody id="inspectionHistoryBody"></tbody></table></div>
         </section>
         <section id="mileageHistoryBlank" class="panel-card" aria-labelledby="mileageHistoryPageTitle" style="padding: 24px;" hidden>
           <div class="page-heading" style="margin: 0; align-items: center;">
@@ -1147,6 +1166,7 @@
   <script src="admin-store.js?v=20261029-performance-stage-2"></script>
   <script src="supabase-data.js?v=20261105-offline-queue-1"></script>
   <script src="pdf-report.js?v=20261029-print-ui-1"></script>
+  <script src="inspection-reports.js?v=20261107-inspection-reports-1"></script>
   <script src="EQU/matrix-catalog.js"></script>
   <script src="EQU/booty-catalog.js"></script>
   <script src="EQU/other-catalogs.js?v=20261026-ubian-rack"></script>
@@ -1190,6 +1210,8 @@
     let ticketAssignmentSelectedId = "";
     let maintenanceHistoryFilteredEvents = [];
     let mileageHistoryFilteredEntries = [];
+    let inspectionHistoryRecords = [];
+    let adminFilteredInspectionRecords = [];
     let adminInventoryRows = [];
     let adminFilteredInventoryRows = [];
     const chartColors = ["#ffb51b", "#f47721", "#ec5b68", "#ba78e5", "#7389ff", "#45b8d1", "#45c99a", "#a7c957", "#ff8fba", "#d4a373", "#7eccc1", "#a6a9b6", "#ffcf5c", "#ee8a4d"];
@@ -1550,6 +1572,86 @@
           <td>${event.tickets.length ? `<span class="event-ticket-mark" aria-label="Evento vinculado a ${event.tickets.map(ticket => ticket.ticketNumber || "un ticket").map(escapeHtml).join(", ")}" title="${event.tickets.map(ticket => ticket.ticketNumber || "Ticket").map(escapeHtml).join(", ")}">${escapeHtml(ticketLabel)}</span>` : "—"}</td>
         </tr>`;
       }).join("") || '<tr><td colspan="9" class="empty-state">No hay eventos de mantenimiento para los filtros seleccionados.</td></tr>';
+    }
+
+    function renderInspectionHistory() {
+      const records = inspectionHistoryRecords;
+      const sites = AdminStore.listSites();
+      const technicianOptions = records.map(row => ({ value: row.technician_id || `name:${row.technician_name || ""}`, label: row.technician_name || "Sin técnico" }));
+      const supervisorOptions = records.map(row => ({ value: row.supervisor_id || `name:${row.supervisor_name || ""}`, label: row.supervisor_name || "Sin supervisor" }));
+      const selected = {
+        technician: $("inspectionHistoryTechnician").value,
+        supervisor: $("inspectionHistorySupervisor").value,
+        site: $("inspectionHistorySite").value
+      };
+      setHistorySelectOptions($("inspectionHistoryTechnician"), technicianOptions, "Todos", selected.technician);
+      setHistorySelectOptions($("inspectionHistorySupervisor"), supervisorOptions, "Todos", selected.supervisor);
+      setHistorySelectOptions($("inspectionHistorySite"), sites.map(site => ({ value: site.id, label: site.name })), "Todas", selected.site);
+      const from = $("inspectionHistoryDateFrom").value;
+      const to = $("inspectionHistoryDateTo").value;
+      const technician = $("inspectionHistoryTechnician").value;
+      const supervisor = $("inspectionHistorySupervisor").value;
+      const siteId = $("inspectionHistorySite").value;
+      const status = $("inspectionHistoryStatus").value;
+      const siteLegacyById = new Map(sites.map(site => [String(site.id), String(site.id)]));
+      const filtered = records.filter(row => {
+        const date = String(row.occurred_at || row.created_at || "").slice(0, 10);
+        const siteLegacyId = String(row.site_legacy_id || "");
+        const site = sites.find(item => String(item.id) === siteLegacyId || String(item.supabaseId || "") === String(row.site_id));
+        const resolvedSiteId = site?.id || siteLegacyById.get(siteLegacyId) || siteLegacyId;
+        const normalizedStatus = inspectionHistoryState(row);
+        return (!from || date >= from) && (!to || date <= to)
+          && (technician === "*" || String(row.technician_id || `name:${row.technician_name || ""}`) === technician)
+          && (supervisor === "*" || String(row.supervisor_id || `name:${row.supervisor_name || ""}`) === supervisor)
+          && (siteId === "*" || resolvedSiteId === siteId)
+          && (status === "*" || normalizedStatus === status);
+      });
+      adminFilteredInspectionRecords = filtered;
+      $("inspectionHistoryResultCount").textContent = `${filtered.length} ${filtered.length === 1 ? "revisión" : "revisiones"}`;
+      $("inspectionHistoryBody").innerHTML = filtered.map(row => {
+        const date = formatTicketDate(row.occurred_at || row.created_at);
+        const state = inspectionHistoryState(row);
+        const marker = state === "Ejecutado" ? "✓" : state === "Eliminado" ? "×" : "●";
+        return `<tr><td>${escapeHtml(row.inspection_number || "—")}</td><td>${escapeHtml(date)}</td><td>${escapeHtml(row.site_name || "—")}</td><td>${escapeHtml(row.equipment_name || "Equipo")}${row.equipment_model ? `<span class="subtext">${escapeHtml(row.equipment_model)}</span>` : ""}</td><td>${escapeHtml(row.fixed_asset || "—")}</td><td>${escapeHtml(row.technician_name || "—")}</td><td>${escapeHtml(row.supervisor_name || "—")}</td><td><span class="inspection-history-status ${state === "Ejecutado" ? "is-done" : state === "Eliminado" ? "is-deleted" : state === "En ejecución" ? "is-progress" : "is-pending"}" aria-label="${state}"><span aria-hidden="true">${marker}</span>${state}</span></td><td><button class="secondary-button" type="button" data-delete-inspection="${escapeHtml(row.id)}" ${state === "Eliminado" ? "disabled" : ""}>Eliminar</button></td></tr>`;
+      }).join("") || '<tr><td colspan="9" class="empty-state">No hay revisiones para los filtros seleccionados.</td></tr>';
+    }
+
+    function inspectionHistoryState(row) {
+      const value = String(row?.status || "Pendiente").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("es");
+      return value === "eliminado" || row?.deleted_at ? "Eliminado" : value === "ejecutado" ? "Ejecutado" : value === "en ejecucion" ? "En ejecución" : "Pendiente";
+    }
+
+    async function deleteInspectionRecord(recordId) {
+      const row = inspectionHistoryRecords.find(item => String(item.id) === String(recordId));
+      if (!row || inspectionHistoryState(row) === "Eliminado") return;
+      const label = row.inspection_number ? `N.º ${row.inspection_number}` : (row.equipment_name || "esta inspección");
+      if (!window.confirm(`¿Eliminar la inspección ${label}? Se conservará en el historial con estado “Eliminado”.`)) return;
+      try {
+        await SmartFitSupabaseData.updateInspectionStatus(row.id, "Eliminado");
+        await refreshInspectionHistory();
+        window.dispatchEvent(new CustomEvent("smartfit:inspection-records-changed"));
+      } catch (error) {
+        window.alert(error.message || "No se pudo marcar la inspección como eliminada.");
+      }
+    }
+
+    function exportInspectionHistoryPdf(lite = false) {
+      return window.SmartFitInspectionReports?.export(adminFilteredInspectionRecords, {
+        lite,
+        generatedBy: adminSession?.name || "Administrador",
+        getPhotoUrls: paths => SmartFitSupabaseData.getInspectionPhotoUrls(paths)
+      });
+    }
+
+    async function refreshInspectionHistory() {
+      $("inspectionHistoryResultCount").textContent = "Cargando inspecciones…";
+      try {
+        inspectionHistoryRecords = await SmartFitSupabaseData.listInspectionRecords();
+        renderInspectionHistory();
+      } catch (error) {
+        $("inspectionHistoryResultCount").textContent = "No se pudieron cargar las inspecciones";
+        $("inspectionHistoryBody").innerHTML = `<tr><td colspan="9" class="empty-state">${escapeHtml(error.message || "Revisa la conexión y vuelve a intentarlo.")}</td></tr>`;
+      }
     }
 
     async function exportMaintenanceHistoryPdf() {
@@ -2398,6 +2500,7 @@
       if (name === "tickets") renderTickets();
       if (name === "inventory") renderAdminInventory();
       if (name === "maintenanceHistory" && !$("maintenanceHistoryBlank").hidden) renderMaintenanceHistory();
+      if (name === "maintenanceHistory" && !$("inspectionHistoryBlank").hidden) void refreshInspectionHistory();
     }
 
     function openUserModal(user) {
@@ -2646,13 +2749,26 @@
     $("openMaintenanceHistory").addEventListener("click", () => {
       $("maintenanceHistoryChooser").hidden = true;
       $("mileageHistoryBlank").hidden = true;
+      $("inspectionHistoryBlank").hidden = true;
       $("maintenanceHistoryBlank").hidden = false;
       renderMaintenanceHistory();
     });
     $("backToMaintenanceHistory").addEventListener("click", () => {
       $("maintenanceHistoryBlank").hidden = true;
       $("mileageHistoryBlank").hidden = true;
+      $("inspectionHistoryBlank").hidden = true;
       $("maintenanceHistoryChooser").hidden = false;
+    });
+    $("openInspectionHistoryPage").addEventListener("click", () => {
+      $("maintenanceHistoryBlank").hidden = true;
+      $("mileageHistoryBlank").hidden = true;
+      $("inspectionHistoryBlank").hidden = false;
+      void refreshInspectionHistory();
+    });
+    $("backToMaintenanceFromInspection").addEventListener("click", () => {
+      $("inspectionHistoryBlank").hidden = true;
+      $("maintenanceHistoryBlank").hidden = false;
+      renderMaintenanceHistory();
     });
     $("openMileageHistoryPage").addEventListener("click", () => {
       $("maintenanceHistoryBlank").hidden = true;
@@ -2662,6 +2778,21 @@
     $("backToMaintenanceFromMileage").addEventListener("click", () => {
       $("mileageHistoryBlank").hidden = true;
       $("maintenanceHistoryBlank").hidden = false;
+    });
+    ["inspectionHistoryDateFrom", "inspectionHistoryDateTo", "inspectionHistoryTechnician", "inspectionHistorySupervisor", "inspectionHistorySite", "inspectionHistoryStatus"].forEach(id => {
+      $(id).addEventListener("input", renderInspectionHistory);
+      $(id).addEventListener("change", renderInspectionHistory);
+    });
+    $("clearInspectionHistoryFilters").addEventListener("click", () => {
+      ["inspectionHistoryDateFrom", "inspectionHistoryDateTo"].forEach(id => { $(id).value = ""; });
+      ["inspectionHistoryTechnician", "inspectionHistorySupervisor", "inspectionHistorySite", "inspectionHistoryStatus"].forEach(id => { $(id).value = "*"; });
+      renderInspectionHistory();
+    });
+    $("exportInspectionHistoryPdf").addEventListener("click", () => { void exportInspectionHistoryPdf(false); });
+    $("exportInspectionHistoryLitePdf").addEventListener("click", () => { void exportInspectionHistoryPdf(true); });
+    $("inspectionHistoryBody").addEventListener("click", event => {
+      const button = event.target.closest("[data-delete-inspection]");
+      if (button && !button.disabled) void deleteInspectionRecord(button.dataset.deleteInspection);
     });
     ["historyDateFrom", "historyDateTo"].forEach(id => $(id).addEventListener("input", renderMaintenanceHistory));
     $("historyTechnician").addEventListener("change", renderMaintenanceHistory);
@@ -2749,6 +2880,7 @@
       if (event.key === TICKETS_STORAGE_KEY && !$("ticketsView").hidden) renderTickets();
       if ([TICKETS_STORAGE_KEY, MACHINE_RECORDS_KEY, "smartfit.admin.sites.v1", "smartfit.admin.users.v1"].includes(event.key) && !$("maintenanceHistoryView").hidden && !$("maintenanceHistoryBlank").hidden) renderMaintenanceHistory();
       if ([MACHINE_RECORDS_KEY, "smartfit.admin.sites.v1", "smartfit.admin.users.v1"].includes(event.key) && !$("maintenanceHistoryView").hidden && !$("mileageHistoryBlank").hidden) renderMileageHistory();
+      if (event.key === "smartfit.inspection.records.changed.v1" && !$("maintenanceHistoryView").hidden && !$("inspectionHistoryBlank").hidden) void refreshInspectionHistory();
     });
     document.querySelectorAll("[data-open-users]").forEach(button => {
       button.addEventListener("click", () => showView("users"));
@@ -3147,6 +3279,7 @@
         let historyPage = "";
         if (activeView === "maintenanceHistory") {
           if (!$('mileageHistoryBlank').hidden) historyPage = "mileage";
+          else if (!$('inspectionHistoryBlank').hidden) historyPage = "inspection";
           else if (!$('maintenanceHistoryBlank').hidden) historyPage = "maintenance";
         }
         const commonHost = document.querySelector("#commonFailuresView [data-common-failures-src]");
@@ -3159,12 +3292,17 @@
         $('maintenanceHistoryChooser').hidden = Boolean(state.historyPage);
         $('maintenanceHistoryBlank').hidden = state.historyPage !== "maintenance";
         $('mileageHistoryBlank').hidden = state.historyPage !== "mileage";
+        $('inspectionHistoryBlank').hidden = state.historyPage !== "inspection";
         if (state.historyPage === "maintenance") renderMaintenanceHistory();
         if (state.historyPage === "mileage") renderMileageHistory();
+        if (state.historyPage === "inspection") void refreshInspectionHistory();
       }
     });
     setupChartInteractions();
     render();
+    window.addEventListener("smartfit:inspection-records-changed", () => {
+      if (!$('maintenanceHistoryView').hidden && !$('inspectionHistoryBlank').hidden) void refreshInspectionHistory();
+    });
     window.addEventListener("smartfit:supabase-data-hydrated", event => {
       const tables = Array.isArray(event.detail?.tables) ? new Set(event.detail.tables) : null;
       if (!tables) {
@@ -3172,6 +3310,7 @@
         if (!$('ticketsView').hidden) renderTickets();
         if (!$('maintenanceHistoryView').hidden && !$('maintenanceHistoryBlank').hidden) renderMaintenanceHistory();
         if (!$('maintenanceHistoryView').hidden && !$('mileageHistoryBlank').hidden) renderMileageHistory();
+        if (!$('maintenanceHistoryView').hidden && !$('inspectionHistoryBlank').hidden) void refreshInspectionHistory();
         return;
       }
       const view = document.querySelector(".view:not([hidden])")?.id || "overviewView";
