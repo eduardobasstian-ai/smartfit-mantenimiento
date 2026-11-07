@@ -733,11 +733,28 @@
     return { saved: saved.length, inspectionId, inspectionNumber: saved.find(row => row.inspection_number)?.inspection_number || null };
   }
   async function listInspectionRecords() {
-     const rows = await getRows("inspection_records", "id,inspection_id,inspection_number,inspection_counter,legacy_id,site_id,site_legacy_id,equipment_id,equipment_legacy_id,equipment_name,equipment_model,brand_name,fixed_asset,technician_id,technician_name,supervisor_id,supervisor_name,registered_by,registered_by_name,occurred_at,finding,observations,correction,corrected_by,corrected_by_name,corrected_at,status,execution_started_at,photos,deleted_at,deleted_by,deleted_by_name,created_at,updated_at");
-    const sites = await getRows("sites", "id,legacy_id,name,internal_code");
+    const [rows, sites] = await Promise.all([
+      getRows("inspection_records", "id,inspection_id,inspection_number,inspection_counter,legacy_id,site_id,site_legacy_id,equipment_id,equipment_legacy_id,equipment_name,equipment_model,brand_name,fixed_asset,technician_id,technician_name,supervisor_id,supervisor_name,registered_by,registered_by_name,occurred_at,finding,observations,correction,corrected_by,corrected_by_name,corrected_at,status,execution_started_at,photos,deleted_at,deleted_by,deleted_by_name,created_at,updated_at"),
+      getRows("sites", "id,legacy_id,name,internal_code")
+    ]);
     const siteNames = new Map(sites.map(site => [site.id, site.name || ""]));
     const siteCodes = new Map(sites.map(site => [site.id, site.internal_code ?? null]));
     return rows.map(row => Object.assign({}, row, { site_name: siteNames.get(row.site_id) || row.site_legacy_id || "Sede", site_internal_code: siteCodes.get(row.site_id) }));
+  }
+  async function listPendingInspectionCounts() {
+    const actor = appSession();
+    const filters = ["status=not.in.(Ejecutado,Eliminado)", "deleted_at=is.null"];
+    if (actor?.role === "Técnico" && actor.authId) filters.push(`technician_id=eq.${encodeURIComponent(String(actor.authId))}`);
+    const rows = await queryRows(`inspection_records?select=site_legacy_id,status,technician_id,deleted_at&${filters.join("&")}`);
+    const counts = {};
+    rows.forEach(row => {
+      const status = String(row.status || "Pendiente").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("es");
+      if (!row.site_legacy_id || row.deleted_at || status === "ejecutado" || status === "eliminado") return;
+      if (actor?.role === "Técnico" && String(row.technician_id || "") !== String(actor.authId || "")) return;
+      const siteId = String(row.site_legacy_id);
+      counts[siteId] = (counts[siteId] || 0) + 1;
+    });
+    return counts;
   }
   async function getInspectionPhotoUrls(paths = []) {
     const uniquePaths = [...new Set((Array.isArray(paths) ? paths : []).map(String).filter(Boolean))];
@@ -2238,5 +2255,5 @@
     try { return JSON.parse(sessionStorage.getItem(key) || "null"); } catch (error) { return null; }
   }
 
-  global.SmartFitSupabaseData = { hydrate, manageUser, persistSite, persistBrand, deleteBrand, deleteSite, recordAccess, syncPendingAccessLogs, startRealtimeSync, persistTicket: persistTicketQueued, assignTicketTechnician, listAssignableTicketTechnicians, persistMachineRecord, retryPending: flushPending, getReportImages, loadMachineRecordMedia, prepareMachineRecordStorage, writeMachineRecordCache, getMachineRecordWithCachedMediaSync, prepareTicketStorage, writeTicketCache, getTicketsWithCachedMediaSync, listCommonKnowledgeEntries, saveCommonKnowledgeEntry, deleteCommonKnowledgeEntry, uploadCommonKnowledgeImage, deleteCommonKnowledgeImages, getCommonKnowledgeImageUrls, saveInspectionBatch, listInspectionRecords, getInspectionPhotoUrls, updateInspectionStatus, startInspectionExecution, importLocalCommonKnowledge };
+  global.SmartFitSupabaseData = { hydrate, manageUser, persistSite, persistBrand, deleteBrand, deleteSite, recordAccess, syncPendingAccessLogs, startRealtimeSync, persistTicket: persistTicketQueued, assignTicketTechnician, listAssignableTicketTechnicians, persistMachineRecord, retryPending: flushPending, getReportImages, loadMachineRecordMedia, prepareMachineRecordStorage, writeMachineRecordCache, getMachineRecordWithCachedMediaSync, prepareTicketStorage, writeTicketCache, getTicketsWithCachedMediaSync, listCommonKnowledgeEntries, saveCommonKnowledgeEntry, deleteCommonKnowledgeEntry, uploadCommonKnowledgeImage, deleteCommonKnowledgeImages, getCommonKnowledgeImageUrls, saveInspectionBatch, listInspectionRecords, listPendingInspectionCounts, getInspectionPhotoUrls, updateInspectionStatus, startInspectionExecution, importLocalCommonKnowledge };
 })(window);

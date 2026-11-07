@@ -980,6 +980,10 @@
     let inspectionPhase = "";
     let inspectionDraft = null;
     let sharedInspectionRecords = [];
+    let inspectionRecordsLoaded = false;
+    let inspectionRecordsRefreshPromise = null;
+    let pendingInspectionCountsRefreshPromise = null;
+    let pendingInspectionCountsBySite = new Map();
     let supervisorFilteredInspectionRecords = [];
     let inspectionRecordsReturnPhase = "brand-list";
     let activeInspectionExecutionId = "";
@@ -1112,6 +1116,8 @@
       $("technicianHeading").textContent = user.name;
       const userSiteIds = new Set((user.siteIds || []).map(String));
       assignedSites = AdminStore.listSites().filter(site => adminMode || userSiteIds.has(String(site.id)));
+      loadCachedPendingInspectionCounts();
+      void refreshPendingInspectionCounts();
       if (supervisorMode) renderSupervisorSummary();
       else renderSiteList();
     }
@@ -2177,7 +2183,7 @@
       $("siteGrid").innerHTML = filteredSites.map(site => {
         const count = Number(site.machineCount) || 0;
         const ticketCount = ticketCounts.get(site.id) || 0;
-        const inspectionCount = pendingInspectionsForSite(site.id).length;
+        const inspectionCount = pendingInspectionCountForSite(site.id);
         return `<button class="site-card" type="button" data-open-site="${escapeHtml(site.id)}">
           <span class="site-name">${escapeHtml(site.name)}</span>
           <span class="site-card-meta"><span class="site-count">${count} ${count === 1 ? "equipo" : "equipos"} · Ver marcas →</span>${ticketCount > 0 ? `<span class="site-ticket-badge"><span class="site-ticket-badge-icon" aria-hidden="true">✓</span>Tickets <strong>${ticketCount}</strong></span>` : ""}${inspectionBadge(inspectionCount)}</span>
@@ -2246,12 +2252,59 @@
       return sharedInspectionRecords.filter(record => canCurrentUserSeeInspection(record) && isPendingInspection(record) && String(record.site_legacy_id || "") === String(siteId));
     }
 
+    function inspectionCountsCacheKey() {
+      return `smartfit.inspection.site-counts.v1:${user?.authId || user?.id || "guest"}`;
+    }
+
+    function loadCachedPendingInspectionCounts() {
+      try {
+        const cached = JSON.parse(localStorage.getItem(inspectionCountsCacheKey()) || "{}");
+        pendingInspectionCountsBySite = new Map(Object.entries(cached).map(([siteId, count]) => [String(siteId), Math.max(0, Number(count) || 0)]));
+      } catch (error) {
+        pendingInspectionCountsBySite = new Map();
+      }
+    }
+
+    function updatePendingInspectionCounts(records) {
+      const counts = new Map();
+      records.forEach(record => {
+        if (!canCurrentUserSeeInspection(record) || !isPendingInspection(record)) return;
+        const siteId = String(record.site_legacy_id || "");
+        if (siteId) counts.set(siteId, (counts.get(siteId) || 0) + 1);
+      });
+      pendingInspectionCountsBySite = counts;
+      try { localStorage.setItem(inspectionCountsCacheKey(), JSON.stringify(Object.fromEntries(counts))); } catch (error) {}
+    }
+
+    function pendingInspectionCountForSite(siteId) {
+      return pendingInspectionCountsBySite.get(String(siteId)) || 0;
+    }
+
+    async function refreshPendingInspectionCounts() {
+      if (!window.SmartFitSupabaseData?.listPendingInspectionCounts) return;
+      if (pendingInspectionCountsRefreshPromise) return pendingInspectionCountsRefreshPromise;
+      pendingInspectionCountsRefreshPromise = (async () => {
+        try {
+          const counts = await SmartFitSupabaseData.listPendingInspectionCounts();
+          pendingInspectionCountsBySite = new Map(Object.entries(counts || {}).map(([siteId, count]) => [String(siteId), Math.max(0, Number(count) || 0)]));
+          try { localStorage.setItem(inspectionCountsCacheKey(), JSON.stringify(Object.fromEntries(pendingInspectionCountsBySite))); } catch (error) {}
+          if (!$("sitesPanel").hidden && $("siteGrid").classList.contains("site-grid")) renderSiteList();
+        } catch (error) {
+          console.warn("No se pudieron actualizar los contadores de inspección.", error);
+        } finally {
+          pendingInspectionCountsRefreshPromise = null;
+        }
+      })();
+      return pendingInspectionCountsRefreshPromise;
+    }
+
     function inspectionRecordsForMachine(recordKey) {
       return sharedInspectionRecords.filter(record => canCurrentUserSeeInspection(record) && String(record.equipment_legacy_id || "") === String(recordKey))
         .sort((a, b) => String(b.occurred_at || b.created_at || "").localeCompare(String(a.occurred_at || a.created_at || "")));
     }
 
     function renderSupervisorInspectionHistory() {
+      if (!inspectionRecordsLoaded) void refreshSharedInspectionRecords();
       activateSupervisorPanel("supervisorEventsPanel");
       const host = $("supervisorInspectionHistoryBody");
       if (!host) return;
@@ -2351,18 +2404,26 @@
 
     async function refreshSharedInspectionRecords() {
       if (!window.SmartFitSupabaseData?.listInspectionRecords) return;
-      try {
-        sharedInspectionRecords = await SmartFitSupabaseData.listInspectionRecords();
-        inspectionPhotoUrlCache = new Map();
-        if (currentMachine) renderMachineDetail(currentMachine);
-        else if (currentSite && inspectionPhase === "inspection-records") renderSiteInspectionRecords();
-        else if (currentSite && currentBrandId && $("siteGrid").classList.contains("machine-grid")) renderBrandEquipment(currentBrandId, { resetFilter: false });
-        else if (currentSite && $("siteGrid").classList.contains("brand-grid") && !inspectionPhase) renderSiteBrands(currentSite);
-        else if (!$("sitesPanel").hidden && $("siteGrid").classList.contains("site-grid")) renderSiteList();
-      if (supervisorMode && !$("supervisorInspectionHistoryBlank").hidden) renderSupervisorInspectionHistory();
-      } catch (error) {
-        console.warn("No se pudo actualizar el historial de inspecciones.", error);
-      }
+      if (inspectionRecordsRefreshPromise) return inspectionRecordsRefreshPromise;
+      inspectionRecordsRefreshPromise = (async () => {
+        try {
+          sharedInspectionRecords = await SmartFitSupabaseData.listInspectionRecords();
+          inspectionRecordsLoaded = true;
+          updatePendingInspectionCounts(sharedInspectionRecords);
+          inspectionPhotoUrlCache = new Map();
+          if (currentMachine) renderMachineDetail(currentMachine);
+          else if (currentSite && inspectionPhase === "inspection-records") renderSiteInspectionRecords();
+          else if (currentSite && currentBrandId && $("siteGrid").classList.contains("machine-grid")) renderBrandEquipment(currentBrandId, { resetFilter: false });
+          else if (currentSite && $("siteGrid").classList.contains("brand-grid") && !inspectionPhase) renderSiteBrands(currentSite);
+          else if (!$("sitesPanel").hidden && $("siteGrid").classList.contains("site-grid")) renderSiteList();
+          if (supervisorMode && !$("supervisorInspectionHistoryBlank").hidden) renderSupervisorInspectionHistory();
+        } catch (error) {
+          console.warn("No se pudo actualizar el historial de inspecciones.", error);
+        } finally {
+          inspectionRecordsRefreshPromise = null;
+        }
+      })();
+      return inspectionRecordsRefreshPromise;
     }
 
     async function persistInspectionDraft() {
@@ -2488,6 +2549,7 @@
 
     function renderSiteInspectionRecords() {
       if (!currentSite) return;
+      if (!inspectionRecordsLoaded) void refreshSharedInspectionRecords();
       activateSupervisorPanel("sitesPanel");
       const previousPhase = inspectionPhase;
       if (previousPhase !== "inspection-records") {
@@ -3393,6 +3455,7 @@
 
     function renderMachineDetail(machine) {
       if (!machine) return;
+      if (!inspectionRecordsLoaded) void refreshSharedInspectionRecords();
       activateSupervisorPanel("sitesPanel");
       currentMachine = machine;
       const item = machine.item;
@@ -4552,7 +4615,10 @@
     });
     window.addEventListener("smartfit:supabase-data-hydrated", event => {
       const tables = Array.isArray(event.detail?.tables) ? new Set(event.detail.tables) : null;
-      if (!tables || tables.has("inspection_records")) void refreshSharedInspectionRecords();
+      if (!tables || tables.has("inspection_records")) {
+        void refreshPendingInspectionCounts();
+        if (inspectionRecordsLoaded || currentMachine || inspectionPhase === "inspection-records" || (supervisorMode && !$("supervisorInspectionHistoryBlank").hidden)) void refreshSharedInspectionRecords();
+      }
       if (tables) {
         const has = (...names) => names.some(name => tables.has(name));
         const scopeChanged = has("profiles", "sites", "site_assignments");
@@ -4624,7 +4690,10 @@
         else renderSupervisorTicketSites(true);
       }
     });
-    window.addEventListener("smartfit:inspection-records-changed", () => { void refreshSharedInspectionRecords(); });
+    window.addEventListener("smartfit:inspection-records-changed", () => {
+      void refreshPendingInspectionCounts();
+      if (inspectionRecordsLoaded || currentMachine || inspectionPhase === "inspection-records" || (supervisorMode && !$("supervisorInspectionHistoryBlank").hidden)) void refreshSharedInspectionRecords();
+    });
     window.SmartFitMobileBack?.start({
       page: "site-panel",
       capture: () => {
