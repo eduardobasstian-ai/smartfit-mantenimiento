@@ -290,29 +290,49 @@
     });
   }
   async function restoreTicketMedia(tickets) {
-    const restored = [];
-    for (const ticket of Array.isArray(tickets) ? tickets : []) {
-      const key = `ticket::${ticket?.id}`;
-      let images = Array.isArray(ticket?.images) ? ticket.images : null;
+    const rows = Array.isArray(tickets) ? tickets : [];
+    const imagesByKey = new Map();
+    const missingKeys = new Set();
+    rows.forEach(ticket => {
+      if (!ticket?.id) return;
+      const key = `ticket::${ticket.id}`;
+      const images = Array.isArray(ticket.images) ? ticket.images : null;
       if (images?.length) {
         ticketMediaCache.set(key, images);
-      } else {
-        images = ticketMediaCache.get(key);
-        if (!images) {
-          try {
-            const database = await openRecordMediaDb();
-            images = await new Promise((resolve, reject) => {
-              const request = database.transaction("images", "readonly").objectStore("images").get(key);
-              request.onsuccess = () => resolve(Array.isArray(request.result) ? request.result : null);
-              request.onerror = () => reject(request.error);
-            });
-            if (images) ticketMediaCache.set(key, images);
-          } catch (error) { /* El ticket puede reintentarse sin fotos si el almacenamiento no está disponible. */ }
-        }
+        imagesByKey.set(key, images);
+        return;
       }
-      restored.push(images ? Object.assign({}, ticket, { images }) : ticket);
+      const cached = ticketMediaCache.get(key);
+      if (cached?.length) imagesByKey.set(key, cached);
+      else missingKeys.add(key);
+    });
+
+    // Una sola conexión/transacción para todos los adjuntos que no estén en RAM.
+    // Evita abrir una transacción IndexedDB por cada ticket en cada refresco.
+    if (missingKeys.size) {
+      try {
+        const database = await openRecordMediaDb();
+        const transaction = database.transaction("images", "readonly");
+        const store = transaction.objectStore("images");
+        const reads = [...missingKeys].map(key => new Promise((resolve, reject) => {
+          const request = store.get(key);
+          request.onsuccess = () => resolve([key, Array.isArray(request.result) ? request.result : null]);
+          request.onerror = () => reject(request.error || new Error("No se pudo recuperar una fotografía local."));
+        }));
+        const results = await Promise.all(reads);
+        results.forEach(([key, images]) => {
+          if (!images?.length) return;
+          ticketMediaCache.set(key, images);
+          imagesByKey.set(key, images);
+        });
+      } catch (error) {
+        // El ticket puede reintentarse sin fotos si el almacenamiento no está disponible.
+      }
     }
-    return restored;
+    return rows.map(ticket => {
+      const images = ticket?.id ? imagesByKey.get(`ticket::${ticket.id}`) : null;
+      return images ? Object.assign({}, ticket, { images }) : ticket;
+    });
   }
   async function prepareTicketStorage() {
     const tickets = parseLocal(TICKETS_KEY, []);
@@ -464,32 +484,58 @@
     records[recordKey] = stripRecordMedia(record);
     localStorage.setItem(RECORDS_KEY, JSON.stringify(records));
   }
-  async function restoreRecordMedia(recordKey, record) {
-    const restored = { maintenance: [], mileage: [] };
-    for (const kind of ["maintenance", "mileage"]) {
-      for (const entry of Array.isArray(record?.[kind]) ? record[kind] : []) {
-        let images = Array.isArray(entry?.images) ? entry.images : null;
-        const key = recordMediaKey(recordKey, kind, entry?.id);
-        if (images?.length) {
-          recordMediaCache.set(key, images);
-        } else {
-          images = recordMediaCache.get(key);
-          if (!images) {
-            try {
-              const database = await openRecordMediaDb();
-              images = await new Promise((resolve, reject) => {
-                const request = database.transaction("images", "readonly").objectStore("images").get(key);
-                request.onsuccess = () => resolve(Array.isArray(request.result) ? request.result : null);
-                request.onerror = () => reject(request.error);
-              });
-              if (images) recordMediaCache.set(key, images);
-            } catch (error) { /* La entrada se puede sincronizar sin fotografías locales. */ }
+  async function restoreRecordMediaBatch(entries) {
+    const rows = Array.isArray(entries) ? entries : [];
+    const imagesByKey = new Map();
+    const missingKeys = new Set();
+    rows.forEach(({ recordKey, record }) => {
+      for (const kind of ["maintenance", "mileage"]) {
+        for (const entry of Array.isArray(record?.[kind]) ? record[kind] : []) {
+          if (!entry?.id) continue;
+          const key = recordMediaKey(recordKey, kind, entry.id);
+          const images = Array.isArray(entry.images) ? entry.images : null;
+          if (images?.length) {
+            recordMediaCache.set(key, images);
+            imagesByKey.set(key, images);
+          } else {
+            const cached = recordMediaCache.get(key);
+            if (cached?.length) imagesByKey.set(key, cached);
+            else missingKeys.add(key);
           }
         }
-        restored[kind].push(images ? Object.assign({}, entry, { images }) : entry);
       }
+    });
+    if (missingKeys.size) {
+      try {
+        const database = await openRecordMediaDb();
+        const transaction = database.transaction("images", "readonly");
+        const store = transaction.objectStore("images");
+        const reads = [...missingKeys].map(key => new Promise((resolve, reject) => {
+          const request = store.get(key);
+          request.onsuccess = () => resolve([key, Array.isArray(request.result) ? request.result : null]);
+          request.onerror = () => reject(request.error || new Error("No se pudo recuperar una fotografía local."));
+        }));
+        (await Promise.all(reads)).forEach(([key, images]) => {
+          if (!images?.length) return;
+          recordMediaCache.set(key, images);
+          imagesByKey.set(key, images);
+        });
+      } catch (error) { /* Las entradas se pueden sincronizar sin fotos locales. */ }
     }
-    return restored;
+    return rows.map(({ recordKey, record }) => {
+      const restored = { maintenance: [], mileage: [] };
+      for (const kind of ["maintenance", "mileage"]) {
+        restored[kind] = (Array.isArray(record?.[kind]) ? record[kind] : []).map(entry => {
+          const images = entry?.id ? imagesByKey.get(recordMediaKey(recordKey, kind, entry.id)) : null;
+          return images ? Object.assign({}, entry, { images }) : entry;
+        });
+      }
+      return restored;
+    });
+  }
+  async function restoreRecordMedia(recordKey, record) {
+    const [restored] = await restoreRecordMediaBatch([{ recordKey, record }]);
+    return restored || { maintenance: [], mileage: [] };
   }
   // Mantiene el tamaño por debajo del límite máximo de filas que puede fijar
   // Supabase REST; así la paginación no confunde una página truncada con el final.
@@ -2056,6 +2102,28 @@
         }
         pending.records[recordKey] = queued;
       });
+      const mediaRestoreTargets = [];
+      Object.entries(mergedRecords).forEach(([recordKey, record]) => {
+        mediaRestoreTargets.push({ recordKey, record, target: "local" });
+      });
+      outboxRecords.forEach((item, recordKey) => {
+        if (item.record) mediaRestoreTargets.push({ recordKey, record: item.record, target: "outbox" });
+      });
+      const restoredMediaTargets = await restoreRecordMediaBatch(mediaRestoreTargets);
+      const localMediaByRecord = new Map();
+      const outboxMediaByRecord = new Map();
+      mediaRestoreTargets.forEach((target, index) => {
+        const restored = restoredMediaTargets[index];
+        if (target.target === "outbox") outboxMediaByRecord.set(target.recordKey, restored);
+        else localMediaByRecord.set(target.recordKey, restored);
+      });
+      outboxMediaByRecord.forEach((record, recordKey) => {
+        const local = localMediaByRecord.get(recordKey) || { maintenance: [], mileage: [] };
+        localMediaByRecord.set(recordKey, {
+          maintenance: mergeById(local.maintenance, record.maintenance),
+          mileage: mergeById(local.mileage, record.mileage)
+        });
+      });
       const queueRecordEntry = (recordKey, kind, id) => {
         if (!id) return;
         const queued = pending.records[recordKey] || { maintenance: [], mileage: [] };
@@ -2067,7 +2135,7 @@
         // Los registros remotos pueden tener photos=[] cuando una sincronización
         // anterior subió el evento, pero no sus adjuntos. Recupera los originales
         // de IndexedDB antes de reemplazar la caché local con la respuesta remota.
-        const localWithMedia = await restoreRecordMedia(recordKey, localRecord);
+        const localWithMedia = localMediaByRecord.get(recordKey) || localRecord;
         const remoteWithRecoveredMedia = { maintenance: [], mileage: [] };
         const syncedMediaKeys = [];
         for (const kind of ["maintenance", "mileage"]) {
@@ -2104,9 +2172,7 @@
         await deleteStoredMedia(syncedMediaKeys);
         cacheRecordMedia(recordKey, remoteWithRecoveredMedia);
         const durableRecord = outboxRecords.get(recordKey);
-        const durableWithMedia = durableRecord?.record
-          ? await restoreRecordMedia(recordKey, durableRecord.record)
-          : { maintenance: [], mileage: [] };
+        const durableWithMedia = outboxMediaByRecord.get(recordKey) || { maintenance: [], mileage: [] };
         const mergedRecord = {
           maintenance: mergeById(localWithMedia.maintenance, remoteWithRecoveredMedia.maintenance),
           mileage: mergeById(localWithMedia.mileage, remoteWithRecoveredMedia.mileage)
@@ -2119,14 +2185,12 @@
       // los eventos remotos para esta cuenta.
       for (const [recordKey, localRecord] of Object.entries(mergedRecords)) {
         if (hydratedRecords[recordKey]) continue;
-        const localWithMedia = await restoreRecordMedia(recordKey, localRecord);
+        const localWithMedia = localMediaByRecord.get(recordKey) || localRecord;
         for (const kind of ["maintenance", "mileage"]) {
           for (const item of localWithMedia[kind] || []) queueRecordEntry(recordKey, kind, item.id);
         }
         const durableRecord = outboxRecords.get(recordKey);
-        const durableWithMedia = durableRecord?.record
-          ? await restoreRecordMedia(recordKey, durableRecord.record)
-          : null;
+        const durableWithMedia = outboxMediaByRecord.get(recordKey) || null;
         mergedRecords[recordKey] = durableRecord
           ? overlayOutboxRecord(localWithMedia, durableRecord, durableWithMedia)
           : localWithMedia;
