@@ -984,6 +984,7 @@
     let inspectionRecordsRefreshPromise = null;
     let pendingInspectionCountsRefreshPromise = null;
     let pendingInspectionCountsBySite = new Map();
+    let pendingInspectionCountsByEquipment = new Map();
     let supervisorFilteredInspectionRecords = [];
     let inspectionRecordsReturnPhase = "brand-list";
     let activeInspectionExecutionId = "";
@@ -2253,27 +2254,44 @@
     }
 
     function inspectionCountsCacheKey() {
-      return `smartfit.inspection.site-counts.v1:${user?.authId || user?.id || "guest"}`;
+      return `smartfit.inspection.pending-counts.v2:${user?.authId || user?.id || "guest"}`;
+    }
+
+    function applyPendingInspectionCounts(counts = {}) {
+      // Lee también la caché antigua, que era un mapa directo por sede.
+      const sites = counts.sites || counts;
+      pendingInspectionCountsBySite = new Map(Object.entries(sites).filter(([key, value]) => key !== "brands" && key !== "equipment" && Number.isFinite(Number(value))).map(([siteId, count]) => [String(siteId), Math.max(0, Number(count) || 0)]));
+      pendingInspectionCountsByEquipment = new Map(Object.entries(counts.equipment || {}).map(([key, count]) => [String(key), Math.max(0, Number(count) || 0)]));
     }
 
     function loadCachedPendingInspectionCounts() {
       try {
-        const cached = JSON.parse(localStorage.getItem(inspectionCountsCacheKey()) || "{}");
-        pendingInspectionCountsBySite = new Map(Object.entries(cached).map(([siteId, count]) => [String(siteId), Math.max(0, Number(count) || 0)]));
+        const oldKey = `smartfit.inspection.site-counts.v1:${user?.authId || user?.id || "guest"}`;
+        const cached = JSON.parse(localStorage.getItem(inspectionCountsCacheKey()) || localStorage.getItem(oldKey) || "{}");
+        applyPendingInspectionCounts(cached);
       } catch (error) {
         pendingInspectionCountsBySite = new Map();
+        pendingInspectionCountsByEquipment = new Map();
       }
     }
 
     function updatePendingInspectionCounts(records) {
-      const counts = new Map();
+      const counts = { sites: new Map(), equipment: new Map() };
       records.forEach(record => {
         if (!canCurrentUserSeeInspection(record) || !isPendingInspection(record)) return;
         const siteId = String(record.site_legacy_id || "");
-        if (siteId) counts.set(siteId, (counts.get(siteId) || 0) + 1);
+        if (!siteId) return;
+        counts.sites.set(siteId, (counts.sites.get(siteId) || 0) + 1);
+        const equipmentKey = String(record.equipment_legacy_id || "");
+        if (equipmentKey) counts.equipment.set(equipmentKey, (counts.equipment.get(equipmentKey) || 0) + 1);
       });
-      pendingInspectionCountsBySite = counts;
-      try { localStorage.setItem(inspectionCountsCacheKey(), JSON.stringify(Object.fromEntries(counts))); } catch (error) {}
+      pendingInspectionCountsBySite = counts.sites;
+      pendingInspectionCountsByEquipment = counts.equipment;
+      try {
+        localStorage.setItem(inspectionCountsCacheKey(), JSON.stringify({
+          sites: Object.fromEntries(counts.sites), equipment: Object.fromEntries(counts.equipment)
+        }));
+      } catch (error) {}
     }
 
     function pendingInspectionCountForSite(siteId) {
@@ -2286,9 +2304,11 @@
       pendingInspectionCountsRefreshPromise = (async () => {
         try {
           const counts = await SmartFitSupabaseData.listPendingInspectionCounts();
-          pendingInspectionCountsBySite = new Map(Object.entries(counts || {}).map(([siteId, count]) => [String(siteId), Math.max(0, Number(count) || 0)]));
-          try { localStorage.setItem(inspectionCountsCacheKey(), JSON.stringify(Object.fromEntries(pendingInspectionCountsBySite))); } catch (error) {}
+          applyPendingInspectionCounts(counts || {});
+          try { localStorage.setItem(inspectionCountsCacheKey(), JSON.stringify(counts || {})); } catch (error) {}
           if (!$("sitesPanel").hidden && $("siteGrid").classList.contains("site-grid")) renderSiteList();
+          else if (currentSite && currentBrandId && $("siteGrid").classList.contains("machine-grid")) renderBrandEquipment(currentBrandId, { resetFilter: false });
+          else if (currentSite && $("siteGrid").classList.contains("brand-grid") && !inspectionPhase) renderSiteBrands(currentSite);
         } catch (error) {
           console.warn("No se pudieron actualizar los contadores de inspección.", error);
         } finally {
@@ -3036,7 +3056,7 @@
           const recordKey = `${site.id}::${unitKey}`;
           const matchingTickets = countMachineTickets({ item, unit, recordKey }, tickets, site.id);
           ticketsByBrand.set(key, (ticketsByBrand.get(key) || 0) + matchingTickets);
-          const pendingCount = inspectionRecordsForMachine(recordKey).filter(isPendingInspection).length;
+          const pendingCount = pendingInspectionCountsByEquipment.get(recordKey) || 0;
           if (pendingCount) inspectionsByBrand.set(key, (inspectionsByBrand.get(key) || 0) + pendingCount);
         });
       });
@@ -3086,7 +3106,7 @@
       $("siteGrid").innerHTML = filteredMachines.map(({ machine, index }) => {
         const { item, unit } = machine;
         const ticketCount = countMachineTickets(machine, tickets);
-        const inspectionCount = inspectionRecordsForMachine(machine.recordKey).filter(isPendingInspection).length;
+        const inspectionCount = pendingInspectionCountsByEquipment.get(String(machine.recordKey)) || 0;
         const image = supervisorCatalogImage(item);
         return `
         <article class="machine-card" data-open-machine="${index}" role="button" tabindex="0" aria-label="Abrir ficha de ${escapeHtml(item.name || "Equipo")}">

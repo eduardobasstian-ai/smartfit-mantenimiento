@@ -745,14 +745,16 @@
     const actor = appSession();
     const filters = ["status=not.in.(Ejecutado,Eliminado)", "deleted_at=is.null"];
     if (actor?.role === "Técnico" && actor.authId) filters.push(`technician_id=eq.${encodeURIComponent(String(actor.authId))}`);
-    const rows = await queryRows(`inspection_records?select=site_legacy_id,status,technician_id,deleted_at&${filters.join("&")}`);
-    const counts = {};
+    const rows = await queryRows(`inspection_records?select=site_legacy_id,equipment_legacy_id,status,technician_id,deleted_at&${filters.join("&")}`);
+    const counts = { sites: {}, equipment: {} };
     rows.forEach(row => {
       const status = String(row.status || "Pendiente").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("es");
       if (!row.site_legacy_id || row.deleted_at || status === "ejecutado" || status === "eliminado") return;
       if (actor?.role === "Técnico" && String(row.technician_id || "") !== String(actor.authId || "")) return;
       const siteId = String(row.site_legacy_id);
-      counts[siteId] = (counts[siteId] || 0) + 1;
+      counts.sites[siteId] = (counts.sites[siteId] || 0) + 1;
+      const equipmentKey = String(row.equipment_legacy_id || "");
+      if (equipmentKey) counts.equipment[equipmentKey] = (counts.equipment[equipmentKey] || 0) + 1;
     });
     return counts;
   }
