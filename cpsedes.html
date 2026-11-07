@@ -3393,7 +3393,7 @@
       const machineInspections = supervisorMaintenanceFlow
         ? allMachineInspections.filter(isPendingInspection)
         : allMachineInspections;
-      const showMachineInspectionTab = machineInspections.length > 0 && !supervisorMaintenanceFlow;
+      const showMachineInspectionTab = machineInspections.length > 0;
       if (!showMachineInspectionTab && currentMachineTab === "inspections") currentMachineTab = "maintenance";
       const activeInspection = machineInspections.find(row => String(row.id) === String(activeInspectionExecutionId));
       if (!activeInspection || inspectionState(activeInspection) !== "En ejecución" || !inspectionExecutionStarted(activeInspection)) {
