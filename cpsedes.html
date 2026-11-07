@@ -2396,7 +2396,7 @@
       const inInspectionRecords = phase === "inspection-records";
       $("requestPartsFromBrands").hidden = true;
       $("siteFilter").hidden = !(inList || phase === "site-list");
-      $("viewInspectionsButton").hidden = !supervisorMode || !(inBrands || inList || (phase === "site-brands"));
+      $("viewInspectionsButton").hidden = !supervisorMode || maintenanceFromActivityChoice || !(inBrands || inList || (phase === "site-brands"));
       $("searchQrButton").hidden = !(inBrands || inList);
       $("inspectionReviewButton").hidden = !((inBrands || inList) && (inspectionDraft?.entries?.length || 0) > 0);
       $("inspectionReviewCount").textContent = String(inspectionDraft?.entries?.length || 0);
@@ -2476,10 +2476,10 @@
       }
       inspectionPhase = "inspection-records";
       const records = sharedInspectionRecords
-        .filter(row => canCurrentUserSeeInspection(row) && String(row.site_legacy_id || "") === String(currentSite.id) && inspectionState(row) === "Pendiente")
+        .filter(row => canCurrentUserSeeInspection(row) && String(row.site_legacy_id || "") === String(currentSite.id) && isPendingInspection(row))
         .sort((a, b) => String(b.occurred_at || b.created_at || "").localeCompare(String(a.occurred_at || a.created_at || "")));
       $("panelHeading").textContent = "Ver Inspecciones";
-      $("panelDescription").textContent = `${currentSite.name} · Inspecciones pendientes vinculadas a los equipos y técnicos de esta sede.`;
+      $("panelDescription").textContent = `${currentSite.name} · Inspecciones pendientes o en ejecución vinculadas a los equipos y técnicos de esta sede.`;
       $("viewInspectionsButton").hidden = true;
       $("searchQrButton").hidden = true;
       $("requestPartsFromBrands").hidden = true;
@@ -2501,7 +2501,7 @@
           <button class="back-button" type="button" data-view-inspection-record="${escapeHtml(row.id)}">Ver inspección</button>
           ${user?.role === "Supervisor" && state !== "Eliminado" ? `<button class="back-button" type="button" data-delete-inspection="${escapeHtml(row.id)}">Eliminar inspección</button>` : ""}</div></article>`;
       }).join("");
-      $("siteGrid").innerHTML = cards || '<div class="empty-state">Esta sede no tiene inspecciones pendientes.</div>';
+      $("siteGrid").innerHTML = cards || '<div class="empty-state">Esta sede no tiene inspecciones pendientes o en ejecución.</div>';
     }
 
     function renderInspectionEquipmentList() {
@@ -2955,7 +2955,7 @@
       $("siteFilter").hidden = true;
       $("siteFilter").value = "";
       $("requestPartsFromBrands").hidden = false;
-      $("viewInspectionsButton").hidden = !supervisorMode;
+      $("viewInspectionsButton").hidden = !supervisorMode || maintenanceFromActivityChoice;
       $("searchQrButton").hidden = false;
       $("inspectionReviewButton").hidden = true;
       $("backToSites").hidden = false;
@@ -3388,7 +3388,13 @@
       const activeFixed = machine.unit.activeFixed === "" || machine.unit.activeFixed === undefined || machine.unit.activeFixed === null
         ? "N/A"
         : machine.unit.activeFixed;
-      const machineInspections = inspectionRecordsForMachine(machine.recordKey);
+      const allMachineInspections = inspectionRecordsForMachine(machine.recordKey);
+      const supervisorMaintenanceFlow = supervisorMode && maintenanceFromActivityChoice;
+      const machineInspections = supervisorMaintenanceFlow
+        ? allMachineInspections.filter(isPendingInspection)
+        : allMachineInspections;
+      const showMachineInspectionTab = machineInspections.length > 0 && !supervisorMaintenanceFlow;
+      if (!showMachineInspectionTab && currentMachineTab === "inspections") currentMachineTab = "maintenance";
       const activeInspection = machineInspections.find(row => String(row.id) === String(activeInspectionExecutionId));
       if (!activeInspection || inspectionState(activeInspection) !== "En ejecución" || !inspectionExecutionStarted(activeInspection)) {
         activeInspectionExecutionId = machineInspections.find(row => canExecuteInspection(row) && inspectionState(row) === "En ejecución" && inspectionExecutionStarted(row))?.id || "";
@@ -3470,6 +3476,7 @@
       $("panelHeading").textContent = item.name || "Ficha de máquina";
       $("panelDescription").textContent = `${currentSite.name} · ${item.model || "Sin modelo"} · AF: ${activeFixed}`;
       $("backToSites").textContent = "← Volver a equipos";
+      $("viewInspectionsButton").hidden = !supervisorMode || maintenanceFromActivityChoice;
       $("siteFilter").hidden = true;
       $("requestPartsFromBrands").hidden = true;
       $("siteGrid").className = "machine-detail";
@@ -3477,7 +3484,7 @@
         <div class="machine-tabs" role="tablist" aria-label="Información de la máquina">
           <button class="machine-tab${currentMachineTab === "maintenance" ? " active" : ""}" type="button" role="tab" aria-selected="${currentMachineTab === "maintenance"}" data-machine-tab="maintenance">Mantenimiento</button>
           <button class="machine-tab${currentMachineTab === "tickets" ? " active" : ""}" type="button" role="tab" aria-selected="${currentMachineTab === "tickets"}" data-machine-tab="tickets">Ver tickets</button>
-          ${machineInspections.length ? `<button class="machine-tab${currentMachineTab === "inspections" ? " active" : ""}" type="button" role="tab" aria-selected="${currentMachineTab === "inspections"}" data-machine-tab="inspections">Inspección${pendingMachineInspections.length ? ` <span class="inspection-tab-mark">I ${pendingMachineInspections.length}</span>` : ""}</button>` : ""}
+          ${showMachineInspectionTab ? `<button class="machine-tab${currentMachineTab === "inspections" ? " active" : ""}" type="button" role="tab" aria-selected="${currentMachineTab === "inspections"}" data-machine-tab="inspections">Inspección${pendingMachineInspections.length ? ` <span class="inspection-tab-mark">I ${pendingMachineInspections.length}</span>` : ""}</button>` : ""}
           ${user?.role === "Técnico" ? `<button class="machine-tab${currentMachineTab === "common-failures" ? " active" : ""}" type="button" role="tab" aria-selected="${currentMachineTab === "common-failures"}" data-machine-tab="common-failures">Fallas comunes</button>` : ""}
           ${treadmill ? `<button class="machine-tab${currentMachineTab === "mileage" ? " active" : ""}" type="button" role="tab" aria-selected="${currentMachineTab === "mileage"}" data-machine-tab="mileage">Historial de kilometraje (Km)</button>` : ""}
         </div>
@@ -3519,7 +3526,7 @@
             </table></div>
           </article>
         </section>
-        ${machineInspections.length ? `<section class="machine-tab-panel" data-machine-panel="inspections" ${currentMachineTab === "inspections" ? "" : "hidden"}><article class="machine-detail-card"><h3>Inspecciones</h3><p>Inspecciones registradas para este equipo y activo fijo AF: ${escapeHtml(activeFixed)}.</p><div class="supervisor-tickets-wrap machine-tickets-wrap"><table class="supervisor-tickets-table machine-tickets-table machine-inspection-table"><thead><tr><th>N.º de inspección</th><th>Fecha</th><th>Hallazgo / detalles</th><th>Estado</th></tr></thead><tbody>${inspectionRows}</tbody></table></div></article></section>` : ""}
+        ${showMachineInspectionTab ? `<section class="machine-tab-panel" data-machine-panel="inspections" ${currentMachineTab === "inspections" ? "" : "hidden"}><article class="machine-detail-card"><h3>Inspecciones</h3><p>Inspecciones registradas para este equipo y activo fijo AF: ${escapeHtml(activeFixed)}.</p><div class="supervisor-tickets-wrap machine-tickets-wrap"><table class="supervisor-tickets-table machine-tickets-table machine-inspection-table"><thead><tr><th>N.º de inspección</th><th>Fecha</th><th>Hallazgo / detalles</th><th>Estado</th></tr></thead><tbody>${inspectionRows}</tbody></table></div></article></section>` : ""}
         ${user?.role === "Técnico" ? `<section class="machine-tab-panel" data-machine-panel="common-failures" ${currentMachineTab === "common-failures" ? "" : "hidden"}><article class="machine-detail-card"><h3>Fallas comunes y tutoriales</h3><div class="cf-frame cf-embed" data-common-failures-src="${escapeHtml(commonFailuresFrameUrl(machine))}" aria-label="Fallas comunes de ${escapeHtml(item.name || "este equipo")}"></div></article></section>` : ""}
         ${treadmill ? `<section class="machine-tab-panel" data-machine-panel="mileage" ${currentMachineTab === "mileage" ? "" : "hidden"}>
           <article class="machine-detail-card">
@@ -3541,7 +3548,7 @@
         mileageMonthFilter = event.target.value;
         renderMachineDetail(currentMachine);
       });
-      if (currentMachineTab === "inspections" && machineInspections.some(row => (row.photos || []).some(photo => photo?.path && !inspectionPhotoUrlCache.has(photo.path)))) {
+      if (showMachineInspectionTab && currentMachineTab === "inspections" && machineInspections.some(row => (row.photos || []).some(photo => photo?.path && !inspectionPhotoUrlCache.has(photo.path)))) {
         void ensureInspectionPhotoUrls(machineInspections).then(() => {
           if (currentMachine && String(currentMachine.recordKey) === String(machine.recordKey) && currentMachineTab === "inspections") renderMachineDetail(currentMachine);
         }).catch(error => console.warn("No se pudieron cargar las fotos de inspección.", error));
