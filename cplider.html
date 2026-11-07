@@ -27,6 +27,7 @@
       --muted: #a3a6b2;
     }
     * { box-sizing: border-box; }
+    [hidden] { display: none !important; }
     body {
       min-height: 100vh;
       margin: 0;
@@ -753,8 +754,18 @@
       }[character]));
     }
 
+    function activateProfilePanel(panelId) {
+      if (!supervisorMode && !leaderMode) return;
+      const panelIds = ["supervisorSummary", "sitesPanel", "leaderTicketsPanel", "ticketHistoryPanel", "inventoryPanel"];
+      panelIds.forEach(id => {
+        const panel = $(id);
+        if (panel) panel.hidden = id !== panelId;
+      });
+    }
+
     function renderSiteList() {
       if (leaderMode) return;
+      activateProfilePanel("sitesPanel");
       currentSite = null;
       currentBrandId = "";
       currentMachine = null;
@@ -796,6 +807,14 @@
     }
 
     function setSupervisorActiveView(view) {
+      const panelByView = {
+        summary: "supervisorSummary",
+        sites: "sitesPanel",
+        tickets: "leaderTicketsPanel",
+        "ticket-history": "ticketHistoryPanel",
+        inventory: "inventoryPanel"
+      };
+      if (panelByView[view]) activateProfilePanel(panelByView[view]);
       document.querySelectorAll("[data-supervisor-view]").forEach(button => {
         const active = button.dataset.supervisorView === view;
         button.classList.toggle("active", active);
@@ -996,6 +1015,7 @@
     }
 
     function renderSupervisorSummary() {
+      activateProfilePanel("supervisorSummary");
       if (!supervisorMode) return;
       currentSite = null;
       currentBrandId = "";
@@ -1074,6 +1094,7 @@
     }
 
     function renderProfileInventory() {
+      activateProfilePanel("inventoryPanel");
       const rows = [];
       assignedSites.forEach(site => (Array.isArray(site.equipment) ? site.equipment : []).forEach(item => {
         const brand = brandDirectory.find(entry => String(entry.id) === String(item.brandId)) || brandDirectory.find(entry => normalizeChartLabel(entry.name) === normalizeChartLabel(item.brandName));
@@ -1122,6 +1143,7 @@
 
     function renderInventory() {
       if (!supervisorMode) return;
+      activateProfilePanel("inventoryPanel");
       leaderMaintenanceMode = false;
       currentSite = null;
       currentBrandId = "";
@@ -1144,6 +1166,7 @@
     }
 
     function renderLeaderTickets() {
+      activateProfilePanel("leaderTicketsPanel");
       if (!leaderMode) return;
       leaderMaintenanceMode = false;
       leaderTicketBrandId = "";
@@ -1215,6 +1238,7 @@
     }
 
     function renderTicketHistory() {
+      activateProfilePanel("ticketHistoryPanel");
       currentSite = null;
       currentBrandId = "";
       currentMachine = null;
@@ -1290,6 +1314,7 @@
 
     function renderLeaderMaintenanceEquipment({ resetFilter = true } = {}) {
       if (!leaderMode) return;
+      activateProfilePanel("sitesPanel");
       leaderMaintenanceMode = true;
       currentSite = null;
       currentBrandId = "";
@@ -1423,6 +1448,7 @@
 
     function renderSiteBrands(site) {
       if (!site) return;
+      activateProfilePanel("sitesPanel");
       currentMachine = null;
       currentBrandId = "";
       const inventory = Array.isArray(site.equipment) ? site.equipment : [];
@@ -1489,6 +1515,7 @@
 
     function renderBrandEquipment(brandId, { resetFilter = true } = {}) {
       if (!currentSite) return;
+      activateProfilePanel("sitesPanel");
       const brand = brandDirectory.find(entry => entry.id === brandId);
       if (!brand) return;
       currentBrandId = brandId;
@@ -1744,6 +1771,7 @@
 
     function renderMachineDetail(machine) {
       if (!machine) return;
+      activateProfilePanel("sitesPanel");
       currentMachine = machine;
       const item = machine.item;
       const leaderTicketMode = leaderMode && leaderMaintenanceMode;

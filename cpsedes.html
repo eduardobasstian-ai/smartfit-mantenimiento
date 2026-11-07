@@ -28,6 +28,7 @@
       --muted: #a3a6b2;
     }
     * { box-sizing: border-box; }
+    [hidden] { display: none !important; }
     body {
       min-height: 100vh;
       margin: 0;
@@ -179,7 +180,7 @@
     .inspection-record-copy > span { color:var(--muted,#aab0bf); font-size:13px; }
     .inspection-record-title { display:flex; align-items:center; justify-content:space-between; gap:10px; flex:1 1 100%; }
     @media(max-width:620px){.inspection-record-card{grid-template-columns:56px minmax(0,1fr);gap:10px;padding:10px}.inspection-record-card .machine-image-button,.inspection-record-card .image-placeholder{width:56px;height:56px}.inspection-record-copy{align-items:flex-start;flex-direction:column}.inspection-record-title{align-items:flex-start;flex-direction:column}}
-    .supervisor-summary[hidden], #sitesPanel[hidden], #supervisorTicketsPanel[hidden], #supervisorRaiseTicketPanel[hidden], #supervisorEventsPanel[hidden], #inventoryPanel[hidden] { display: none !important; }
+    .supervisor-summary[hidden], #sitesPanel[hidden], #supervisorTicketsPanel[hidden], #supervisorRaiseTicketPanel[hidden], #supervisorEventsPanel[hidden], #inventoryPanel[hidden], #commonFailuresPanel[hidden] { display: none !important; }
     .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
     .supervisor-summary { display: grid; gap: 18px; }
     .supervisor-summary-heading { margin: 0; }
@@ -1240,8 +1241,18 @@
       return formatMachineDate(value, false);
     }
 
+    function activateSupervisorPanel(panelId) {
+      if (!supervisorMode) return;
+      const panelIds = ["supervisorSummary", "sitesPanel", "supervisorTicketsPanel", "supervisorRaiseTicketPanel", "supervisorEventsPanel", "inventoryPanel", "commonFailuresPanel"];
+      panelIds.forEach(id => {
+        const panel = $(id);
+        if (panel) panel.hidden = id !== panelId;
+      });
+    }
+
     function renderSupervisorRaiseTicket() {
       if (!supervisorMode) return;
+      activateSupervisorPanel("supervisorRaiseTicketPanel");
       currentSite = null; currentBrandId = ""; currentMachine = null;
       $("supervisorSummary").hidden = true; $("sitesPanel").hidden = true;
       $("supervisorTicketsPanel").hidden = true; $("supervisorEventsPanel").hidden = true;
@@ -1469,6 +1480,7 @@
 
     function renderSupervisorTickets() {
       if (!supervisorMode) return;
+      activateSupervisorPanel("supervisorTicketsPanel");
       $("supervisorTicketContext").hidden = true;
       currentSite = null;
       currentBrandId = "";
@@ -1687,6 +1699,7 @@
 
     function renderSupervisorEvents() {
       if (!supervisorMode) return;
+      activateSupervisorPanel("supervisorEventsPanel");
       $("supervisorTicketContext").hidden = true;
       currentSite = null;
       currentBrandId = "";
@@ -1708,6 +1721,7 @@
 
     function renderSupervisorCommonFailures() {
       if (!supervisorMode || user?.role !== "Supervisor") return;
+      activateSupervisorPanel("commonFailuresPanel");
       ["supervisorSummary", "pageHeading", "siteIdentityBar", "supervisorTicketContext", "supervisorTicketsPanel", "sitesPanel", "supervisorRaiseTicketPanel", "supervisorEventsPanel", "inventoryPanel", "notice"].forEach(id => { const node = $(id); if (node) node.hidden = true; });
       $("commonFailuresPanel").hidden = false;
       setSupervisorActiveView("common-failures");
@@ -2117,6 +2131,7 @@
     }
 
     function renderSiteList() {
+      activateSupervisorPanel("sitesPanel");
       inspectionPhase = "";
       inspectionMachine = null;
       inspectionBrandId = "";
@@ -2237,6 +2252,7 @@
     }
 
     function renderSupervisorInspectionHistory() {
+      activateSupervisorPanel("supervisorEventsPanel");
       const host = $("supervisorInspectionHistoryBody");
       if (!host) return;
       const allowedSiteIds = new Set(assignedSites.map(site => String(site.id)));
@@ -2415,6 +2431,7 @@
 
     function renderSiteActivityChoice() {
       if (!currentSite || !supervisorMode) return;
+      activateSupervisorPanel("sitesPanel");
       inspectionPhase = "choice";
       maintenanceFromActivityChoice = false;
       currentBrandId = "";
@@ -2449,6 +2466,7 @@
 
     function renderInspectionBrandsList() {
       if (!currentSite || !supervisorMode) return;
+      activateSupervisorPanel("sitesPanel");
       inspectionPhase = "brand-list";
       inspectionBrandId = "";
       inspectionSearch = "";
@@ -2470,6 +2488,7 @@
 
     function renderSiteInspectionRecords() {
       if (!currentSite) return;
+      activateSupervisorPanel("sitesPanel");
       const previousPhase = inspectionPhase;
       if (previousPhase !== "inspection-records") {
         inspectionRecordsReturnPhase = previousPhase === "equipment-list" ? "equipment-list" : previousPhase === "brand-list" ? "brand-list" : "maintenance-brands";
@@ -2506,6 +2525,7 @@
 
     function renderInspectionEquipmentList() {
       if (!currentSite || !supervisorMode) return;
+      activateSupervisorPanel("sitesPanel");
       inspectionPhase = "equipment-list";
       const brand = brandDirectory.find(entry => String(entry.id) === String(inspectionBrandId));
       const machines = getInspectionEquipment().filter(machine => String(machine.brandId) === String(inspectionBrandId));
@@ -2531,6 +2551,7 @@
 
     function renderInspectionForm(machine) {
       if (!machine || !currentSite) return;
+      activateSupervisorPanel("sitesPanel");
       inspectionMachine = machine;
       inspectionPhase = "equipment-form";
       inspectionDraft.pendingEntries ||= {};
@@ -2562,6 +2583,7 @@
 
     function renderInspectionReview(returnPhase = inspectionPhase) {
       if (!inspectionDraft || !currentSite) return;
+      activateSupervisorPanel("sitesPanel");
       if (returnPhase !== "review") inspectionReviewReturnPhase = returnPhase === "brand-list" ? "brand-list" : "equipment-list";
       inspectionDraft.entries = Array.isArray(inspectionDraft.entries) ? inspectionDraft.entries : [];
       inspectionPhase = "review";
@@ -2597,6 +2619,16 @@
     }
 
     function setSupervisorActiveView(view) {
+      const panelByView = {
+        summary: "supervisorSummary",
+        sites: "sitesPanel",
+        tickets: "supervisorTicketsPanel",
+        "raise-ticket": "supervisorRaiseTicketPanel",
+        events: "supervisorEventsPanel",
+        inventory: "inventoryPanel",
+        "common-failures": "commonFailuresPanel"
+      };
+      if (panelByView[view]) activateSupervisorPanel(panelByView[view]);
       document.querySelectorAll("[data-supervisor-view]").forEach(button => {
         const active = button.dataset.supervisorView === view;
         button.classList.toggle("active", active);
@@ -2795,6 +2827,7 @@
 
     function renderSupervisorInventory() {
       if (!supervisorMode) return;
+      activateSupervisorPanel("inventoryPanel");
       $("supervisorTicketContext").hidden = true;
       currentSite = null;
       currentBrandId = "";
@@ -2816,6 +2849,7 @@
 
     function renderSupervisorSummary() {
       if (!supervisorMode) return;
+      activateSupervisorPanel("supervisorSummary");
       $("supervisorTicketContext").hidden = true;
       currentSite = null;
       currentBrandId = "";
@@ -2915,6 +2949,7 @@
 
     function renderSiteBrands(site) {
       if (!site) return;
+      activateSupervisorPanel("sitesPanel");
       inspectionPhase = "";
       currentMachine = null;
       currentBrandId = "";
@@ -3009,6 +3044,7 @@
 
     function renderBrandEquipment(brandId, { resetFilter = true } = {}) {
       if (!currentSite) return;
+      activateSupervisorPanel("sitesPanel");
       inspectionPhase = "";
       const brand = brandDirectory.find(entry => entry.id === brandId);
       if (!brand) return;
@@ -3357,6 +3393,7 @@
 
     function renderMachineDetail(machine) {
       if (!machine) return;
+      activateSupervisorPanel("sitesPanel");
       currentMachine = machine;
       const item = machine.item;
       const record = readMachineRecord(machine.recordKey);
