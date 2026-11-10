@@ -152,6 +152,8 @@
     .site-card:hover, .site-card:focus-visible { border-color: var(--yellow); background: #292a30; transform: translateY(-1px); }
     .site-name { display: block; color: var(--text); font-size: 13px; font-weight: 800; line-height: 1.45; }
     .site-count { display: block; margin-top: 5px; color: var(--muted); font-size: 11px; }
+    .site-out-of-service-badge { display:inline-flex; align-items:center; gap:6px; margin-top:7px; padding:4px 8px; border-radius:999px; background:rgba(240,68,82,.12); color:#ff737d; font-size:10px; font-weight:800; white-space:nowrap; }
+    .equipment-out-of-service-dot { display:inline-block; flex:0 0 9px; width:9px; height:9px; min-width:9px; border-radius:50%; background:#f04452; box-shadow:0 0 0 3px rgba(240,68,82,.16); vertical-align:middle; }
     .supervisor-summary[hidden], #sitesPanel[hidden], #leaderTicketsPanel[hidden], #ticketHistoryPanel[hidden], #inventoryPanel[hidden] { display: none !important; }
     .leader-ticket-card { cursor: default; }
     .leader-ticket-card:hover { border-color: #343743; background: #22252e; transform: none; }
@@ -199,6 +201,7 @@
     button.brand-card:hover, button.brand-card:focus-visible { border-color: var(--yellow); background: #292a30; transform: translateY(-1px); }
     .brand-name { display: block; color: var(--text); font-size: 14px; font-weight: 800; }
     .brand-count { display: block; margin-top: 6px; color: var(--muted); font-size: 11px; }
+    .brand-card .site-out-of-service-badge,.machine-info .site-out-of-service-badge { display:flex; width:fit-content; }
     .back-button { min-height: 36px; padding: 0 11px; border: 1px solid #383b47; border-radius: 9px; background: #20222a; color: var(--text); font-size: 11px; font-weight: 750; }
     .back-button:hover { border-color: var(--yellow); color: var(--yellow); }
     .machine-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
@@ -713,6 +716,54 @@
     const supervisorChartSelections = new Map();
     const PARTS_REQUEST_URL = "https://solicitudrepuestos.lovable.app/";
     const MACHINE_RECORDS_KEY = "smartfit.machine-records.v1";
+    let outOfServiceCacheRaw = null;
+    let outOfServiceCache = new Set();
+    function outOfServiceRecordKeys() {
+      let raw = "{}";
+      try { raw = localStorage.getItem(MACHINE_RECORDS_KEY) || "{}"; } catch { return new Set(); }
+      if (raw === outOfServiceCacheRaw) return outOfServiceCache;
+      outOfServiceCacheRaw = raw;
+      try {
+        const records = JSON.parse(raw);
+        outOfServiceCache = new Set(Object.entries(records || {}).filter(([, record]) => {
+          const serviceChanges = (Array.isArray(record?.maintenance) ? record.maintenance : [])
+            .map((entry, index) => ({ entry, index, time: Date.parse(entry?.recordedAt || entry?.updatedAt || entry?.date || "") || 0 }))
+            .filter(({ entry }) => [entry?.type, entry?.status, entry?.state].some(value => {
+              const state = normalizeChartLabel(value);
+              return state === "fuera de servicio" || state === "en servicio";
+            }))
+            .sort((a, b) => a.time - b.time || a.index - b.index);
+          const latest = serviceChanges.at(-1)?.entry;
+          return latest && [latest.type, latest.status, latest.state].some(value => normalizeChartLabel(value) === "fuera de servicio");
+        }).map(([key]) => String(key)));
+      } catch { outOfServiceCache = new Set(); }
+      return outOfServiceCache;
+    }
+    function equipmentMatchesSearch(item, unit, query, siteName = "") {
+      const search = normalizeChartLabel(query).trim();
+      if (!search) return true;
+      const brand = brandDirectory.find(entry => entry.id === item?.brandId) || brandDirectory.find(entry => normalizeChartLabel(entry.name) === normalizeChartLabel(item?.brandName));
+      const text = [unit?.activeFixed, item?.name, item?.model, item?.brandName, brand?.name, item?.category, item?.equipmentCategory, item?.catalogName, siteName].map(value => normalizeChartLabel(value)).join(" ");
+      return search.split(/\s+/).filter(Boolean).every(term => text.includes(term));
+    }
+    function outOfServiceBadge(count) {
+      return count > 0 ? `<span class="site-out-of-service-badge"><span class="equipment-out-of-service-dot" aria-hidden="true"></span>Fuera de servicio <strong>${count}</strong></span>` : "";
+    }
+    function outOfServiceDot(recordKey) {
+      return outOfServiceRecordKeys().has(String(recordKey)) ? '<span class="equipment-out-of-service-dot" title="Fuera de servicio" aria-label="Fuera de servicio"></span>' : "";
+    }
+    function countOutOfServiceUnits(site, brandId = "") {
+      const keys = outOfServiceRecordKeys();
+      let count = 0;
+      (Array.isArray(site?.equipment) ? site.equipment : []).forEach(item => {
+        const brand = brandDirectory.find(entry => entry.id === item.brandId) || brandDirectory.find(entry => normalizeChartLabel(entry.name) === normalizeChartLabel(item.brandName));
+        if (brandId && (brand?.id || item.brandId || normalizeChartLabel(item.brandName)) !== brandId) return;
+        const brandKey = item.catalogId || item.brandId || brand?.id || "equipo";
+        const units = Array.isArray(item.units) && item.units.length ? item.units : Array.from({ length: Math.max(0, Number(item.quantity) || 0) }, () => ({}));
+        units.forEach((unit, index) => { if (keys.has(`${site.id}::${unit.unitId || `${brandKey}:${index}`}`)) count += 1; });
+      });
+      return count;
+    }
     const TICKETS_STORAGE_KEY = "smartfit.leader-tickets.v1";
     window.addEventListener("smartfit:form-draft-restored", event => {
       const { form, fields, images } = event.detail || {};
@@ -799,7 +850,7 @@
         const count = Number(site.machineCount) || 0;
         return `<button class="site-card" type="button" data-open-site="${escapeHtml(site.id)}">
           <span class="site-name">${escapeHtml(site.name)}</span>
-          <span class="site-count">${count} ${count === 1 ? "equipo" : "equipos"} · Ver marcas →</span>
+          <span class="site-card-meta"><span class="site-count">${count} ${count === 1 ? "equipo" : "equipos"} · Ver marcas →</span>${outOfServiceBadge(countOutOfServiceUnits(site))}</span>
         </button>`;
       }).join("") || (assignedSites.length
         ? '<div class="empty-state">No se encontraron sedes con ese nombre.</div>'
@@ -879,6 +930,7 @@
       if (normalized.includes("correctivo")) return "Mantenimiento correctivo";
       if (normalized.includes("inspeccion") || normalized.includes("revision")) return "Revisión";
       if (normalized.includes("fuera de servicio")) return "Fuera de servicio";
+      if (normalized === "en servicio") return "En servicio";
       return "";
     }
 
@@ -1074,7 +1126,7 @@
       allMaintenanceEntries.forEach(({ entry }) => {
         if (maintenanceChartEntryMatchesDate(entry, "maintenanceTechnicianMonthFilter", "maintenanceTechnicianYearFilter")) technicianEventEntries.push({ label: entry.technician || "Sin técnico registrado", value: 1 });
       });
-      const statusOrder = ["Mantenimiento preventivo", "Mantenimiento correctivo", "Revisión", "Fuera de servicio", "Sin registro"];
+      const statusOrder = ["Mantenimiento preventivo", "Mantenimiento correctivo", "Revisión", "Fuera de servicio", "En servicio", "Sin registro"];
       renderSupervisorPieChart("maintenanceStatusChart", statusOrder.map(label => ({ label, value: statusCounts.get(label) || 0 })));
       renderSupervisorPieChart("maintenanceTechnicianChart", aggregateChartEntries(technicianEventEntries));
 
@@ -1368,8 +1420,8 @@
       $("panelDescription").textContent = `Equipos para ticket de ${leaderTicketType.toLocaleLowerCase("es")} · ${assignedSites.length} ${assignedSites.length === 1 ? "sede habilitada" : "sedes habilitadas"}`;
       updateLeaderIdentity(`Líder ${user.name} — ${assignedSites.length} ${assignedSites.length === 1 ? "sede" : "sedes"}`, leaderAllEquipment.length);
       $("siteFilter").hidden = false;
-      $("siteFilter").placeholder = "Buscar activo fijo...";
-      $("siteFilter").setAttribute("aria-label", "Buscar activo fijo en todas las marcas");
+      $("siteFilter").placeholder = "Buscar equipo, marca, modelo o activo fijo...";
+      $("siteFilter").setAttribute("aria-label", "Buscar equipo por nombre, marca, modelo, categoría o activo fijo en todas las marcas");
       if (resetFilter) $("siteFilter").value = "";
       $("searchQrButton").hidden = false;
       $("backToSites").hidden = false;
@@ -1379,8 +1431,7 @@
     }
 
     function renderLeaderBrandCards(query = "") {
-      const normalize = value => String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("es");
-      const search = normalize(query.trim());
+      const search = normalizeChartLabel(query).trim();
       const brands = new Map();
       leaderAllEquipment.forEach(machine => {
         const key = machine.leaderBrandKey;
@@ -1391,12 +1442,7 @@
       const brandOrder = ["Matrix", "Booty Builder", "Shua", "Lifefitness", "Hammer Strength", "Technogym", "Water Rower", "Movement", "Octane", "Relan", "Illus", "Insumos"];
       const visibleBrands = Array.from(brands.values()).map(brand => ({
         ...brand,
-        matches: brand.machines.filter(machine => {
-          const fixedNumber = machine.unit.activeFixed === "" || machine.unit.activeFixed === undefined || machine.unit.activeFixed === null
-            ? "N/A"
-            : machine.unit.activeFixed;
-          return !search || normalize(fixedNumber).includes(search);
-        })
+        matches: brand.machines.filter(machine => equipmentMatchesSearch(machine.item, machine.unit, search, machine.siteName))
       })).filter(brand => !search || brand.matches.length > 0)
         .sort((first, second) => {
           const firstIndex = brandOrder.findIndex(name => normalize(name) === normalize(first.name));
@@ -1404,8 +1450,11 @@
           return (firstIndex < 0 ? brandOrder.length : firstIndex) - (secondIndex < 0 ? brandOrder.length : secondIndex) || first.name.localeCompare(second.name, "es");
         });
       $("siteGrid").innerHTML = visibleBrands
-        .map(brand => `<button class="brand-card" type="button" data-leader-brand="${escapeHtml(brand.id)}"><span class="brand-name">${escapeHtml(brand.name)}</span><span class="brand-count">${search ? `${brand.matches.length} coincidencias` : `${brand.machines.length} ${brand.machines.length === 1 ? "equipo" : "equipos"}`} · Ver equipos →</span></button>`)
-        .join("") || `<div class="empty-state">${search ? "No hay equipos con ese activo fijo." : "No hay equipos detallados en las sedes habilitadas para este Líder."}</div>`;
+        .map(brand => {
+          const outOfServiceCount = brand.machines.filter(machine => outOfServiceRecordKeys().has(String(machine.recordKey))).length;
+          return `<button class="brand-card" type="button" data-leader-brand="${escapeHtml(brand.id)}"><span class="brand-name">${escapeHtml(brand.name)}</span><span class="brand-count">${search ? `${brand.matches.length} coincidencias` : `${brand.machines.length} ${brand.machines.length === 1 ? "equipo" : "equipos"}`} · Ver equipos →</span>${outOfServiceBadge(outOfServiceCount)}</button>`;
+        })
+        .join("") || `<div class="empty-state">${search ? "No hay equipos que coincidan con la búsqueda." : "No hay equipos detallados en las sedes habilitadas para este Líder."}</div>`;
     }
 
     function renderLeaderBrandEquipment({ resetFilter = true } = {}) {
@@ -1417,11 +1466,11 @@
       currentMachineTab = "maintenance";
       editingMachineRecord = null;
       $("panelHeading").textContent = `Equipos ${brand.item.brandName || ""}`;
-      $("panelDescription").textContent = `${currentBrandEquipment.length} ${currentBrandEquipment.length === 1 ? "equipo" : "equipos"} · Busca por activo fijo`;
+      $("panelDescription").textContent = `${currentBrandEquipment.length} ${currentBrandEquipment.length === 1 ? "equipo" : "equipos"} · Busca por equipo, marca, modelo, categoría o activo fijo`;
       updateLeaderIdentity(`Líder ${user.name} — ${assignedSites.length} ${assignedSites.length === 1 ? "sede" : "sedes"}`, assignedSites.reduce((total, site) => total + (Number(site.machineCount) || 0), 0));
       $("siteFilter").hidden = false;
-      $("siteFilter").placeholder = "Buscar activo fijo...";
-      $("siteFilter").setAttribute("aria-label", "Buscar equipo por número de activo fijo");
+      $("siteFilter").placeholder = "Buscar equipo, marca, modelo, categoría o activo fijo...";
+      $("siteFilter").setAttribute("aria-label", "Buscar equipo por nombre, marca, modelo, categoría o activo fijo");
       if (resetFilter) $("siteFilter").value = "";
       $("searchQrButton").hidden = true;
       $("backToSites").hidden = false;
@@ -1479,8 +1528,9 @@
       $("siteGrid").className = "brand-grid";
       const cards = brandDirectory.filter(brand => (equipmentByBrand.get(brand.id) || 0) > 0).map(brand => {
         const count = equipmentByBrand.get(brand.id) || 0;
+        const outOfServiceCount = countOutOfServiceUnits(site, brand.id);
         const countText = `${count} ${count === 1 ? "equipo" : "equipos"}`;
-        return `<button class="brand-card" type="button" data-open-brand="${escapeHtml(brand.id)}"><span class="brand-name">${escapeHtml(brand.name)}</span><span class="brand-count">${countText} · Ver equipos →</span></button>`;
+        return `<button class="brand-card" type="button" data-open-brand="${escapeHtml(brand.id)}"><span class="brand-name">${escapeHtml(brand.name)}</span><span class="brand-count">${countText} · Ver equipos →</span>${outOfServiceBadge(outOfServiceCount)}</button>`;
       }).join("");
       const notice = hasUnclassifiedInventory
         ? `<div class="empty-state">Esta sede tiene ${Number(site.machineCount)} máquinas registradas, pero aún falta asignar su detalle por marca desde el inventario de administración.</div>`
@@ -1489,15 +1539,11 @@
     }
 
     function renderMachineCards(query = $("siteFilter").value) {
-      const normalize = value => String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("es");
-      const search = normalize(query.trim());
+      const search = normalizeChartLabel(query).trim();
       const filteredMachines = currentBrandEquipment
         .map((machine, index) => ({ machine, index }))
         .filter(({ machine }) => {
-          const fixedNumber = machine.unit.activeFixed === "" || machine.unit.activeFixed === undefined || machine.unit.activeFixed === null
-            ? "N/A"
-            : machine.unit.activeFixed;
-          return normalize(fixedNumber).includes(search);
+          return equipmentMatchesSearch(machine.item, machine.unit, search, machine.siteName);
         });
       $("siteGrid").innerHTML = filteredMachines.map(({ machine: { item, unit, siteName, brandName }, index }) => `
         <article class="machine-card" data-open-machine="${index}" role="button" tabindex="0" aria-label="Abrir ficha de ${escapeHtml(item.name || "Equipo")}">
@@ -1505,12 +1551,12 @@
             ? `<button class="machine-image-button" type="button" data-enlarge-image="${escapeHtml(catalogImageForEquipment(item))}" data-image-alt="${escapeHtml(item.name)} ${escapeHtml(item.model || "")}" aria-label="Ampliar imagen de ${escapeHtml(item.name)}"><img src="${escapeHtml(catalogImageForEquipment(item))}" alt="${escapeHtml(item.name)}" loading="lazy"><span class="zoom-indicator" aria-hidden="true">⌕</span></button>`
             : '<span class="image-placeholder">Sin imagen</span>'}
           <div class="machine-info">
-            <div class="machine-title-row"><h3>${escapeHtml(item.name || "Equipo")}</h3><span class="machine-active-fixed">AF: ${unit.activeFixed === "" || unit.activeFixed === undefined || unit.activeFixed === null ? "N/A" : escapeHtml(unit.activeFixed)}</span></div>
+            <div class="machine-title-row"><h3>${escapeHtml(item.name || "Equipo")}</h3>${outOfServiceDot(machine.recordKey)}<span class="machine-active-fixed">AF: ${unit.activeFixed === "" || unit.activeFixed === undefined || unit.activeFixed === null ? "N/A" : escapeHtml(unit.activeFixed)}</span></div>
             <p>Modelo: ${escapeHtml(item.model || "—")}</p>
             <span class="machine-sector">${escapeHtml(catalogCategoryForEquipment(item))}</span>
             ${leaderMaintenanceMode ? `<p>${escapeHtml(siteName || "Sede sin nombre")} · ${escapeHtml(brandName || "Sin marca")}</p>` : ""}
           </div>
-        </article>`).join("") || `<div class="empty-state">${search ? "No se encontraron equipos con ese activo fijo." : leaderMaintenanceMode ? "No hay equipos detallados en las sedes habilitadas para este Líder." : "No hay equipos de esta marca registrados para la sede seleccionada."}</div>`;
+        </article>`).join("") || `<div class="empty-state">${search ? "No se encontraron equipos que coincidan con la búsqueda." : leaderMaintenanceMode ? "No hay equipos detallados en las sedes habilitadas para este Líder." : "No hay equipos de esta marca registrados para la sede seleccionada."}</div>`;
     }
 
     function renderBrandEquipment(brandId, { resetFilter = true } = {}) {
@@ -1544,8 +1590,8 @@
       $("backToSites").textContent = "← Cambiar de marca";
       $("searchQrButton").hidden = true;
       $("siteFilter").hidden = false;
-      $("siteFilter").placeholder = "Buscar activo fijo...";
-      $("siteFilter").setAttribute("aria-label", "Buscar equipo por número de activo fijo");
+      $("siteFilter").placeholder = "Buscar equipo, marca, modelo, categoría o activo fijo...";
+      $("siteFilter").setAttribute("aria-label", "Buscar equipo, marca, modelo, categoría o activo fijo");
       if (resetFilter) $("siteFilter").value = "";
       $("siteGrid").className = "machine-grid";
       currentBrandEquipment = machines;
@@ -1839,7 +1885,7 @@
             <form id="machineMaintenanceForm" data-smartfit-draft-key="${escapeHtml(`${user.id}|${user.role}|maintenance|${machine.recordKey}|${editingMaintenance?.id || "new"}`)}">
               <div class="machine-form-grid">
               <div class="machine-form-field"><label for="maintenanceDate">Fecha</label><input id="maintenanceDate" type="date" value="${escapeHtml(editingMaintenance?.date || currentLocalDate())}" required></div>
-                <div class="machine-form-field"><label for="maintenanceType">Tipo / estado</label><select id="maintenanceType">${["Mantenimiento preventivo", "Mantenimiento correctivo", "Inspección", "Fuera de servicio"].map(type => `<option${(editingMaintenance?.type || "Mantenimiento preventivo") === type ? " selected" : ""}>${type}</option>`).join("")}</select></div>
+                <div class="machine-form-field"><label for="maintenanceType">Tipo / estado</label><select id="maintenanceType">${["Mantenimiento preventivo", "Mantenimiento correctivo", "Inspección", "Fuera de servicio", "En servicio"].map(type => `<option${(editingMaintenance?.type || "Mantenimiento preventivo") === type ? " selected" : ""}>${type}</option>`).join("")}</select></div>
                 <div class="machine-form-field full"><label for="maintenanceWork">Trabajo realizado / actualización</label><textarea id="maintenanceWork" placeholder="Ej.: lubricación, ajuste, cambio de perno, revisión..." required>${escapeHtml(editingMaintenance?.work || "")}</textarea></div>
                 <div class="machine-form-field"><label for="maintenanceReplacement">Repuesto / material</label><input id="maintenanceReplacement" value="${escapeHtml(editingMaintenance?.replacement || "")}" placeholder="Opcional"></div>
                 <div class="machine-form-field"><label for="maintenanceTechnician">Técnico / responsable</label><input id="maintenanceTechnician" value="${escapeHtml(editingMaintenance ? (editingMaintenance.technician || "Sin responsable registrado") : user.name)}" readonly aria-readonly="true"></div>

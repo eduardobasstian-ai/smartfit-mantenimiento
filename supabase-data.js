@@ -1298,6 +1298,8 @@
   }
   function normalizeEventType(value) {
     const type = cleanName(value);
+    if (type.includes("fuera de servicio")) return "Fuera de servicio";
+    if (type === "en servicio" || type.includes("reactiv")) return "En servicio";
     if (type.includes("correctivo")) return "Correctivo";
     if (type.includes("preventivo")) return "Preventivo";
     if (type.includes("inspeccion")) return "Inspección";

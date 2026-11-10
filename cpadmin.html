@@ -288,6 +288,7 @@
     .equipment-card { min-height: 88px; padding: 15px 16px; display: flex; justify-content: space-between; align-items: center; gap: 12px; border: 1px solid #343743; border-radius: 12px; background: #22252e; }
     .equipment-card h3 { margin: 0; font-size: 14px; }
     .equipment-card p { margin: 6px 0 0; color: var(--muted); font-size: 12px; }
+    .admin-out-of-service-dot { display:inline-block; width:9px; height:9px; margin-left:8px; border-radius:50%; background:#f04452; box-shadow:0 0 0 3px rgba(240,68,82,.16); vertical-align:middle; }
     .equipment-actions { display: flex; flex-shrink: 0; gap: 6px; }
     .equipment-actions button { min-height: 30px; padding: 0 8px; font-size: 10px; }
     .brand-open { display: block; min-width: 0; padding: 0; border: 0; background: transparent; color: inherit; text-align: left; }
@@ -1067,7 +1068,7 @@
       <div class="modal-body">
         <div class="site-equipment-toolbar">
           <select class="form-control form-select" id="siteEquipmentBrand" aria-label="Filtrar por marca"></select>
-          <input class="search-input" id="siteEquipmentSearch" type="search" placeholder="Buscar equipo por nombre o modelo..." aria-label="Buscar equipos para la sede">
+          <input class="search-input" id="siteEquipmentSearch" type="search" placeholder="Buscar equipo, marca, modelo o categoría..." aria-label="Buscar equipos por nombre, marca, modelo o categoría para la sede">
         </div>
         <div class="matrix-list"><div class="matrix-grid" id="siteEquipmentGrid" aria-live="polite"></div></div>
         <div class="site-equipment-footer">
@@ -1269,6 +1270,38 @@
 
     function normalizeHistoryName(value) {
       return String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLocaleLowerCase("es");
+    }
+
+    function matchesEquipmentCatalogSearch(item, query) {
+      const terms = normalizeHistoryName(query).split(/\s+/).filter(Boolean);
+      if (!terms.length) return true;
+      const searchable = normalizeHistoryName([
+        item?.name, item?.brandName, item?.model, item?.category,
+        item?.equipmentCategory, item?.catalogName
+      ].filter(Boolean).join(" "));
+      return terms.every(term => searchable.includes(term));
+    }
+
+    let adminOutOfServiceCacheRaw = null;
+    let adminOutOfServiceRecordKeys = new Set();
+    function getAdminOutOfServiceRecordKeys() {
+      let raw = "{}";
+      try { raw = localStorage.getItem("smartfit.machine-records.v1") || "{}"; } catch { return new Set(); }
+      if (raw === adminOutOfServiceCacheRaw) return adminOutOfServiceRecordKeys;
+      adminOutOfServiceCacheRaw = raw;
+      const normalize = value => String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLocaleLowerCase("es");
+      try {
+        const records = JSON.parse(raw);
+        adminOutOfServiceRecordKeys = new Set(Object.entries(records || {}).filter(([, record]) => {
+          const changes = (Array.isArray(record?.maintenance) ? record.maintenance : [])
+            .map((entry, index) => ({ entry, index, time: Date.parse(entry?.recordedAt || entry?.updatedAt || entry?.date || "") || 0 }))
+            .filter(({ entry }) => [entry?.type, entry?.status, entry?.state].some(value => ["fuera de servicio", "en servicio"].includes(normalize(value))))
+            .sort((a, b) => a.time - b.time || a.index - b.index);
+          const latest = changes.at(-1)?.entry;
+          return latest && [latest.type, latest.status, latest.state].some(value => normalize(value) === "fuera de servicio");
+        }).map(([key]) => String(key)));
+      } catch { adminOutOfServiceRecordKeys = new Set(); }
+      return adminOutOfServiceRecordKeys;
     }
 
     function displayHistoryStatus(value) {
@@ -2191,23 +2224,26 @@
       const sites = AdminStore.listSites();
       const brands = AdminStore.listBrands();
       const brandNames = new Map(brands.map(brand => [String(brand.id), brand.name]));
+      const brandIdsByName = new Map(brands.map(brand => [normalizeHistoryName(brand.name), String(brand.id)]));
       const inventory = [];
       sites.forEach(site => {
         (Array.isArray(site.equipment) ? site.equipment : []).forEach(item => {
           const brandName = item.brandName || brandNames.get(String(item.brandId)) || "Sin marca";
           const catalogItem = catalogEquipment.find(entry => entry.catalogId === item.catalogId) ||
             catalogEquipment.find(entry => entry.brandId === item.brandId && normalizeHistoryName(entry.name) === normalizeHistoryName(item.name) && normalizeHistoryName(entry.model) === normalizeHistoryName(item.model));
+          const brandId = String(item.brandId || catalogItem?.brandId || brandIdsByName.get(normalizeHistoryName(brandName)) || "");
           const quantity = Math.max(0, Number(item.quantity) || 0);
           const units = Array.isArray(item.units) && item.units.length
             ? item.units
             : Array.from({ length: quantity }, () => ({}));
-          units.forEach(unit => inventory.push({
+          units.forEach((unit, index) => inventory.push({
             siteId: String(site.id),
             siteName: site.name || "Sede sin nombre",
             brandId: String(item.brandId || ""),
             brandName,
             equipmentName: item.name || "Equipo",
             model: item.model || "—",
+            recordKey: `${site.id}::${unit.unitId || `${item.catalogId || brandId || "equipo"}:${index}`}`,
             activeFixed: unit.activeFixed,
             category: catalogItem?.category || item.category || "—"
           }));
@@ -2247,7 +2283,7 @@
       body.innerHTML = filtered.map(item => `<tr>
         <td>${escapeHtml(item.siteName)}</td>
         <td>${escapeHtml(item.brandName)}</td>
-        <td><span class="user-name">${escapeHtml(item.equipmentName)}</span></td>
+        <td><span class="user-name">${escapeHtml(item.equipmentName)}</span>${getAdminOutOfServiceRecordKeys().has(String(item.recordKey)) ? '<span class="admin-out-of-service-dot" title="Fuera de servicio" aria-label="Fuera de servicio"></span>' : ""}</td>
         <td>${escapeHtml(item.model)}</td>
         <td>${item.activeFixed === "" || item.activeFixed === null || item.activeFixed === undefined ? "—" : escapeHtml(item.activeFixed)}</td>
         <td>${escapeHtml(item.category)}</td>
@@ -2432,7 +2468,7 @@
 
     function renderMatrixCatalog() {
       const query = $("matrixSearch").value.trim().toLocaleLowerCase("es");
-      const filtered = activeEquipmentCatalog.filter(item => `${item.name} ${item.model} ${item.category}`.toLocaleLowerCase("es").includes(query));
+      const filtered = activeEquipmentCatalog.filter(item => matchesEquipmentCatalogSearch(item, query));
       $("matrixGrid").innerHTML = filtered.map(item => `
         <article class="matrix-item">
           <span class="matrix-thumb-wrap${item.image ? "" : " is-empty"}">
@@ -2450,7 +2486,7 @@
       activeEquipmentCatalog = brandCatalogs[brand.id] || [];
       $("matrixModalTitle").innerHTML = `⚒ &nbsp; Equipo de ${escapeHtml(brand.name)}`;
       $("matrixSearch").setAttribute("aria-label", `Buscar equipo ${brand.name}`);
-      $("matrixSearch").placeholder = `⌕  Buscar equipo por nombre...`;
+      $("matrixSearch").placeholder = `⌕  Buscar nombre, marca, modelo o categoría...`;
       $("matrixSearch").value = "";
       renderMatrixCatalog();
       $("matrixModal").hidden = false;
@@ -2594,8 +2630,7 @@
     function renderSiteEquipmentOptions() {
       const brandId = $("siteEquipmentBrand").value;
       const query = $("siteEquipmentSearch").value.trim().toLocaleLowerCase("es");
-      const items = catalogEquipment.filter(item => item.brandId === brandId &&
-        `${item.name} ${item.model} ${item.category}`.toLocaleLowerCase("es").includes(query));
+      const items = catalogEquipment.filter(item => item.brandId === brandId && matchesEquipmentCatalogSearch(item, query));
       $("siteEquipmentGrid").innerHTML = items.map(item => {
         const selected = siteEquipmentDraft.get(item.catalogId);
         return `
