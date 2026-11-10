@@ -160,6 +160,12 @@
     .site-count { display: block; margin-top: 5px; color: var(--muted); font-size: 11px; }
     .site-card-meta { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 7px; margin-top: 5px; }
     .site-card-meta .site-count { margin-top: 0; }
+    .status-count-stack { display:flex; flex:0 0 auto; flex-direction:column; align-items:flex-end; gap:6px; margin-left:auto; }
+    .status-count-stack.is-inline { flex-direction:row; align-items:center; }
+    .status-count-circle { display:inline-grid; width:22px; height:22px; flex:0 0 22px; place-items:center; border-radius:50%; font-size:11px; line-height:1; font-weight:850; font-variant-numeric:tabular-nums; }
+    .status-count-circle.is-out { background:#f04452; color:#fff; }
+    .status-count-circle.is-inspection { background:#2589cb; color:#fff; }
+    .status-count-circle.is-ticket { background:var(--yellow); color:#171717; }
     .site-ticket-badge { display: inline-flex; align-items: center; gap: 5px; padding: 4px 7px; border-radius: 999px; background: #111319; color: var(--text); font-size: 10px; font-weight: 750; white-space: nowrap; }
     .site-out-of-service-badge { display:inline-flex; align-items:center; gap:6px; padding:4px 8px; border-radius:999px; background:rgba(240,68,82,.12); color:#ff737d; font-size:10px; font-weight:800; white-space:nowrap; }
     .equipment-out-of-service-dot { display:inline-block; flex:0 0 9px; width:9px; height:9px; min-width:9px; border-radius:50%; background:#f04452; box-shadow:0 0 0 3px rgba(240,68,82,.16); vertical-align:middle; }
@@ -220,6 +226,8 @@
     .supervisor-legend-value { color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
     .supervisor-chart-empty { grid-column: 1 / -1; padding: 16px; color: var(--muted); text-align: center; font-size: 12px; }
     .brand-card { min-height: 78px; padding: 16px; border: 1px solid #343743; border-radius: 12px; background: #22252e; }
+    .brand-card { position: relative; padding-right: 48px; }
+    .brand-card .status-count-stack { position: absolute; top: 12px; right: 12px; }
     .ticket-raise-context { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0 0 16px; padding: 16px 20px; border: 1px solid #343743; border-radius: 14px; background: #191b22; font-size: 13px; }
     .ticket-raise-context[hidden] { display: none !important; }
     #supervisorRaiseTicketPanel > .panel-heading { display: none !important; }
@@ -442,6 +450,7 @@
     .technician-mode .identity-bar { align-items: center; flex-direction: row; flex-wrap: wrap; }
     .technician-mode .identity-user { flex: 1 1 180px; min-width: 0; }
     .identity-actions { display: flex; align-items: center; gap: 9px; margin-left: auto; }
+    .technician-mode .identity-actions { flex-direction:column; align-items:flex-end; gap:5px; }
     .technician-logout-slot { display: flex; }
     .technician-mode .logout-button { min-height: 36px; }
     @media (max-width: 850px) {
@@ -627,6 +636,7 @@
       .sites-panel, .machine-detail-card { padding-right: 10px; padding-left: 10px; }
       .page-heading > div:last-child > button, .panel-heading > div:last-child > button { flex-basis: 100%; }
       .identity-actions { width: 100%; }
+      .technician-mode .identity-actions { width:auto; flex:0 0 auto; }
       .identity-actions .logout-button { flex: 0 0 auto; }
     }
   </style>
@@ -1087,7 +1097,7 @@
       return search.split(/\s+/).filter(Boolean).every(term => text.includes(term));
     }
     function outOfServiceBadge(count) {
-      return count > 0 ? `<span class="site-out-of-service-badge"><span class="equipment-out-of-service-dot" aria-hidden="true"></span>Fuera de servicio <strong>${count}</strong></span>` : "";
+      return count > 0 ? `<span class="status-count-circle is-out" title="${count} equipo${count === 1 ? "" : "s"} fuera de servicio" aria-label="${count} fuera de servicio">${count}</span>` : "";
     }
     function outOfServiceDot(recordKey) {
       return outOfServiceRecordKeys().has(String(recordKey)) ? '<span class="equipment-out-of-service-dot" title="Fuera de servicio" aria-label="Fuera de servicio"></span>' : "";
@@ -2252,7 +2262,7 @@
         const outOfServiceCount = countOutOfServiceUnits(site);
         return `<button class="site-card" type="button" data-open-site="${escapeHtml(site.id)}">
           <span class="site-name">${escapeHtml(site.name)}</span>
-          <span class="site-card-meta"><span class="site-count">${count} ${count === 1 ? "equipo" : "equipos"} · Ver marcas →</span>${outOfServiceBadge(outOfServiceCount)}${ticketCount > 0 ? `<span class="site-ticket-badge"><span class="site-ticket-badge-icon" aria-hidden="true">✓</span>Tickets <strong>${ticketCount}</strong></span>` : ""}${inspectionBadge(inspectionCount)}</span>
+          <span class="site-card-meta"><span class="site-count">${count} ${count === 1 ? "equipo" : "equipos"} · Ver marcas →</span><span class="status-count-stack">${outOfServiceBadge(outOfServiceCount)}${inspectionBadge(inspectionCount)}${ticketCount > 0 ? `<span class="status-count-circle is-ticket" title="${ticketCount} tickets pendientes" aria-label="${ticketCount} tickets pendientes">${ticketCount}</span>` : ""}</span></span>
         </button>`;
       }).join("") || (assignedSites.length
         ? '<div class="empty-state">No se encontraron sedes con ese nombre.</div>'
@@ -2292,7 +2302,7 @@
     }
 
     function inspectionBadge(count) {
-      return count > 0 ? `<span class="site-inspection-badge" title="${count} inspección${count === 1 ? "" : "es"} pendiente${count === 1 ? "" : "s"}"><span class="site-inspection-badge-icon" aria-hidden="true">I</span>Inspección <strong>${count}</strong></span>` : "";
+      return count > 0 ? `<span class="status-count-circle is-inspection" title="${count} inspección${count === 1 ? "" : "es"} pendiente${count === 1 ? "" : "s"}" aria-label="${count} inspecciones pendientes">${count}</span>` : "";
     }
 
     function canCurrentUserSeeInspection(record) {
@@ -3152,7 +3162,7 @@
         const inspectionCount = inspectionsByBrand.get(brand.id) || 0;
         const outOfServiceCount = outOfServiceByBrand.get(brand.id) || 0;
         const countText = `${count} ${count === 1 ? "equipo" : "equipos"}`;
-        return `<button class="brand-card" type="button" data-open-brand="${escapeHtml(brand.id)}"><span class="brand-name">${escapeHtml(brand.name)}</span><span class="brand-count">${countText} · Ver equipos →</span>${outOfServiceBadge(outOfServiceCount)}${ticketCount > 0 ? `<span class="site-ticket-badge"><span class="site-ticket-badge-icon" aria-hidden="true">✓</span>Tickets <strong>${ticketCount}</strong></span>` : ""}${inspectionBadge(inspectionCount)}</button>`;
+        return `<button class="brand-card" type="button" data-open-brand="${escapeHtml(brand.id)}"><span class="brand-name">${escapeHtml(brand.name)}</span><span class="brand-count">${countText} · Ver equipos →</span><span class="status-count-stack">${outOfServiceBadge(outOfServiceCount)}${inspectionBadge(inspectionCount)}${ticketCount > 0 ? `<span class="status-count-circle is-ticket" title="${ticketCount} tickets pendientes" aria-label="${ticketCount} tickets pendientes">${ticketCount}</span>` : ""}</span></button>`;
       }).join("");
       const notice = hasUnclassifiedInventory
         ? `<div class="empty-state">Esta sede tiene ${Number(site.machineCount)} máquinas registradas, pero aún falta asignar su detalle por marca desde el inventario de administración.</div>`
@@ -3183,8 +3193,7 @@
             <div class="machine-title-row"><h3>${escapeHtml(item.name || "Equipo")}</h3>${outOfServiceDot(machine.recordKey)}<span class="machine-active-fixed">AF: ${unit.activeFixed === "" || unit.activeFixed === undefined || unit.activeFixed === null ? "N/A" : escapeHtml(unit.activeFixed)}</span></div>
             <p>Modelo: ${escapeHtml(item.model || "—")}</p>
             <span class="machine-sector">${escapeHtml(supervisorCatalogCategory(item))}</span>
-            ${ticketCount > 0 ? `<span class="site-ticket-badge"><span class="site-ticket-badge-icon" aria-hidden="true">✓</span>Tickets <strong>${ticketCount}</strong></span>` : ""}
-            ${inspectionBadge(inspectionCount)}
+            <span class="status-count-stack is-inline">${inspectionBadge(inspectionCount)}${ticketCount > 0 ? `<span class="status-count-circle is-ticket" title="${ticketCount} tickets pendientes" aria-label="${ticketCount} tickets pendientes">${ticketCount}</span>` : ""}</span>
           </div>
         </article>`;
       }).join("") || `<div class="empty-state">${search ? "No se encontraron equipos que coincidan con la búsqueda." : "No hay equipos de esta marca registrados para la sede seleccionada."}</div>`;
