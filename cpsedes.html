@@ -304,6 +304,11 @@
     .machine-history-table th { color: var(--muted); }
     .mileage-date-filter { display: block; width: 132px; min-width: 112px; margin-top: 6px; padding: 5px 7px; border: 1px solid #3c404b; border-radius: 6px; background: #111319; color: var(--text); font: inherit; font-weight: 500; }
     .machine-history-table td { color: #e7e7eb; }
+    .mileage-pagination { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 12px; color: var(--muted); font-size: 11px; }
+    .mileage-pagination > div { display: flex; flex-wrap: wrap; gap: 7px; }
+    .mileage-pagination .back-button { min-height: 34px; padding: 0 10px; font-size: 10px; }
+    .mileage-pagination .back-button:disabled { opacity: .45; cursor: not-allowed; }
+    .mileage-pagination-summary { margin: 10px 0 0; color: var(--muted); font-size: 11px; }
     .image-placeholder { flex: 0 0 58px; width: 58px; height: 58px; display: grid; place-items: center; border: 1px solid #454854; border-radius: 11px; color: var(--muted); font-size: 10px; }
     .image-lightbox { position: fixed; z-index: 170; inset: 0; display: grid; place-items: center; padding: 18px; background: #000e; }
     .image-lightbox[hidden] { display: none; }
@@ -494,6 +499,9 @@
       .machine-history-table td[colspan]::before { content: none; }
       .machine-history-table td:last-child { border-bottom: 0; }
       .machine-history-table td .machine-record-actions { margin-top: 0; }
+      .mileage-pagination { align-items: flex-start; flex-direction: column; }
+      .mileage-pagination > div { width: 100%; }
+      .mileage-pagination .back-button { flex: 1 1 0; white-space: nowrap; }
       .panel-heading { align-items: flex-start; flex-wrap: wrap; }
       .panel-tools { width: 100%; flex-direction: row; justify-content: space-between; }
       .site-search { width: 100%; }
@@ -973,6 +981,7 @@
     let currentMachine = null;
     let currentMachineTab = "maintenance";
     let mileageMonthFilter = "";
+    let mileagePage = 0;
     let currentBrandEquipment = [];
     let editingMachineRecord = null;
     let maintenanceImages = [];
@@ -3488,8 +3497,8 @@
 
     function sortMileageRecords(entries) {
       return entries
-        .map((entry, index) => ({ entry, index, date: mileageDateValue(entry) }))
-        .sort((a, b) => a.date.localeCompare(b.date) || a.index - b.index)
+        .map((entry, index) => ({ entry, index, date: mileageDateValue(entry), timestamp: Date.parse(entry.recordedAt || entry.createdAt || "") || 0 }))
+        .sort((a, b) => b.date.localeCompare(a.date) || b.timestamp - a.timestamp || b.index - a.index)
         .map(item => item.entry);
     }
 
@@ -3534,6 +3543,7 @@
       if (!machine) return;
       if (!inspectionRecordsLoaded) void refreshSharedInspectionRecords();
       activateSupervisorPanel("sitesPanel");
+      if (currentMachine && String(currentMachine.recordKey) !== String(machine.recordKey)) mileagePage = 0;
       currentMachine = machine;
       const item = machine.item;
       const record = readMachineRecord(machine.recordKey);
@@ -3633,9 +3643,15 @@
           ${maintenanceLogPhotos(entry)}
           ${canManageMachineRecords ? `<div class="machine-record-actions"><button class="back-button" type="button" data-edit-machine-record="maintenance" data-record-id="${escapeHtml(entry.id)}">Editar</button><button class="back-button" type="button" data-delete-machine-record="maintenance" data-record-id="${escapeHtml(entry.id)}">Eliminar</button></div>` : ""}
         </article>`).join("") || '<div class="empty-state">Aún no hay actualizaciones de mantenimiento para esta máquina.</div>';
-      const visibleMileage = sortMileageRecords(record.mileage).filter(entry => !mileageMonthFilter || mileageDateValue(entry).slice(0, 7) === mileageMonthFilter);
+      const filteredMileage = sortMileageRecords(record.mileage).filter(entry => !mileageMonthFilter || mileageDateValue(entry).slice(0, 7) === mileageMonthFilter);
+      const mileagePageSize = 2;
+      const mileagePageCount = Math.max(1, Math.ceil(filteredMileage.length / mileagePageSize));
+      mileagePage = Math.max(0, Math.min(mileagePage, mileagePageCount - 1));
+      const mileagePageStart = mileagePage * mileagePageSize;
+      const visibleMileage = filteredMileage.slice(mileagePageStart, mileagePageStart + mileagePageSize);
       const mileageRows = visibleMileage.map(entry => `
         <tr><td>${escapeHtml(formatMileageDate(entry))}</td><td>${escapeHtml(entry.km)}</td><td>${escapeHtml(entry.observation || "—")}</td><td>${escapeHtml(entry.technician || "—")}</td><td>${escapeHtml(entry.lubrication || "Sin registro")}</td><td><div class="machine-record-actions">${canManageMachineRecords ? `<button class="back-button" type="button" data-edit-machine-record="mileage" data-record-id="${escapeHtml(entry.id)}">Editar</button><button class="back-button" type="button" data-delete-machine-record="mileage" data-record-id="${escapeHtml(entry.id)}">Eliminar</button>` : `<button class="back-button" type="button" data-request-mileage-edit>Modificar</button>`}</div></td></tr>`).join("") || '<tr><td colspan="6">No hay registros de kilometraje.</td></tr>';
+      const mileagePagination = filteredMileage.length > mileagePageSize ? `<nav class="mileage-pagination" aria-label="Páginas del historial de kilometraje"><span>Mostrando ${mileagePageStart + 1}–${Math.min(mileagePageStart + mileagePageSize, filteredMileage.length)} de ${filteredMileage.length} · Página ${mileagePage + 1} de ${mileagePageCount}</span><div><button class="back-button" type="button" data-mileage-page="prev"${mileagePage === 0 ? " disabled" : ""} aria-label="Mostrar los dos registros más recientes">← Más recientes</button><button class="back-button" type="button" data-mileage-page="next"${mileagePage >= mileagePageCount - 1 ? " disabled" : ""} aria-label="Mostrar los dos registros más antiguos">Más antiguos →</button></div></nav>` : filteredMileage.length ? `<p class="mileage-pagination-summary">${filteredMileage.length} ${filteredMileage.length === 1 ? "registro" : "registros"}</p>` : "";
       const inspectionRows = machineInspections.map(inspection => {
         const state = inspectionState(inspection);
         const photos = (Array.isArray(inspection.photos) ? inspection.photos : []).map((photo, index) => {
@@ -3718,11 +3734,14 @@
               </div>
               <div class="machine-record-actions"><button class="machine-save-button" type="submit">${editingMileage ? "Guardar cambios" : "+ Registrar Km"}</button>${editingMileage ? '<button class="back-button" type="button" data-cancel-machine-edit>Cancelar edición</button>' : ""}</div>
             </form>
-            <div class="machine-table-wrap"><table class="machine-history-table"><thead><tr><th>Fecha<input class="mileage-date-filter" id="mileageMonthFilter" type="month" aria-label="Filtrar registros por mes" title="Filtrar por mes" value="${escapeHtml(mileageMonthFilter)}"></th><th>Km</th><th>Observación</th><th>Registrado por</th><th>Lubricación</th><th>Acciones</th></tr></thead><tbody>${mileageRows}</tbody></table></div>
+            <div class="machine-form-field" style="max-width:220px;margin-top:12px"><label for="mileageMonthFilter">Filtrar por mes</label><input class="mileage-date-filter" id="mileageMonthFilter" type="month" aria-label="Filtrar registros por mes" title="Filtrar por mes" value="${escapeHtml(mileageMonthFilter)}"></div>
+            <div class="machine-table-wrap"><table class="machine-history-table"><thead><tr><th>Fecha</th><th>Km</th><th>Observación</th><th>Registrado por</th><th>Lubricación</th><th>Acciones</th></tr></thead><tbody>${mileageRows}</tbody></table></div>
+            ${mileagePagination}
           </article>
         </section>` : ""}`;
       $("mileageMonthFilter")?.addEventListener("change", event => {
         mileageMonthFilter = event.target.value;
+        mileagePage = 0;
         renderMachineDetail(currentMachine);
       });
       if (showMachineInspectionTab && currentMachineTab === "inspections" && machineInspections.some(row => (row.photos || []).some(photo => photo?.path && !inspectionPhotoUrlCache.has(photo.path)))) {
@@ -4265,6 +4284,12 @@
         renderMachineDetail(currentMachine);
         return;
       }
+      const mileagePageButton = event.target.closest("[data-mileage-page]");
+      if (mileagePageButton && !mileagePageButton.disabled) {
+        mileagePage += mileagePageButton.dataset.mileagePage === "next" ? 1 : -1;
+        renderMachineDetail(currentMachine);
+        return;
+      }
       const tab = event.target.closest("[data-machine-tab]");
       if (tab) {
         currentMachineTab = tab.dataset.machineTab;
@@ -4459,6 +4484,7 @@
         }
         editingMachineRecord = null;
         currentMachineTab = "mileage";
+        mileagePage = 0;
         renderMachineDetail(currentMachine);
       }
     });
