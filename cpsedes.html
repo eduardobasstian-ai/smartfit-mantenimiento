@@ -371,15 +371,14 @@
     .supervisor-history-status, .supervisor-history-ticket { display: inline-flex; align-items: center; gap: 4px; padding: 4px 7px; border-radius: 20px; background: #30333d; color: #e7e7eb; font-size: 9px; font-weight: 800; white-space: nowrap; }
     .supervisor-history-ticket { background: #3b321d; color: var(--yellow); }
     .machine-tickets-wrap { overflow-x: visible; }
-    .machine-tickets-table { width: 100%; min-width: 0; table-layout: fixed; }
-    .machine-tickets-table th, .machine-tickets-table td { padding: 10px 7px; overflow-wrap: anywhere; }
-    .machine-tickets-table th:first-child, .machine-tickets-table td:first-child { width: 26%; }
-    .machine-tickets-table th:nth-child(2), .machine-tickets-table td:nth-child(2) { width: 16%; }
-    .machine-tickets-table th:nth-child(3), .machine-tickets-table td:nth-child(3) { width: 22%; white-space: nowrap; }
-    .machine-tickets-table th:nth-child(4), .machine-tickets-table td:nth-child(4) { width: 16%; }
-    .machine-tickets-table th:nth-child(5), .machine-tickets-table td:nth-child(5) { width: 20%; }
-    .machine-tickets-table .ticket-status-badge { white-space: normal; }
-    .machine-tickets-table .back-button { min-height: 32px; padding: 0 7px; white-space: normal; }
+    .machine-tickets-table { width: 100%; min-width: 0; table-layout: auto; }
+    .machine-tickets-table th, .machine-tickets-table td { padding: 10px 9px; }
+    .machine-tickets-table th:first-child, .machine-tickets-table td:first-child { width: 38%; }
+    .machine-tickets-table th:nth-child(2), .machine-tickets-table td:nth-child(2) { width: 22%; white-space: nowrap; }
+    .machine-tickets-table th:nth-child(3), .machine-tickets-table td:nth-child(3) { width: 20%; }
+    .machine-tickets-table th:nth-child(4), .machine-tickets-table td:nth-child(4) { width: 20%; }
+    .machine-tickets-table .ticket-status-badge { white-space: nowrap; }
+    .machine-tickets-table .back-button { min-height: 32px; padding: 0 10px; white-space: nowrap; }
     .machine-inspection-table th:first-child, .machine-inspection-table td:first-child { width: 24%; }
     .machine-inspection-table th:nth-child(2), .machine-inspection-table td:nth-child(2) { width: 16%; }
     .machine-inspection-table th:nth-child(3), .machine-inspection-table td:nth-child(3) { width: 42%; white-space: normal; }
@@ -532,14 +531,6 @@
       .machine-form-grid { grid-template-columns: minmax(0, 1fr); }
       .machine-tabs { margin-right: 0; }
       .machine-tab { flex-basis: 100%; padding: 8px; font-size: 10px; }
-      .machine-tickets-table th, .machine-tickets-table td { padding: 8px 4px; font-size: 9px; }
-      .machine-tickets-table th:first-child, .machine-tickets-table td:first-child { width: 26%; }
-      .machine-tickets-table th:nth-child(2), .machine-tickets-table td:nth-child(2) { width: 16%; }
-      .machine-tickets-table th:nth-child(3), .machine-tickets-table td:nth-child(3) { width: 22%; }
-      .machine-tickets-table th:nth-child(4), .machine-tickets-table td:nth-child(4) { width: 16%; }
-      .machine-tickets-table th:nth-child(5), .machine-tickets-table td:nth-child(5) { width: 20%; }
-      .machine-tickets-table td:nth-child(3) { font-size: 8px; }
-      .machine-tickets-table .back-button { padding: 0 3px; font-size: 8px; }
       .machine-inspection-table th:first-child, .machine-inspection-table td:first-child { width: 25%; }
       .machine-inspection-table th:nth-child(2), .machine-inspection-table td:nth-child(2) { width: 17%; }
       .machine-inspection-table th:nth-child(3), .machine-inspection-table td:nth-child(3) { width: 38%; white-space: normal; }
@@ -629,6 +620,21 @@
       .machine-inspection-table tbody td[colspan]::before { content: none; }
       .machine-inspection-table .inspection-status-and-view { min-width: 0; }
       .machine-inspection-table .inspection-status-and-view .back-button { white-space: normal; }
+      .machine-tickets-table:not(.machine-inspection-table) { display: block; width: 100%; min-width: 0; table-layout: auto; }
+      .machine-tickets-table:not(.machine-inspection-table) thead { display: none; }
+      .machine-tickets-table:not(.machine-inspection-table) tbody { display: grid; gap: 9px; width: 100%; }
+      .machine-tickets-table:not(.machine-inspection-table) tbody tr { display: grid; grid-template-columns: minmax(0, 1fr); width: 100%; min-width: 0; overflow: hidden; border: 1px solid #30323c; border-radius: 10px; background: #22252e; }
+      .machine-tickets-table:not(.machine-inspection-table) tbody td { display: grid; grid-template-columns: minmax(95px, 32%) minmax(0, 1fr); align-items: center; gap: 8px; width: auto !important; min-width: 0; padding: 10px; border-bottom: 1px solid #30323c; font-size: 12px; white-space: normal; overflow-wrap: normal; word-break: normal; }
+      .machine-tickets-table:not(.machine-inspection-table) tbody td::before { color: var(--muted); font-size: 10px; font-weight: 750; }
+      .machine-tickets-table:not(.machine-inspection-table) tbody td:nth-child(1)::before { content: "N.º de ticket"; }
+      .machine-tickets-table:not(.machine-inspection-table) tbody td:nth-child(2)::before { content: "Fecha"; }
+      .machine-tickets-table:not(.machine-inspection-table) tbody td:nth-child(3)::before { content: "Estado"; }
+      .machine-tickets-table:not(.machine-inspection-table) tbody td:nth-child(4) { display: flex; justify-content: flex-end; border-bottom: 0; }
+      .machine-tickets-table:not(.machine-inspection-table) tbody td:nth-child(4)::before { content: ""; }
+      .machine-tickets-table:not(.machine-inspection-table) tbody td[colspan] { display: block; text-align: center; }
+      .machine-tickets-table:not(.machine-inspection-table) tbody td[colspan]::before { content: none; }
+      .machine-tickets-table:not(.machine-inspection-table) .ticket-status-badge { justify-self: start; max-width: 100%; }
+      .machine-tickets-table:not(.machine-inspection-table) .back-button { min-height: 36px; padding: 0 12px; font-size: 11px; white-space: nowrap; }
     }
     @media (max-width: 380px) {
       .supervisor-shell, .supervisor-shell.supervisor-mode { padding-right: 7px; padding-left: 7px; }
@@ -638,6 +644,8 @@
       .identity-actions { width: 100%; }
       .technician-mode .identity-actions { width:auto; flex:0 0 auto; }
       .identity-actions .logout-button { flex: 0 0 auto; }
+      .machine-tickets-table:not(.machine-inspection-table) tbody td { grid-template-columns: minmax(82px, 30%) minmax(0, 1fr); gap: 7px; padding: 9px; font-size: 11px; }
+      .machine-tickets-table:not(.machine-inspection-table) tbody td::before { font-size: 9px; }
     }
   </style>
 </head>
@@ -1227,6 +1235,11 @@
       return String(ticket.status || "Pendiente").toLocaleLowerCase("es").replace("ó", "o").trim();
     }
 
+    function isActiveMachineTicket(ticket) {
+      const status = normalizedTicketStatus(ticket);
+      return !ticket?.linkedMaintenanceRecordId && ["pendiente", "en ejecucion"].includes(status);
+    }
+
     function ticketBelongsToMachine(ticket, machine, siteId = currentSite?.id) {
       if (!machine) return false;
       if (ticket.machineRecordKey && String(ticket.machineRecordKey) === String(machine.recordKey)) return true;
@@ -1309,7 +1322,7 @@
     function assignedMachineTicket(machine) {
       if (user?.role !== "Supervisor" || !machine) return null;
       return readLeaderTickets().filter(ticket => ticketBelongsToMachine(ticket, machine) && canManageMachineTicket(ticket) &&
-        !ticket.linkedMaintenanceRecordId && !["cerrado", "cerrada", "resuelto", "resuelta", "cancelado", "cancelada"].includes(normalizedTicketStatus(ticket))
+        isActiveMachineTicket(ticket)
       ).sort((a, b) => {
         const priority = status => status === "en ejecucion" ? 0 : ["ejecutado", "ejecutada"].includes(status) ? 1 : 2;
         return priority(normalizedTicketStatus(a)) - priority(normalizedTicketStatus(b));
@@ -3598,7 +3611,8 @@
       const pendingMachineInspections = machineInspections.filter(isPendingInspection);
       const machineTickets = readLeaderTickets().filter(ticket =>
         ticketBelongsToMachine(ticket, machine) &&
-        canViewMachineTicket(ticket)
+        canViewMachineTicket(ticket) &&
+        isActiveMachineTicket(ticket)
       ).sort((first, second) =>
         String(second.createdAt || second.date || "").localeCompare(String(first.createdAt || first.date || ""))
       );
@@ -3610,20 +3624,16 @@
         <tr>
           <td><strong>${escapeHtml(ticket.ticketNumber || "—")}</strong></td>
           <td>${escapeHtml(formatTicketDate(ticket.date))}</td>
-          <td>${escapeHtml(ticket.type || "—")}</td>
           <td>${ticketStatus(ticket)}</td>
           <td><button class="back-button" type="button" data-view-machine-ticket="${escapeHtml(ticket.id || "")}">Ver ticket</button></td>
-        </tr>`).join("") || '<tr><td colspan="5" class="empty-state">Este equipo aún no tiene tickets registrados.</td></tr>';
+        </tr>`).join("") || '<tr><td colspan="4" class="empty-state">No hay tickets pendientes o en ejecución para este equipo.</td></tr>';
       const machineTicketExecutionMarkup = ["Técnico", "Supervisor"].includes(user?.role)
         ? machineTickets.map(ticket => {
           if (user?.role === "Técnico" && !canManageMachineTicket(ticket)) return "";
           const status = normalizedTicketStatus(ticket);
-          if (["cerrado", "cerrada", "resuelto", "resuelta", "cancelado", "cancelada"].includes(status) || ticket.linkedMaintenanceRecordId) return "";
           const action = status === "en ejecucion"
             ? '<span class="ticket-status-badge in-progress">En ejecución</span>'
-            : ["ejecutado", "ejecutada"].includes(status)
-              ? '<span class="ticket-status-badge completed">Ejecutado · guarda el mantenimiento para vincular</span>'
-              : '<button class="back-button" type="button" data-start-ticket="' + escapeHtml(ticket.id || "") + '">Ejecutar</button>';
+            : '<button class="back-button" type="button" data-start-ticket="' + escapeHtml(ticket.id || "") + '">Ejecutar</button>';
           return '<div class="maintenance-ticket-action"><div><strong>Ticket ' + escapeHtml(ticket.ticketNumber || "—") + '</strong><span>' + escapeHtml(ticket.title || ticket.type || "Mantenimiento") + '</span></div>' + action + '</div>';
         }).join("")
         : "";
@@ -3723,7 +3733,7 @@
           <article class="machine-detail-card">
             <div class="panel-heading"><div><h3>Tickets</h3><p>Tickets registrados para este equipo y activo fijo AF: ${escapeHtml(activeFixed)}.</p></div></div>
             <div class="supervisor-tickets-wrap machine-tickets-wrap"><table class="supervisor-tickets-table machine-tickets-table">
-              <thead><tr><th>Número de ticket</th><th>Fecha</th><th>Tipo</th><th>Estado</th><th></th></tr></thead>
+              <thead><tr><th>Número de ticket</th><th>Fecha</th><th>Estado</th><th></th></tr></thead>
               <tbody id="machineTicketsBody">${machineTicketsMarkup}</tbody>
             </table></div>
           </article>
