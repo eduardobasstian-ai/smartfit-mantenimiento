@@ -27,6 +27,10 @@ jobs:
           cp vendor/jsQR.min.js vendor/jsQR.LICENSE _site/vendor/
           cp IMG/favicon.ico IMG/favicon.png IMG/logo-header.png IMG/pwa-180.png IMG/pwa-192.png IMG/pwa-512.png _site/IMG/
           cp -R EQU/. _site/EQU/
+          mkdir -p _site/catalogo/marcas
+          cp catalogo/index.html catalogo/catalogo.html catalogo/supabase-auth.js _site/catalogo/
+          cp -R catalogo/IMG catalogo/catalogo-assets catalogo/equipos _site/catalogo/
+          find catalogo/marcas -type f -iname '*logo*.*' -exec cp --parents {} _site/ \;
           touch _site/.nojekyll
       - uses: actions/upload-pages-artifact@v3
         with:
