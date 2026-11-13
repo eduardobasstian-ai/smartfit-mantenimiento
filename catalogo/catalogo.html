@@ -303,10 +303,20 @@ function applyMarkerSearch(){const markers=[...marks.querySelectorAll('.hotspot'
       planSearchBack.hidden = show || !markerQuery;
     }
 
-    function renderPlanResults() {
+    function openPlanMatch({ v, c }) {
+      focusedResult = c.key;
+      showPlanResults(false);
+      setView(v);
+    }
+
+    function renderPlanResults({ openSingle = false } = {}) {
       const matches = data.views.flatMap(v => v.callouts
         .filter(c => !c.draft && markerMatches(c, markerQuery, v))
         .map(c => ({ v, c })));
+      if (openSingle && matches.length === 1) {
+        openPlanMatch(matches[0]);
+        return;
+      }
       planSearchStatus.textContent = matches.length
         ? `${matches.length} coincidencia${matches.length === 1 ? '' : 's'}`
         : 'No se encontraron coincidencias en los planos.';
@@ -321,10 +331,9 @@ function applyMarkerSearch(){const markers=[...marks.querySelectorAll('.hotspot'
       planSearchList.onclick = event => {
         const button = event.target.closest('[data-result]');
         if (!button) return;
-        const { v, c } = matches[Number(button.dataset.result)];
-        focusedResult = c.key;
-        showPlanResults(false);
-        setView(v);
+        const match = matches[Number(button.dataset.result)];
+        openPlanMatch(match);
+        const { c } = match;
         [...marks.querySelectorAll('.hotspot')].find(marker => marker.dataset.key === c.key)?.focus({ preventScroll: true });
       };
       showPlanResults(true);
@@ -339,7 +348,7 @@ function applyMarkerSearch(){const markers=[...marks.querySelectorAll('.hotspot'
       markerQuery = normalizeTechnicalName(markerSearch.value);
       focusedResult = null;
       if (markerQuery) {
-        renderPlanResults();
+        renderPlanResults({ openSingle: true });
       } else {
         showPlanResults(false);
         renderParts();
