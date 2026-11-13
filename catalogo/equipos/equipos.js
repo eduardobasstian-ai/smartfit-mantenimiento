@@ -25,6 +25,13 @@
       // Misma foto de la T600X que usa Mantención en EQU/matrix-catalog.js.
       image: "https://assets.jhtbrand.co/files/product/bbc3ced95b806ab71099b268ac8fc8b3130b91fb/",
     },
+    {
+      brand: "matrix",
+      id: "e-es-f",
+      name: "Elíptica",
+      model: "E-ES-F",
+      image: "https://assets.jhtbrand.co/files/product/b6b93e1cb54a3628d2ae436e300f54ccff618613/",
+    },
   ];
 
   const directory = document.getElementById("equipmentDirectory");
@@ -75,7 +82,7 @@
         <div class="equipment-model-info">
           <strong>${model.name}</strong>
           <span>Modelo ${model.model}</span>
-          <a class="btn primary equipment-link" href="#equipos/${brand}/${model.id}">Ver repuestos →</a>
+          <a class="btn primary equipment-link" href="catalogo.html${model.id === "e-es-f" ? "?equipo=e-es-f" : ""}#equipos/${brand}/${model.id}">Ver repuestos →</a>
         </div>
       </article>`).join("");
     if (!matches.length) {
@@ -108,7 +115,8 @@
 
   function renderRoute(focusHeading = false) {
     const route = window.location.hash;
-    const showingParts = route === "#equipos/matrix/t600x-sf" || route === "#repuestos/matrix/t600x-sf";
+    const showingParts = route === `#equipos/matrix/${window.catalogModelId}` ||
+      (window.catalogModelId === "t600x-sf" && route === "#repuestos/matrix/t600x-sf");
     const showingSavedParts = route === partsNav.hash;
     const brand = brands.find(([id]) => route === `#equipos/${id}`);
     directory.hidden = showingParts || showingSavedParts;
