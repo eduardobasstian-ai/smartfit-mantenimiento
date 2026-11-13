@@ -1,6 +1,6 @@
 begin;
 
-create schema repuestos;
+create schema if not exists repuestos;
 revoke all on schema repuestos from public, anon;
 grant usage on schema repuestos to authenticated;
 
