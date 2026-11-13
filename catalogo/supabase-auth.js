@@ -6,6 +6,7 @@
   const SUPABASE_URL = "https://acmcksmiqrfrxopceies.supabase.co";
   const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_uWaLgff_Xc03iC68QpUUuQ_QkmCLLGy";
   const LOGIN_FUNCTION_URL = `${SUPABASE_URL}/functions/v1/login-by-username`;
+  const SESSION_KEY = "smartfit.catalog.session.v1";
   async function login(username, password) {
     const normalizedUsername = String(username || "").trim();
     if (!normalizedUsername) throw new Error("Ingresa tu RUT o nombre de usuario.");
@@ -26,13 +27,13 @@
       throw new Error("La respuesta de autenticación está incompleta.");
     }
 
-    sessionStorage.setItem("smartfit.supabase.auth", JSON.stringify(result.auth));
+    localStorage.setItem(SESSION_KEY, JSON.stringify(result.auth));
     return result.user;
   }
 
   function clearSession() {
-    sessionStorage.removeItem("smartfit.supabase.auth");
+    localStorage.removeItem(SESSION_KEY);
   }
 
-  global.SmartFitSupabaseAuth = { login, clearSession };
+  global.SmartFitSupabaseAuth = { login, clearSession, SESSION_KEY };
 })(window);

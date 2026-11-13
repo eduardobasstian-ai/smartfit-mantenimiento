@@ -42,6 +42,19 @@
     .catalog-input-wrap{min-height:60px;border-radius:16px}
     .catalog-login-submit{min-height:60px}
     @media(max-width:640px){.catalog-session{position:relative;z-index:2}.catalog-session button{min-height:48px;padding:10px 15px}.catalog-access{min-height:calc(100svh - 76px);gap:22px;padding:30px 14px 36px}.catalog-intro h1{font-size:clamp(1.65rem,8vw,2.25rem)}.catalog-access-card{width:100%;padding:24px 20px;border-radius:22px}}
+    .canvas-shell.is-search-centered {
+      height: min(71vh, 850px);
+    }
+    .canvas-shell.is-search-centered .canvas {
+      margin: var(--center-space-y, 0px) 0 0 var(--center-space-x, 0px);
+      transition: none;
+    }
+    .canvas-shell.is-search-centered .canvas::after {
+      content: "";
+      position: absolute;
+      inset: 0 calc(-1 * var(--center-space-x, 0px)) calc(-1 * var(--center-space-y, 0px)) 0;
+      pointer-events: none;
+    }
   </style>
   <style>
     [hidden]{display:none!important}
@@ -211,10 +224,57 @@
  function drawTabs(){tabs.innerHTML=data.views.map(v=>`<button class="tab ${v.id===view.id?'active':''}" data-view="${esc(v.id)}" type="button">${esc(v.label)}</button>`).join('')+`<span id="viewSub" class="view-model">${esc(`${data.model} · ${data.drawing}`)}</span>`;tabs.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>{if(markerBatch.length&&!planResults.hidden)return;focusedResult=null;showPlanResults(false);setView(data.views.find(v=>v.id===b.dataset.view));});}
     function setView(v){if(placementDraft)cancelPlacement();if(markerBatch.length&&v.id!==view.id){document.getElementById('hint').textContent='Hay marcadores pendientes de guardar. Guarda posiciones o cancela la edición antes de cambiar de vista.';return;}view=v;selected=null;document.getElementById('viewTitle').textContent=v.title;img.src=v.image;const drawing=v.drawing||data.drawing;img.alt=`${v.title} · plano ${drawing}`;document.getElementById('planDrawing').textContent=`Despiece original · ${drawing}`;canvas.style.aspectRatio=`${v.imageWidth}/${v.imageHeight}`;canvas.style.width=`${zoom*100}%`;marks.innerHTML=v.callouts.map(c=>`<button class="hotspot ${c.draft?'is-draft':''}" ${c.draft?'data-draft="true"':''} type="button" title="${esc(c.item)} · ${c.qty} unidad(es)${c.draft?' · arrastra para ubicar':''}" aria-label="Pieza ${esc(c.item)}, cantidad ${c.qty}${c.draft?', marcador por guardar':''}" style="--x:${c.x}%;--y:${c.y}%" data-key="${esc(c.key)}">${esc(String(c.label||c.item).replace(/\s*[×x]\s*\d+\s*$/i,"").trim())}</button>`).join('');marks.querySelectorAll('.hotspot').forEach(b=>b.onclick=()=>{if(suppressMarkerClick)return;choose(v.callouts.find(c=>c.key===b.dataset.key));});drawTabs();renderParts();renderDetail();applyMarkerSearch();}
     function choose(c){selected=c;drawTabs();marks.querySelectorAll('.hotspot').forEach(b=>b.classList.toggle('selected',b.dataset.key===c.key));renderParts();renderDetail();}
-    function markerMatches(c,value,sourceView=view){if(!value)return true;const p=partFor(c.item,sourceView)||{},tech=technicalNames[String(c.item||'').trim().toUpperCase()]||'';const haystack=normalizeTechnicalName(`${c.item} ${tech} ${p.reference||''} ${p.sap||''}`);return value.split(/\s+/).every(term=>haystack.includes(term));}
-    let searchFocusFrame=0,searchFocusToken=0;
-function resetCanvasView(smooth=true){zoom=1;canvas.style.width='100%';canvasShell.classList.remove('is-zoomed');canvasShell.scrollTo({left:0,top:0,behavior:smooth?'smooth':'auto'});}
-function focusSearchMatches(matches){const token=++searchFocusToken;if(searchFocusFrame)cancelAnimationFrame(searchFocusFrame);if(!markerQuery||!matches.length){resetCanvasView(true);return;}searchFocusFrame=requestAnimationFrame(()=>{if(token!==searchFocusToken)return;const shellW=canvasShell.clientWidth,ratio=(view.imageHeight||1)/(view.imageWidth||1),baseW=shellW,baseH=baseW*ratio,availableW=Math.max(120,shellW-48),availableH=Math.max(120,canvasShell.clientHeight-48),xs=matches.map(c=>Number(c.x)||0),ys=matches.map(c=>Number(c.y)||0),spanW=Math.max(5,(Math.max(...xs)-Math.min(...xs))/100*baseW),spanH=Math.max(5,(Math.max(...ys)-Math.min(...ys))/100*baseH),target=matches.length===1?2.4:Math.min(5,Math.max(1,Math.min(availableW/spanW,availableH/spanH)*.78)),centerX=xs.reduce((a,b)=>a+b,0)/xs.length,centerY=ys.reduce((a,b)=>a+b,0)/ys.length;setZoom(target);requestAnimationFrame(()=>requestAnimationFrame(()=>{if(token!==searchFocusToken)return;const left=canvas.offsetLeft+canvas.clientWidth*centerX/100-canvasShell.clientWidth/2,top=canvas.offsetTop+canvas.clientHeight*centerY/100-canvasShell.clientHeight/2;canvasShell.scrollTo({left:Math.max(0,left),top:Math.max(0,top),behavior:'smooth'});}));});}
+    function markerMatches(c, value, sourceView = view) {
+      if (!value) return true;
+      const part = partFor(c.item, sourceView);
+      const technicalName = technicalNames[String(c.item || '').trim().toUpperCase()];
+      const phrase = value.replace(/\s+/g, ' ');
+      return [c.item, technicalName, part?.reference, part?.sap].some(field =>
+        normalizeTechnicalName(field).replace(/\s+/g, ' ').includes(phrase)
+      );
+    }
+    let searchFocusFrame = 0;
+
+    function resetCanvasView(smooth = true) {
+      cancelAnimationFrame(searchFocusFrame);
+      canvasShell.classList.remove('is-search-centered');
+      setZoom(1);
+      canvasShell.scrollTo({ left: 0, top: 0, behavior: smooth ? 'smooth' : 'instant' });
+    }
+
+    function focusSearchMatches(matches) {
+      cancelAnimationFrame(searchFocusFrame);
+      searchFocusFrame = requestAnimationFrame(() => {
+        if (canvasShell.hidden || !canvasShell.clientWidth) return;
+        const left = Math.min(...matches.map(match => match.x));
+        const right = Math.max(...matches.map(match => match.x));
+        const top = Math.min(...matches.map(match => match.y));
+        const bottom = Math.max(...matches.map(match => match.y));
+        const baseWidth = canvasShell.clientWidth;
+        const baseHeight = baseWidth * view.imageHeight / view.imageWidth;
+        const target = matches.length === 1 ? 2.4 : Math.min(
+          (baseWidth - 48) / Math.max(5, (right - left) / 100 * baseWidth),
+          (canvasShell.clientHeight - 48) / Math.max(5, (bottom - top) / 100 * baseHeight)
+        ) * 0.78;
+
+        // Leave enough scroll space to center a marker at any edge of the drawing.
+        canvasShell.classList.add('is-search-centered');
+        setZoom(target);
+        const width = canvasShell.clientWidth;
+        const height = canvasShell.clientHeight;
+        canvas.style.setProperty('--center-space-x', width / 2 + 'px');
+        canvas.style.setProperty('--center-space-y', height / 2 + 'px');
+        const shellBounds = canvasShell.getBoundingClientRect();
+        const drawingBounds = canvas.getBoundingClientRect();
+        canvasShell.scrollTo({
+          left: canvasShell.scrollLeft + drawingBounds.left - shellBounds.left -
+            canvasShell.clientLeft + drawingBounds.width * (left + right) / 200 - width / 2,
+          top: canvasShell.scrollTop + drawingBounds.top - shellBounds.top -
+            canvasShell.clientTop + drawingBounds.height * (top + bottom) / 200 - height / 2,
+          behavior: 'instant',
+        });
+      });
+    }
 function applyMarkerSearch(){const markers=[...marks.querySelectorAll('.hotspot')],hasSearch=Boolean(markerQuery);let matchesCount=0;const matches=[];markers.forEach(button=>{const c=view.callouts.find(item=>item.key===button.dataset.key),matched=!hasSearch||(focusedResult ? c?.key===focusedResult : markerMatches(c,markerQuery));button.classList.toggle('is-search-dim',hasSearch&&!matched);button.classList.toggle('is-search-match',hasSearch&&matched);if(matched)matchesCount++;if(hasSearch&&matched&&c)matches.push(c);});document.getElementById('resultCount').textContent=`${hasSearch?matchesCount:view.callouts.length} referencia${(hasSearch?matchesCount:view.callouts.length)===1?'':'s'}`;if(hasSearch&&!matchesCount){document.getElementById('hint').textContent='No hay coincidencias en este plano.';resetCanvasView(true);}else if(hasSearch){document.getElementById('hint').textContent=`${matchesCount} coincidencia${matchesCount===1?'':'s'} enfocada${matchesCount===1?'':'s'} en el plano.`;focusSearchMatches(matches);}else{document.getElementById('hint').textContent='Selecciona un marcador para consultar su información.';resetCanvasView(true);}}
     function renderParts(){const list=view.callouts.filter(c=>focusedResult ? c.key===focusedResult : markerMatches(c,markerQuery));if(!markerQuery)document.getElementById('resultCount').textContent=`${list.length} referencia${list.length===1?'':'s'}`;if(!list.length){partsEl.innerHTML='<div class="empty">No hay coincidencias en esta vista.</div>';return}partsEl.innerHTML=list.map(c=>{const p=partFor(c.item);return `<button type="button" class="part-row ${selected?.key===c.key?'selected':''}" data-key="${esc(c.key)}"><span class="part-code">${esc(c.item)}</span><span class="part-desc">${esc(p?.description||'Referencia sin fila coincidente en el BOM')}</span><span class="part-qty">× ${c.qty}</span>${c.draft?'<span class="part-state">Por guardar</span>':''}</button>`}).join('');partsEl.querySelectorAll('[data-key]').forEach(b=>b.onclick=()=>choose(view.callouts.find(c=>c.key===b.dataset.key)));}
 
@@ -296,7 +356,7 @@ function applyMarkerSearch(){const markers=[...marks.querySelectorAll('.hotspot'
       renderPlanResults();
       document.getElementById('planSearchTitle').focus();
     });
-    function setZoom(next){zoom=Math.max(1,Math.min(5,next));canvas.style.width=`${zoom*100}%`;canvasShell.classList.toggle('is-zoomed',zoom>1);if(zoom<=1){canvasShell.scrollLeft=0;canvasShell.scrollTop=0;}}
+    function setZoom(next){zoom=Math.max(1,Math.min(5,next));canvas.style.width=`${zoom*100}%`;canvasShell.classList.toggle('is-zoomed',zoom>1);if(zoom<=1){canvasShell.classList.remove('is-search-centered');canvasShell.scrollLeft=0;canvasShell.scrollTop=0;}}
     document.getElementById('zoomIn').addEventListener('click',()=>setZoom(zoom+.25));
     document.getElementById('zoomOut').addEventListener('click',()=>setZoom(zoom-.25));
     document.getElementById('zoomReset').addEventListener('click',()=>resetCanvasView(true));
@@ -487,13 +547,13 @@ function applyMarkerSearch(){const markers=[...marks.querySelectorAll('.hotspot'
   })();
   </script>
   <script src="equipos/equipos.js"></script>
-  <script src="supabase-auth.js?v=catalog-access-20261112"></script>
+  <script src="supabase-auth.js?v=catalog-session-v1"></script>
   <script id="catalogAuthController">
     (() => {
       "use strict";
       const SUPABASE_URL = "https://acmcksmiqrfrxopceies.supabase.co";
       const API_KEY = "sb_publishable_uWaLgff_Xc03iC68QpUUuQ_QkmCLLGy";
-      const AUTH_KEY = "smartfit.supabase.auth";
+      const AUTH_KEY = window.SmartFitSupabaseAuth.SESSION_KEY;
       const CATALOG_USER_KEY = "smartfit.catalog.auth-user";
       const ALLOWED_ROLES = new Set(["administrador", "supervisor"]);
       const $ = (id) => document.getElementById(id);
@@ -503,12 +563,27 @@ function applyMarkerSearch(){const markers=[...marks.querySelectorAll('.hotspot'
       const form = $("catalogLoginForm");
       const submit = $("catalogLoginSubmit");
       const errorBox = $("catalogLoginError");
+      let renewal;
+      let restoreTimer;
+
+      function readSession() {
+        try {
+          return JSON.parse(localStorage.getItem(AUTH_KEY) || "null");
+        } catch {
+          return null;
+        }
+      }
+
+      function rejectedSession(message) {
+        return Object.assign(new Error(message), { invalidSession: true });
+      }
 
       function setError(message) {
         errorBox.textContent = message || "";
         errorBox.hidden = !message;
       }
       function clearAuth() {
+        clearTimeout(restoreTimer);
         window.SmartFitSupabaseAuth?.clearSession();
         sessionStorage.removeItem(CATALOG_USER_KEY);
       }
@@ -517,7 +592,17 @@ function applyMarkerSearch(){const markers=[...marks.querySelectorAll('.hotspot'
           url: SUPABASE_URL,
           key: API_KEY,
           role: profile.role.toLowerCase(),
-          getToken: async () => (await refreshIfNeeded(JSON.parse(sessionStorage.getItem(AUTH_KEY) || "null"))).access_token,
+          getToken: async () => {
+            try {
+              return (await refreshIfNeeded()).access_token;
+            } catch (error) {
+              if (error.invalidSession) {
+                clearAuth();
+                displayLogin(error.message);
+              }
+              throw error;
+            }
+          },
         });
         window.dispatchEvent(new Event("catalog-session-ready"));
         $("catalogUserName").textContent = profile.name || profile.username || "Usuario";
@@ -539,7 +624,11 @@ function applyMarkerSearch(){const markers=[...marks.querySelectorAll('.hotspot'
           const response = await fetch(url, { ...options, signal: controller.signal, cache: "no-store" });
           let data = {};
           try { data = await response.json(); } catch (_) {}
-          if (!response.ok) throw new Error(data.msg || data.message || data.error_description || data.error || `Error de conexión (${response.status}).`);
+          if (!response.ok) {
+            throw Object.assign(new Error(data.msg || data.message || data.error_description || data.error || `Error de conexión (${response.status}).`), {
+              status: response.status,
+            });
+          }
           return data;
         } catch (error) {
           if (error.name === "AbortError") throw new Error("La conexión tardó demasiado. Comprueba internet e inténtalo otra vez.");
@@ -551,28 +640,51 @@ function applyMarkerSearch(){const markers=[...marks.querySelectorAll('.hotspot'
       function isAllowed(profile) {
         return profile && profile.active === true && ALLOWED_ROLES.has(String(profile.role || "").trim().toLocaleLowerCase("es"));
       }
-      async function refreshIfNeeded(auth) {
+      async function renewSession() {
+        const auth = readSession();
+        if (!auth?.refresh_token) throw rejectedSession("Inicia sesión para continuar.");
         const expiresAt = Number(auth.expires_at || 0) * 1000;
         if (expiresAt && expiresAt > Date.now() + 60000) return auth;
-        if (!auth.refresh_token) throw new Error("La sesión venció. Vuelve a ingresar.");
-        const renewed = await fetchJson(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
-          method: "POST",
-          headers: { apikey: API_KEY, "Content-Type": "application/json" },
-          body: JSON.stringify({ refresh_token: auth.refresh_token })
-        });
-        sessionStorage.setItem(AUTH_KEY, JSON.stringify(renewed));
+        let renewed;
+        try {
+          renewed = await fetchJson(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
+            method: "POST",
+            headers: { apikey: API_KEY, "Content-Type": "application/json" },
+            body: JSON.stringify({ refresh_token: auth.refresh_token })
+          });
+        } catch (error) {
+          const current = readSession();
+          if (current?.refresh_token && current.refresh_token !== auth.refresh_token) return current;
+          if ([400, 401, 403].includes(error.status)) {
+            throw rejectedSession("Supabase cerró la sesión. Vuelve a ingresar.");
+          }
+          throw error;
+        }
+        const current = readSession();
+        if (!current) throw new Error("La sesión se cerró durante la renovación.");
+        if (current.refresh_token !== auth.refresh_token) return current;
+        localStorage.setItem(AUTH_KEY, JSON.stringify(renewed));
         return renewed;
       }
-      async function validateAndGetProfile(auth, expectedAuthId = "") {
-        const validAuth = await refreshIfNeeded(auth);
-        if (!validAuth.access_token) throw new Error("La sesión no es válida. Vuelve a ingresar.");
+      function refreshIfNeeded() {
+        if (!renewal) {
+          const task = navigator.locks
+            ? navigator.locks.request(AUTH_KEY, renewSession)
+            : renewSession();
+          renewal = task.finally(() => { renewal = null; });
+        }
+        return renewal;
+      }
+      async function validateAndGetProfile(expectedAuthId = "") {
+        const validAuth = await refreshIfNeeded();
+        if (!validAuth.access_token) throw rejectedSession("La sesión no es válida. Vuelve a ingresar.");
         const headers = { apikey: API_KEY, Authorization: `Bearer ${validAuth.access_token}` };
         const authUser = await fetchJson(`${SUPABASE_URL}/auth/v1/user`, { headers });
         if (expectedAuthId && authUser.id !== expectedAuthId) throw new Error("La sesión activa no coincide. Vuelve a ingresar.");
         const query = new URLSearchParams({ select: "id,full_name,username,role,active", id: `eq.${authUser.id}`, limit: "1" });
         const rows = await fetchJson(`${SUPABASE_URL}/rest/v1/profiles?${query}`, { headers });
         const profile = Array.isArray(rows) ? rows[0] : null;
-        if (!profile || !isAllowed(profile)) throw new Error("Este catálogo está habilitado solo para cuentas activas de Administrador y Supervisor.");
+        if (!isAllowed(profile)) throw rejectedSession("Este catálogo está habilitado solo para cuentas activas de Administrador y Supervisor.");
         const safeProfile = { authId: profile.id, name: profile.full_name, username: profile.username, role: profile.role, active: profile.active };
         sessionStorage.setItem(CATALOG_USER_KEY, JSON.stringify(safeProfile));
         return safeProfile;
@@ -600,9 +712,7 @@ function applyMarkerSearch(){const markers=[...marks.querySelectorAll('.hotspot'
         try {
           const signedInUser = await window.SmartFitSupabaseAuth.login(username, password);
           if (!isAllowed(signedInUser)) throw new Error("Este catálogo está habilitado solo para cuentas activas de Administrador y Supervisor.");
-          const auth = JSON.parse(sessionStorage.getItem(AUTH_KEY) || "null");
-          if (!auth) throw new Error("Supabase no confirmó la sesión. Intenta nuevamente.");
-          const profile = await validateAndGetProfile(auth, signedInUser.authId || "");
+          const profile = await validateAndGetProfile(signedInUser.authId || "");
           $("catalogPassword").value = "";
           history.replaceState(history.state, "", "#equipos");
           window.dispatchEvent(new Event("hashchange"));
@@ -618,7 +728,7 @@ function applyMarkerSearch(){const markers=[...marks.querySelectorAll('.hotspot'
 
       $("catalogLogout").addEventListener("click", async () => {
         const button = $("catalogLogout");
-        const auth = JSON.parse(sessionStorage.getItem(AUTH_KEY) || "null");
+        const auth = readSession();
         button.disabled = true;
         clearAuth();
         displayLogin();
@@ -626,29 +736,38 @@ function applyMarkerSearch(){const markers=[...marks.querySelectorAll('.hotspot'
         $("catalogPassword").value = "";
         if (auth?.access_token) {
           try {
-            await fetchJson(`${SUPABASE_URL}/auth/v1/logout`, { method: "POST", headers: { apikey: API_KEY, Authorization: `Bearer ${auth.access_token}` } }, 4000);
+            await fetchJson(`${SUPABASE_URL}/auth/v1/logout?scope=local`, { method: "POST", headers: { apikey: API_KEY, Authorization: `Bearer ${auth.access_token}` } }, 4000);
           } catch (_) { /* La sesión local ya quedó cerrada; el servidor puede estar sin conexión. */ }
         }
         button.disabled = false;
         $("catalogUsername").focus();
       });
 
-      (async () => {
-        const auth = JSON.parse(sessionStorage.getItem(AUTH_KEY) || "null");
-        const cachedUser = JSON.parse(sessionStorage.getItem(CATALOG_USER_KEY) || "null");
-        if (!auth || !cachedUser?.authId) {
-          clearAuth();
+      async function restoreSession() {
+        if (!readSession()) {
           displayLogin();
           return;
         }
         try {
-          const profile = await validateAndGetProfile(auth, cachedUser.authId);
-          displayCatalog(profile);
-        } catch (_) {
-          clearAuth();
-          displayLogin("Tu sesión venció o dejó de tener acceso. Ingresa nuevamente.");
+          const profile = await validateAndGetProfile();
+          if (readSession()) displayCatalog(profile);
+        } catch (error) {
+          if (error.invalidSession || error.status === 401) {
+            clearAuth();
+            displayLogin("Tu sesión venció o dejó de tener acceso. Ingresa nuevamente.");
+            return;
+          }
+          displayLogin("No se pudo conectar con Supabase. Conservamos tu sesión y volveremos a intentar.");
+          restoreTimer = setTimeout(restoreSession, 5000);
         }
-      })();
+      }
+      window.addEventListener("storage", event => {
+        if (event.key === AUTH_KEY && !event.newValue) {
+          clearTimeout(restoreTimer);
+          displayLogin();
+        }
+      });
+      restoreSession();
     })();
   </script>
 </body>
