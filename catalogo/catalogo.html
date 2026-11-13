@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#101116">
-  <title>Catálogo técnico · Matrix T600X SF</title>
+  <title>Catálogo</title>
   <style>
     :root{color-scheme:dark;--bg:#101116;--surface:#191b22;--surface2:#22252e;--line:#343743;--yellow:#ffb51b;--blue:#62b8ff;--text:#f4f5f7;--muted:#a6a9b4;font-family:Inter,"Segoe UI",Arial,sans-serif}
     *{box-sizing:border-box}.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}body{margin:0;min-height:100vh;background:radial-gradient(ellipse at 50% 0%,#25232a 0%,transparent 55%),var(--bg);color:var(--text);font-family:Inter,"Segoe UI",Arial,sans-serif;display:flex;flex-direction:column}button,input{font:inherit}button{color:inherit;cursor:pointer}button:focus-visible,input:focus-visible{outline:2px solid var(--yellow);outline-offset:2px}
@@ -162,7 +162,7 @@
       </div>
       <section class="workspace">
         <div class="plan-panel">
-          <div class="toolbar"><div><h2 id="viewTitle"></h2></div><div class="actions marker-actions"><label class="marker-search"><span class="sr-only">Buscar piezas por ítem, nombre técnico, referencia o SAP en todos los planos</span><input id="markerSearch" type="search" placeholder="Buscar ítem, nombre técnico, referencia o SAP…" autocomplete="off"></label><button class="btn primary" id="openBomPlacement" type="button">＋ Agregar marcadores</button></div></div>
+          <div class="toolbar"><div><h2 id="viewTitle"></h2></div><div class="actions marker-actions"><label class="marker-search"><span class="sr-only">Buscar piezas por ítem, nombre técnico, referencia o SAP en todos los planos</span><input id="markerSearch" type="search" placeholder="Buscar ítem, nombre técnico, referencia o SAP…" autocomplete="off"></label><button class="btn primary" id="openBomPlacement" type="button">＋ Agregar marcadores</button><button class="equipment-back" id="backToPlanResults" type="button" hidden>← Volver a coincidencias</button></div></div>
           <div class="canvas-shell" id="canvasShell"><div class="zoom-controls-dock"><div class="zoom-controls" aria-label="Controles de acercamiento"><button class="btn" id="zoomIn" type="button" aria-label="Acercar plano">+</button><button class="btn" id="zoomOut" type="button" aria-label="Alejar plano">−</button><button class="btn zoom-reset" id="zoomReset" type="button" aria-label="Restablecer vista del plano" title="Centrar plano"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="6.5"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg></button></div></div><div class="canvas" id="canvas"><img id="planImage" alt="Plano original del conjunto"><div class="plan-badge">Pieza seleccionada</div><div id="hotspots"></div></div></div>
           <section class="plan-search-results" id="planSearchResults" aria-labelledby="planSearchTitle" hidden>
             <h3 id="planSearchTitle" tabindex="-1">Coincidencias en los planos</h3>
@@ -170,7 +170,6 @@
             <div id="planSearchList" class="plan-search-list"></div>
           </section>
           <div class="canvas-foot"><span id="hint">Selecciona un marcador para consultar su información.</span><span id="planDrawing">Despiece original · MTM3839-00</span></div>
-          <div class="plan-search-back" id="planSearchBack" hidden><button class="equipment-back" id="backToPlanResults" type="button">← Volver a coincidencias</button></div>
           <div class="placement-help" id="placementHelp" hidden><span id="placementMessage">Arrastra los marcadores amarillos hasta su posición en el plano; al guardar quedarán bloqueados.</span><div class="actions"><button class="btn" id="cancelMarkerDrafts" type="button">Cancelar</button><button class="btn primary" id="saveMarkerDrafts" type="button">Guardar posiciones</button></div></div><details class="parts-details" id="referencesPanel"><summary>Referencias de esta vista <span class="count" id="resultCount"></span></summary><div class="parts-tools"><button class="btn" id="addReference" type="button">＋ Agregar referencia</button></div><div class="parts" id="parts"></div></details>
         </div>
         <aside class="detail-panel"><div class="detail" id="detail"></div></aside>
@@ -290,7 +289,7 @@ function applyMarkerSearch(){const markers=[...marks.querySelectorAll('.hotspot'
     const planResults = document.getElementById('planSearchResults');
     const planSearchList = document.getElementById('planSearchList');
     const planSearchStatus = document.getElementById('planSearchStatus');
-    const planSearchBack = document.getElementById('planSearchBack');
+    const planSearchBack = document.getElementById('backToPlanResults');
     const planFoot = document.querySelector('.canvas-foot');
     const openBomPlacement = document.getElementById('openBomPlacement');
     let focusedResult = null;

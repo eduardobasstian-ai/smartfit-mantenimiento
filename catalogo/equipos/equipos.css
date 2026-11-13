@@ -267,10 +267,6 @@ a.equipment-card:hover {
   font-size: 12px;
 }
 
-.plan-search-back {
-  padding: 0 12px 10px;
-}
-
 @media (max-width: 680px) {
   .equipment-grid {
     grid-template-columns: 1fr;
