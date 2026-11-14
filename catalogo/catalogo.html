@@ -281,10 +281,51 @@
         });
       });
     }
-function applyMarkerSearch(){const markers=[...marks.querySelectorAll('.hotspot')],hasSearch=Boolean(markerQuery);let matchesCount=0;const matches=[];markers.forEach(button=>{const c=view.callouts.find(item=>item.key===button.dataset.key),matched=!hasSearch||(focusedResult ? c?.key===focusedResult : markerMatches(c,markerQuery));button.classList.toggle('is-search-dim',hasSearch&&!matched);button.classList.toggle('is-search-match',hasSearch&&matched);if(matched)matchesCount++;if(hasSearch&&matched&&c)matches.push(c);});document.getElementById('resultCount').textContent=`${hasSearch?matchesCount:view.callouts.length} referencia${(hasSearch?matchesCount:view.callouts.length)===1?'':'s'}`;if(hasSearch&&!matchesCount){document.getElementById('hint').textContent='No hay coincidencias en este plano.';resetCanvasView(true);}else if(hasSearch){document.getElementById('hint').textContent=`${matchesCount} coincidencia${matchesCount===1?'':'s'} enfocada${matchesCount===1?'':'s'} en el plano.`;focusSearchMatches(matches);}else{document.getElementById('hint').textContent='Selecciona un marcador para consultar su información.';resetCanvasView(true);}}
-    function renderParts(){const list=view.callouts.filter(c=>focusedResult ? c.key===focusedResult : markerMatches(c,markerQuery));if(!markerQuery)document.getElementById('resultCount').textContent=`${list.length} referencia${list.length===1?'':'s'}`;if(!list.length){partsEl.innerHTML='<div class="empty">No hay coincidencias en esta vista.</div>';return}partsEl.innerHTML=list.map(c=>{const p=partFor(c.item);return `<button type="button" class="part-row ${selected?.key===c.key?'selected':''}" data-key="${esc(c.key)}"><span class="part-code">${esc(c.item)}</span><span class="part-desc">${esc(p?.description||'Referencia sin fila coincidente en el BOM')}</span><span class="part-qty">× ${c.qty}</span>${c.draft?'<span class="part-state">Por guardar</span>':''}</button>`}).join('');partsEl.querySelectorAll('[data-key]').forEach(b=>b.onclick=()=>choose(view.callouts.find(c=>c.key===b.dataset.key)));}
+function applyMarkerSearch(){const markers=[...marks.querySelectorAll('.hotspot')],hasSearch=Boolean(markerQuery);let matchesCount=0;const matches=[];markers.forEach(button=>{const c=view.callouts.find(item=>item.key===button.dataset.key),matched=!hasSearch||(focusedResult ? c?.key===focusedResult : markerMatches(c,markerQuery));button.classList.toggle('is-search-dim',hasSearch&&!matched);button.classList.toggle('is-search-match',hasSearch&&matched);if(matched)matchesCount++;if(hasSearch&&matched&&c)matches.push(c);});if(hasSearch||!isElliptical||view.id!=='general')document.getElementById('resultCount').textContent=`${hasSearch?matchesCount:view.callouts.length} referencia${(hasSearch?matchesCount:view.callouts.length)===1?'':'s'}`;if(hasSearch&&!matchesCount){document.getElementById('hint').textContent='No hay coincidencias en este plano.';resetCanvasView(true);}else if(hasSearch){document.getElementById('hint').textContent=`${matchesCount} coincidencia${matchesCount===1?'':'s'} enfocada${matchesCount===1?'':'s'} en el plano.`;focusSearchMatches(matches);}else{document.getElementById('hint').textContent='Selecciona un marcador para consultar su información.';resetCanvasView(true);}}
+    function renderParts(){if(isElliptical&&view.id==='general'&&!markerQuery){renderEllipticalBom();return;}const list=view.callouts.filter(c=>focusedResult ? c.key===focusedResult : markerMatches(c,markerQuery));if(!markerQuery)document.getElementById('resultCount').textContent=`${list.length} referencia${list.length===1?'':'s'}`;if(!list.length){partsEl.innerHTML='<div class="empty">No hay coincidencias en esta vista.</div>';return}partsEl.innerHTML=list.map(c=>{const p=partFor(c.item);return `<button type="button" class="part-row ${selected?.key===c.key?'selected':''}" data-key="${esc(c.key)}"><span class="part-code">${esc(c.item)}</span><span class="part-desc">${esc(p?.description||'Referencia sin fila coincidente en el BOM')}</span><span class="part-qty">× ${c.qty}</span>${c.draft?'<span class="part-state">Por guardar</span>':''}</button>`}).join('');partsEl.querySelectorAll('[data-key]').forEach(b=>b.onclick=()=>choose(view.callouts.find(c=>c.key===b.dataset.key)));}
 
     const technicalNameStorageKey=storagePrefix + ':technical-names:v1';
+    function renderEllipticalBom() {
+      const parts = new Map();
+      for (const part of [...data.bom, ...Object.values(data.parts)]) {
+        const key = JSON.stringify([part.item, part.reference, part.sap]);
+        if (!parts.has(key)) parts.set(key, part);
+      }
+      const rows = [...parts.values()].map(part => {
+        const positionedPart = partFor(part.item);
+        const marker = positionedPart?.reference === part.reference && positionedPart?.sap === part.sap
+          ? view.callouts.find(callout => callout.item === part.item)
+          : undefined;
+        return { part, marker };
+      });
+      document.getElementById('resultCount').textContent = rows.length + ' referencias';
+      partsEl.innerHTML = rows.map(({ part, marker }, index) => `
+        <button type="button" class="part-row" data-bom-row="${index}">
+          <span class="part-code">${esc(part.item || 'Sin ítem')}</span>
+          <span class="part-desc">${esc(part.description)} · Ref. ${esc(part.reference || '—')} · SAP ${esc(part.sap || '—')}</span>
+          <span class="part-qty">${marker ? 'En plano' : 'Sin marcador'}</span>
+        </button>`).join('');
+      partsEl.querySelectorAll('[data-bom-row]').forEach(button => {
+        button.onclick = () => {
+          const { part, marker } = rows[Number(button.dataset.bomRow)];
+          if (marker) {
+            choose(marker);
+            return;
+          }
+          selected = null;
+          marks.querySelectorAll('.hotspot.selected').forEach(mark => mark.classList.remove('selected'));
+          detail.innerHTML = `<h3>Referencia ${esc(part.reference || part.sap || part.item)}</h3>
+            <p class="detail-sub">Esta referencia aún no tiene un marcador vinculado en esta vista.</p>
+            <table class="table"><tbody>
+              <tr><th>Item No.</th><td>${esc(part.item || '—')}</td></tr>
+              <tr><th>Reference No.</th><td>${esc(part.reference || '—')}</td></tr>
+              <tr><th>SAP Parts No.</th><td>${esc(part.sap || '—')}</td></tr>
+              <tr><th>Descripción</th><td>${esc(part.description || '—')}</td></tr>
+            </tbody></table>`;
+        };
+      });
+    }
+
     let technicalNames={};let technicalNameEditing='';
     try{technicalNames=JSON.parse(localStorage.getItem(technicalNameStorageKey)||'{}')||{};}catch{technicalNames={};}
     function normalizeTechnicalName(value){return String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLocaleLowerCase();}
