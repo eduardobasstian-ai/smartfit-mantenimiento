@@ -18,6 +18,13 @@
   ];
   const models = [
     {
+      brand: "movement",
+      id: "rt-g2",
+      name: "Trotadora",
+      model: "RT G2",
+      image: "catalogo-assets/movement-rt-g2/rt250.jpg",
+    },
+    {
       brand: "matrix",
       id: "t600x-sf",
       name: "Trotadora",
