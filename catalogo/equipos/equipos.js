@@ -32,6 +32,13 @@
       model: "E-ES-F",
       image: "https://assets.jhtbrand.co/files/product/b6b93e1cb54a3628d2ae436e300f54ccff618613/",
     },
+    {
+      brand: "hammer-strength",
+      id: "hs-abc",
+      name: "Abdominal Crunch",
+      model: "HS-ABC",
+      image: "https://www.lifefitness.cl/cdn/shop/products/hammer-strength-abdominal-crunch.jpg?v=1706553479&width=1200",
+    },
   ];
 
   const directory = document.getElementById("equipmentDirectory");
@@ -82,7 +89,7 @@
         <div class="equipment-model-info">
           <strong>${model.name}</strong>
           <span>Modelo ${model.model}</span>
-          <a class="btn primary equipment-link" href="catalogo.html${model.id === "e-es-f" ? "?equipo=e-es-f" : ""}#equipos/${brand}/${model.id}">Ver repuestos →</a>
+          <a class="btn primary equipment-link" href="catalogo.html${model.id === "t600x-sf" ? "" : `?equipo=${model.id}`}#equipos/${brand}/${model.id}">Ver repuestos →</a>
         </div>
       </article>`).join("");
     if (!matches.length) {
@@ -115,7 +122,8 @@
 
   function renderRoute(focusHeading = false) {
     const route = window.location.hash;
-    const showingParts = route === `#equipos/matrix/${window.catalogModelId}` ||
+    const activeModel = models.find(model => model.id === window.catalogModelId);
+    const showingParts = route === `#equipos/${activeModel?.brand}/${activeModel?.id}` ||
       (window.catalogModelId === "t600x-sf" && route === "#repuestos/matrix/t600x-sf");
     const showingSavedParts = route === partsNav.hash;
     const brand = brands.find(([id]) => route === `#equipos/${id}`);
@@ -129,7 +137,10 @@
     (showingSavedParts ? partsNav : equipmentNav).setAttribute("aria-current", "page");
 
     if (showingParts) {
-      if (focusHeading) parts.querySelector(".equipment-back").focus();
+      const back = parts.querySelector(".equipment-back");
+      back.href = `#equipos/${activeModel.brand}`;
+      back.textContent = `← Volver a equipos ${brands.find(([id]) => id === activeModel.brand)[1]}`;
+      if (focusHeading) back.focus();
       return;
     }
     if (showingSavedParts) {
