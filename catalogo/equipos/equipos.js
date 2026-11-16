@@ -6,7 +6,7 @@
     ["matrix", "Matrix", "marcas/matrix/Matrix_Logo.jpg"],
     ["booty-builder", "Booty Builder", "marcas/booty_builder/Bb_Logo.png"],
     ["shua", "Shua", "marcas/shua/Shua_Logo.avif"],
-    ["lifefitness", "Lifefitness", "marcas/life_fitness/LifeFitness_Logo_BlancoNegro.png"],
+    ["lifefitness", "Life Fitness", "marcas/life_fitness/LifeFitness_Logo_BlancoNegro.png"],
     ["hammer-strength", "Hammer Strength", "marcas/hammer_strength/HS_Logo.jpg"],
     ["relan", "Relan", "marcas/relan/Relan_Logo_BlancoNegro.png"],
     ["ubian", "Ubian", "marcas/ubian/Ubian_Logo.jpg"],
@@ -46,6 +46,9 @@
       model: "HS-ABC",
       image: "https://www.lifefitness.cl/cdn/shop/products/hammer-strength-abdominal-crunch.jpg?v=1706553479&width=1200",
     },
+    ...window.catalogManuals.map(({ id, brand, name, model }) => ({
+      id, brand, name, model, image: window.catalogMaintenancePhotos[id],
+    })),
   ];
 
   const directory = document.getElementById("equipmentDirectory");
@@ -56,12 +59,18 @@
   const searchStatus = document.getElementById("equipmentSearchStatus");
   const grid = document.getElementById("equipmentGrid");
   const parts = document.getElementById("partsView");
+  const planBack = document.getElementById("planBack");
+  const planModel = document.getElementById("planModel");
+  const listQuery = new URLSearchParams(window.location.search).get("buscar") || "";
   const savedParts = document.getElementById("savedPartsView");
   const equipmentNav = document.getElementById("equipmentNav");
   const partsNav = document.getElementById("partsNav");
+  const inventoryNav = document.getElementById("inventoryNav");
+  const inventory = document.getElementById("inventoryView");
   const preview = document.getElementById("photoPreviewDialog");
   const previewImage = document.getElementById("photoPreviewImage");
   let activeBrand;
+  const inventoryPage = window.createCatalogInventory(brands, models);
 
   function renderBrands() {
     grid.innerHTML = brands.map(([id, name, logo]) => {
@@ -84,21 +93,30 @@
     const terms = normalizeSearch(search.value).match(/[\p{L}\p{N}]+/gu) || [];
     const matches = models.filter(model => {
       if (model.brand !== brand) return false;
-      const searchable = normalizeSearch(`${model.name} ${model.model}`).replace(/[^\p{L}\p{N}]/gu, "");
+      const label = window.catalogEquipmentName(model);
+      const searchable = normalizeSearch(`${label.es} ${label.en} ${model.model}`).replace(/[^\p{L}\p{N}]/gu, "");
       return terms.every(term => searchable.includes(term));
     });
-    grid.innerHTML = matches.map(model => `
+    grid.innerHTML = matches.map(model => {
+      const label = window.catalogEquipmentName(model);
+      const params = new URLSearchParams();
+      if (model.id !== "t600x-sf") params.set("equipo", model.id);
+      if (search.value.trim()) params.set("buscar", search.value.trim());
+      const query = params.toString();
+      return `
       <article class="equipment-card equipment-model-card">
-        <button class="equipment-thumbnail" type="button" aria-label="Ampliar imagen de ${model.name} ${model.model}">
-          <img src="${model.image}" alt="${model.name} ${model.model}" width="544" height="544">
+        <button class="equipment-thumbnail" type="button" aria-label="Ampliar imagen de ${label.es} ${model.model}">
+          <img src="${model.image}" alt="${label.es} ${model.model}" width="544" height="544" loading="lazy">
           <span>Ampliar imagen</span>
         </button>
         <div class="equipment-model-info">
-          <strong>${model.name}</strong>
+          <strong>${label.es}</strong>
+          <small class="equipment-original-name" lang="en">${label.en}</small>
           <span>Modelo ${model.model}</span>
-          <a class="btn primary equipment-link" href="catalogo.html${model.id === "t600x-sf" ? "" : `?equipo=${model.id}`}#equipos/${brand}/${model.id}">Ver repuestos →</a>
+          <a class="btn primary equipment-link" href="catalogo.html${query ? "?" + query : ""}#equipos/${brand}/${model.id}">Ver repuestos →</a>
         </div>
-      </article>`).join("");
+      </article>`;
+    }).join("");
     if (!matches.length) {
       const message = terms.length
         ? "No se encontraron equipos que coincidan con la búsqueda."
@@ -133,21 +151,31 @@
     const showingParts = route === `#equipos/${activeModel?.brand}/${activeModel?.id}` ||
       (window.catalogModelId === "t600x-sf" && route === "#repuestos/matrix/t600x-sf");
     const showingSavedParts = route === partsNav.hash;
+    const showingInventory = route === inventoryNav.hash;
     const brand = brands.find(([id]) => route === `#equipos/${id}`);
-    directory.hidden = showingParts || showingSavedParts;
+    directory.hidden = showingParts || showingSavedParts || showingInventory;
     parts.hidden = !showingParts;
     savedParts.hidden = !showingSavedParts;
-    equipmentNav.classList.toggle("active", !showingSavedParts);
-    partsNav.classList.toggle("active", showingSavedParts);
-    equipmentNav.removeAttribute("aria-current");
-    partsNav.removeAttribute("aria-current");
-    (showingSavedParts ? partsNav : equipmentNav).setAttribute("aria-current", "page");
+    inventory.hidden = !showingInventory;
+    const currentNav = showingInventory ? inventoryNav : showingSavedParts ? partsNav : equipmentNav;
+    for (const link of [equipmentNav, inventoryNav, partsNav]) {
+      link.classList.toggle("active", link === currentNav);
+      if (link === currentNav) link.setAttribute("aria-current", "page");
+      else link.removeAttribute("aria-current");
+    }
+
+    if (showingInventory) {
+      inventoryPage();
+      if (focusHeading) document.getElementById("inventoryTitle").focus();
+      return;
+    }
 
     if (showingParts) {
-      const back = parts.querySelector(".equipment-back");
-      back.href = `#equipos/${activeModel.brand}`;
-      back.textContent = `← Volver a equipos ${brands.find(([id]) => id === activeModel.brand)[1]}`;
-      if (focusHeading) back.focus();
+      const brandName = brands.find(([id]) => id === activeModel.brand)[1];
+      planModel.textContent = `${brandName} · ${activeModel.model}`;
+      planBack.href = `catalogo.html${listQuery ? "?" + new URLSearchParams({ buscar: listQuery }) : ""}#equipos/${activeModel.brand}`;
+      planBack.textContent = `← Volver a equipos ${brandName}`;
+      if (focusHeading) planBack.focus();
       return;
     }
     if (showingSavedParts) {
@@ -156,7 +184,7 @@
     }
 
     filter.hidden = !brand;
-    if (activeBrand !== brand?.[0]) search.value = "";
+    if (activeBrand !== brand?.[0]) search.value = activeBrand === undefined && brand ? listQuery : "";
     activeBrand = brand?.[0];
     title.textContent = brand ? `Equipos ${brand[1]}` : "Marcas de equipos";
     description.textContent = brand

@@ -206,9 +206,30 @@ a.equipment-card:hover {
   flex: 1 1 auto;
 }
 
-#partsView .equipment-back {
-  flex: none;
+.plan-navigation-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
   margin-inline-start: auto;
+}
+
+#partsView .tabs .tab {
+  flex: 0 0 auto;
+}
+
+.equipment-original-name,
+#partsView .tabs small {
+  display: block;
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: .82em;
+  font-weight: 400;
+}
+
+.equipment-original-name[hidden] {
+  display: none;
 }
 
 .equipment-card:focus-visible,
@@ -271,4 +292,143 @@ a.equipment-card:hover {
   .equipment-grid {
     grid-template-columns: 1fr;
   }
+}
+
+.inventory-group + .inventory-group {
+  margin-top: 22px;
+}
+
+.inventory-group h3 {
+  margin: 0 0 8px;
+}
+
+.inventory-group ul,
+.inventory-links {
+  display: grid;
+  gap: 8px;
+  margin: 0 0 14px;
+  padding: 0;
+  list-style: none;
+}
+
+.inventory-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface2);
+  overflow-wrap: anywhere;
+}
+
+.inventory-row > div {
+  flex: 1 1 160px;
+  min-width: 0;
+}
+
+.inventory-row > .inventory-row-actions {
+  display: flex;
+  flex: 0 1 auto;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.inventory-row-actions [data-delete-stock] {
+  color: #ffaaaa;
+}
+
+.inventory-row small {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+}
+
+.inventory-matches {
+  max-height: 22vh;
+  margin-top: 8px;
+}
+
+#inventoryPicker select,
+.inventory-filters select {
+  width: 100%;
+  min-width: 0;
+  padding: 11px 12px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: #111319;
+  color: var(--text);
+  font: inherit;
+}
+
+.inventory-filters {
+  flex-wrap: wrap;
+}
+
+.inventory-filters select {
+  width: auto;
+  min-height: 36px;
+  padding-block: 8px;
+  font-size: 11px;
+}
+
+.inventory-filters input {
+  max-width: 100%;
+}
+
+.inventory-filters select:focus-visible {
+  outline: 2px solid var(--yellow);
+  outline-offset: 2px;
+}
+
+#inventoryPicker :disabled {
+  opacity: .65;
+}
+
+.inventory-result-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px 12px;
+}
+
+.inventory-result-fields strong {
+  color: var(--text);
+}
+
+.inventory-add-link {
+  margin-bottom: 12px;
+}
+
+.inventory-model-choices {
+  max-height: 24vh;
+  margin-top: 8px;
+}
+
+#inventoryModelDraft {
+  max-height: 25vh;
+  overflow: auto;
+}
+
+.inventory-picker-heading {
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+@media (max-width: 900px) {
+  #partsView .catalog-nav-row .tabs {
+    flex-basis: 100%;
+  }
+}
+
+.inventory-stock-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+#inventoryStatus:empty,
+#inventoryFormStatus:empty {
+  display: none;
 }
