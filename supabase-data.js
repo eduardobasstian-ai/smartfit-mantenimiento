@@ -10,9 +10,11 @@
   const COMMON_KNOWLEDGE_SYNC_KEY = "smartfit.common-knowledge.changed.v1";
   const COMMON_KNOWLEDGE_BUCKET = "equipment-knowledge";
   const INSPECTION_BUCKET = "site-inspections";
+  const REALTIME_REFRESH_MIN_INTERVAL_MS = 20000;
   let realtimeClient = null;
   let realtimeChannel = null;
   let realtimeRefreshTimer = null;
+  let lastRealtimeRefreshAt = 0;
   let realtimeLibraryPromise = null;
   let hydrateInFlight = null;
   let hydrationSnapshot = null;
@@ -1157,6 +1159,35 @@
       }
     });
     realtimeChannel = realtimeClient.channel("smartfit-live-sync", { config: { private: true } });
+    const schedulePendingRealtimeRefresh = () => {
+      if (realtimeRefreshTimer || !pendingRealtimeTables.size) return;
+      if (document.hidden) {
+        refreshWhenVisible = true;
+        return;
+      }
+      const elapsed = Date.now() - lastRealtimeRefreshAt;
+      const wait = Math.max(500, REALTIME_REFRESH_MIN_INTERVAL_MS - elapsed);
+      realtimeRefreshTimer = global.setTimeout(async () => {
+        realtimeRefreshTimer = null;
+        if (document.hidden) {
+          refreshWhenVisible = true;
+          return;
+        }
+        const tables = [...pendingRealtimeTables];
+        pendingRealtimeTables.clear();
+        if (!tables.length) return;
+        lastRealtimeRefreshAt = Date.now();
+        try {
+          const result = await hydrate({ tables });
+          if (!result.skipped) global.dispatchEvent(new CustomEvent("smartfit:supabase-data-hydrated", { detail: { tables } }));
+        } catch (error) {
+          tables.forEach(table => pendingRealtimeTables.add(table));
+          console.warn("No se pudieron actualizar los datos en tiempo real; se reintentará con el límite de frecuencia activo.", error);
+        } finally {
+          if (pendingRealtimeTables.size) schedulePendingRealtimeRefresh();
+        }
+      }, wait);
+    };
     const scheduleRefresh = payload => {
       const changedTable = String(payload?.payload?.table || "");
       if (changedTable === "knowledge_entries") {
@@ -1174,17 +1205,7 @@
         refreshWhenVisible = true;
         return;
       }
-      clearTimeout(realtimeRefreshTimer);
-      realtimeRefreshTimer = setTimeout(async () => {
-        try {
-          const tables = [...pendingRealtimeTables];
-          pendingRealtimeTables.clear();
-          const result = await hydrate({ tables });
-          if (!result.skipped) global.dispatchEvent(new CustomEvent("smartfit:supabase-data-hydrated", { detail: { tables } }));
-        } catch (error) {
-          console.warn("No se pudieron actualizar los datos en tiempo real.", error);
-        }
-      }, 500);
+      schedulePendingRealtimeRefresh();
     };
     // El mensaje de Broadcast solo anuncia que hubo un cambio; los datos siempre
     // se vuelven a consultar por REST, donde Supabase aplica RLS por perfil.
@@ -1404,10 +1425,10 @@
     if (!actor?.authId || !siteUuid || !entry?.id) throw new Error("No se pudo vincular el evento con una sesión y sede válidas.");
     const legacyId = `${recordKey}::maintenance::${entry.id}`;
     const incomingPhotos = Array.isArray(entry.images) ? entry.images.slice(0, 4) : [];
-    // Leer las fotos remotas salvo que el usuario haya editado explícitamente
-    // la galería. Así una edición de texto desde otro dispositivo no puede
-    // reemplazar fotos ya guardadas por [] o por una caché incompleta.
-    const existing = await lookupOne("maintenance_events", entry.imagesChanged ? "id,registered_by,created_at" : "id,registered_by,created_at,photos", "legacy_id", legacyId);
+    // No descargar las fotos para guardar cambios de texto. Si el registro ya
+    // existe y la galería no cambió, omitir `photos` en el upsert conserva el
+    // valor remoto y evita transferir imágenes en cada sincronización.
+    const existing = await lookupOne("maintenance_events", "id,registered_by,created_at", "legacy_id", legacyId);
     const site = AdminStore.listSites().find(row => String(row.id) === siteLegacyId);
     const ticketUuid = Array.isArray(entry.ticketIds) && entry.ticketIds.length ? await ticketUuidForLegacy(entry.ticketIds[0]) : null;
     const technician = AdminStore.listUsers().find(user => user.name === entry.technician && user.role === "Técnico");
@@ -1415,12 +1436,7 @@
     const equipment = localEquipmentForRecordKey(recordKey) || {};
     const date = String(entry.date || entry.recordedAt || new Date().toISOString()).slice(0, 10);
     const details = [entry.work, entry.replacement ? `Repuesto: ${entry.replacement}` : "", entry.observations ? `Observaciones: ${entry.observations}` : ""].filter(Boolean).join("\n");
-    const photos = entry.imagesChanged
-      ? incomingPhotos
-      : Array.isArray(existing?.photos) && existing.photos.length
-        ? existing.photos.slice(0, 4)
-        : incomingPhotos;
-    const saved = await postRow("maintenance_events", {
+    const row = {
       legacy_id: legacyId, source_record_key: recordKey, site_id: siteUuid,
       equipment_id: await equipmentForRecordKey(recordKey), equipment_name: equipment.name || "Equipo",
       equipment_model: equipment.model, fixed_asset: equipment.fixedAsset, event_type: normalizeEventType(entry.type),
@@ -1429,14 +1445,15 @@
       supervisor_id: await profileIdForLegacy(supervisor?.id, actor), supervisor_name: supervisor?.name || site?.supervisor || null,
       registered_by: existing?.registered_by || await profileIdForLegacy(entry.recordedById, actor) || actor.authId,
       registered_by_name: entry.recordedByName || actor.name || null,
-      photos, occurred_at: `${date}T12:00:00.000Z`,
+      occurred_at: `${date}T12:00:00.000Z`,
       created_at: existing?.created_at || entry.recordedAt || new Date().toISOString(), updated_at: new Date().toISOString(),
       metadata: cleanMetadata(entry, "images")
-    }, "legacy_id", "id,photos");
-    const savedPhotos = Array.isArray(saved?.photos) ? saved.photos : [];
-    if (!saved?.id || savedPhotos.length !== photos.length || !photos.every((photo, index) => savedPhotos[index] === photo)) {
-      throw new Error("Supabase no confirmó todas las fotografías del mantenimiento. Se conservará la copia local para reintentar.");
     }
+    // En una edición de texto, omitir photos conserva las fotos existentes.
+    // Para un registro nuevo o una galería editada, sí se envía el arreglo.
+    if (entry.imagesChanged || !existing) row.photos = incomingPhotos;
+    const saved = await postRow("maintenance_events", row, "legacy_id", "id");
+    if (!saved?.id) throw new Error("Supabase no confirmó el guardado del mantenimiento. Se conservará la copia local para reintentar.");
     const ticketIds = [...new Set(Array.isArray(entry.ticketIds) ? entry.ticketIds : [])];
     if (saved?.id) {
       const links = [];
