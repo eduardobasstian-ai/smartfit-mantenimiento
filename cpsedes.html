@@ -312,8 +312,10 @@
     .machine-history-table th { color: var(--muted); }
     .mileage-date-filter { display: block; width: 132px; min-width: 112px; margin-top: 6px; padding: 5px 7px; border: 1px solid #3c404b; border-radius: 6px; background: #111319; color: var(--text); font: inherit; font-weight: 500; }
     .machine-mileage-toolbar { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; margin-top: 12px; }
-    .machine-mileage-toolbar .machine-form-field { max-width: 240px; margin: 0 !important; }
-    .machine-mileage-toolbar .mileage-date-filter { width: 220px; max-width: 100%; margin-top: 6px; }
+    .machine-mileage-filters { display: flex; flex-wrap: wrap; gap: 8px; }
+    .machine-mileage-filters .mileage-date-filter { width: auto; min-width: 136px; margin-top: 0; }
+    .machine-mileage-filters .mileage-month-filter { min-width: 148px; }
+    .machine-mileage-filters .mileage-year-filter { min-width: 104px; }
     .machine-mileage-toolbar #machineMileagePdfButton { margin-left: auto; }
     .machine-history-table td { color: #e7e7eb; }
     .mileage-pagination { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 12px; color: var(--muted); font-size: 11px; }
@@ -1004,6 +1006,7 @@
     let currentMachine = null;
     let currentMachineTab = "maintenance";
     let mileageMonthFilter = "";
+    let mileageYearFilter = "";
     let mileagePage = 0;
     let currentBrandEquipment = [];
     let editingMachineRecord = null;
@@ -3546,6 +3549,11 @@
       return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
     }
 
+    function matchesMachineMileageFilters(entry) {
+      const value = mileageDateValue(entry);
+      return (!mileageMonthFilter || value.slice(5, 7) === mileageMonthFilter) && (!mileageYearFilter || value.slice(0, 4) === mileageYearFilter);
+    }
+
     function sortMileageRecords(entries) {
       return entries
         .map((entry, index) => ({ entry, index, date: mileageDateValue(entry), timestamp: Date.parse(entry.recordedAt || entry.createdAt || "") || 0 }))
@@ -3594,7 +3602,7 @@
       const machine = currentMachine;
       if (!machine || !["Técnico", "Supervisor"].includes(user?.role)) return;
       const record = readMachineRecord(machine.recordKey);
-      const entries = sortMileageRecords(record.mileage).filter(entry => !mileageMonthFilter || mileageDateValue(entry).slice(0, 7) === mileageMonthFilter);
+      const entries = sortMileageRecords(record.mileage).filter(matchesMachineMileageFilters);
       if (!entries.length) {
         window.alert("No hay registros de kilometraje para el mes seleccionado.");
         return;
@@ -3608,9 +3616,13 @@
       const brand = brandDirectory.find(entry => entry.id === item.brandId) || brandDirectory.find(entry => normalizeChartLabel(entry.name) === normalizeChartLabel(item.brandName));
       const activeFixed = machine.unit?.activeFixed === "" || machine.unit?.activeFixed === undefined || machine.unit?.activeFixed === null ? "—" : machine.unit.activeFixed;
       const exportedAt = new Intl.DateTimeFormat("es-CL", { dateStyle: "long", timeStyle: "short" }).format(new Date());
-      const period = mileageMonthFilter
-        ? new Intl.DateTimeFormat("es-CL", { month: "long", year: "numeric" }).format(new Date(Number(mileageMonthFilter.slice(0, 4)), Number(mileageMonthFilter.slice(5, 7)) - 1, 1))
-        : "Todos los meses con registros";
+      const selectedMonthName = mileageMonthFilter
+        ? new Intl.DateTimeFormat("es-CL", { month: "long" }).format(new Date(2020, Number(mileageMonthFilter) - 1, 1))
+        : "";
+      const period = mileageMonthFilter && mileageYearFilter ? `${selectedMonthName} de ${mileageYearFilter}`
+        : mileageMonthFilter ? `${selectedMonthName} · todos los años`
+          : mileageYearFilter ? `Año ${mileageYearFilter}`
+            : "Todos los meses y años con registros";
       const rows = entries.map((entry, index) => `<tr><td>${index + 1}</td><td>${escapeHtml(formatMileageDate(entry))}</td><td>${escapeHtml(entry.km ?? "—")}</td><td>${escapeHtml(entry.observation || "—")}</td><td>${escapeHtml(entry.technician || "—")}</td><td>${escapeHtml(entry.lubrication || "Sin registro")}</td></tr>`).join("");
       const logoUrl = new URL("IMG/logo-header.png", window.location.href).href;
       reportWindow.document.open();
@@ -3665,8 +3677,8 @@
       const logoUrl = new URL("IMG/logo-header.png", window.location.href).href;
       reportWindow.document.open();
       reportWindow.document.write(`<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>PDF Lite · ${escapeHtml(item.name || "Equipo")}</title><style>
-        @page{size:letter landscape;margin:12mm}*{box-sizing:border-box}body{margin:0;color:#171923;font:9pt Arial,sans-serif}.header{display:flex;align-items:center;gap:20px;border-bottom:3px solid #ffb51b;padding:0 0 10px;margin-bottom:14px}.header img{width:120px;height:auto;background:#000;padding:4px 8px;border-radius:4px}.header-copy{flex:1;text-align:right}.header h1{font-size:18pt;margin:0 0 6px}.header p{margin:3px 0;color:#555}.summary{display:flex;gap:10px;margin:10px 0 14px}.summary div{flex:1;padding:7px 9px;border:1px solid #cfd1d8;border-radius:7px}.summary b{display:block;font-size:8pt;color:#555}.summary strong{display:block;margin-top:3px;font-size:10pt}table{width:100%;border-collapse:collapse;table-layout:fixed}th,td{padding:6px 7px;border:1px solid #d8dae0;text-align:left;vertical-align:top;overflow-wrap:anywhere;white-space:pre-wrap}th{background:#f0f1f4;font-size:8pt}td:first-child{width:5%;text-align:center}td:nth-child(2){width:13%}td:nth-child(3){width:20%}td:nth-child(4){width:62%;line-height:1.4}thead{display:table-header-group}tr{break-inside:avoid}footer{margin-top:12px;border-top:1px solid #cfd1d8;padding-top:6px;text-align:center;color:#555;font-size:8pt}@media print{*{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
-        </style></head><body><header class="header"><img src="${escapeHtml(logoUrl)}" alt="Smart Fit"><div class="header-copy"><h1>PDF LITE · ÚLTIMOS 10 EVENTOS</h1><p><b>${escapeHtml(item.name || "Equipo")}</b> · ${escapeHtml(item.model || "Sin modelo")}</p><p>${escapeHtml(brand?.name || item.brandName || "Sin marca")} · AF: ${escapeHtml(activeFixed)} · ${escapeHtml(currentSite?.name || "")}</p><p>Generado por: <b>${escapeHtml(user?.name || "")}</b> · ${escapeHtml(exportedAt)}</p></div></header><div class="summary"><div><b>Eventos incluidos · kilometraje excluido</b><strong>${events.length} de hasta 10</strong></div></div><table><thead><tr><th>N.º</th><th>Fecha</th><th>Tipo de evento</th><th>Detalle</th></tr></thead><tbody>${rows}</tbody></table><footer>Informe generado desde Smart Fit.</footer><script>window.addEventListener('load',()=>window.opener?.SmartFitPdfReport?.attach(window));<\/script></body></html>`);
+        @page{size:letter landscape;margin:12mm}*{box-sizing:border-box}body{margin:0;color:#171923;font:9pt Arial,sans-serif}.header{display:flex;align-items:center;gap:20px;border-bottom:3px solid #ffb51b;padding:0 0 10px;margin-bottom:14px}.header img{width:120px;height:auto;background:#000;padding:4px 8px;border-radius:4px}.header-copy{flex:1;text-align:right}.header h1{font-size:18pt;margin:0 0 6px}.header p{margin:3px 0;color:#555}.summary{display:flex;gap:10px;margin:10px 0 14px}.summary div{flex:1;padding:7px 9px;border:1px solid #cfd1d8;border-radius:7px}.summary b{display:block;font-size:8pt;color:#555}.summary strong{display:block;margin-top:3px;font-size:10pt}table{width:100%;border-collapse:collapse;table-layout:fixed}col.event-number{width:5%}col.event-date{width:13%}col.event-type{width:20%}col.event-detail{width:62%}th,td{padding:6px 7px;border:1px solid #d8dae0;text-align:left;vertical-align:top;overflow-wrap:anywhere;white-space:pre-wrap}th{background:#f0f1f4;font-size:8pt}td:first-child{text-align:center}td:last-child{line-height:1.4}thead{display:table-header-group}tr{break-inside:avoid}footer{margin-top:12px;border-top:1px solid #cfd1d8;padding-top:6px;text-align:center;color:#555;font-size:8pt}@media print{*{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+        </style></head><body><header class="header"><img src="${escapeHtml(logoUrl)}" alt="Smart Fit"><div class="header-copy"><h1>PDF LITE · ÚLTIMOS 10 EVENTOS</h1><p><b>${escapeHtml(item.name || "Equipo")}</b> · ${escapeHtml(item.model || "Sin modelo")}</p><p>${escapeHtml(brand?.name || item.brandName || "Sin marca")} · AF: ${escapeHtml(activeFixed)} · ${escapeHtml(currentSite?.name || "")}</p><p>Generado por: <b>${escapeHtml(user?.name || "")}</b> · ${escapeHtml(exportedAt)}</p></div></header><div class="summary"><div><b>Eventos incluidos · kilometraje excluido</b><strong>${events.length} de hasta 10</strong></div></div><table><colgroup><col class="event-number"><col class="event-date"><col class="event-type"><col class="event-detail"></colgroup><thead><tr><th>N.º</th><th>Fecha</th><th>Tipo de evento</th><th>Detalle</th></tr></thead><tbody>${rows}</tbody></table><footer>Informe generado desde Smart Fit.</footer><script>window.addEventListener('load',()=>window.opener?.SmartFitPdfReport?.attach(window));<\/script></body></html>`);
       reportWindow.document.close();
     }
 
@@ -3781,15 +3793,17 @@
           ${maintenanceLogPhotos(entry)}
           ${canManageMachineRecords ? `<div class="machine-record-actions"><button class="back-button" type="button" data-edit-machine-record="maintenance" data-record-id="${escapeHtml(entry.id)}">Editar</button><button class="back-button" type="button" data-delete-machine-record="maintenance" data-record-id="${escapeHtml(entry.id)}">Eliminar</button></div>` : ""}
         </article>`).join("") || '<div class="empty-state">Aún no hay actualizaciones de mantenimiento para esta máquina.</div>';
-      const mileageMonthValues = [...new Set(record.mileage.map(entry => mileageDateValue(entry).slice(0, 7)).filter(value => /^\d{4}-\d{2}$/.test(value)))].sort((a, b) => b.localeCompare(a));
+      const mileageMonthValues = [...new Set(record.mileage.map(entry => mileageDateValue(entry).slice(5, 7)).filter(value => /^\d{2}$/.test(value)))].sort();
+      const mileageYearValues = [...new Set(record.mileage.map(entry => mileageDateValue(entry).slice(0, 4)).filter(value => /^\d{4}$/.test(value)))].sort((a, b) => b.localeCompare(a));
       if (mileageMonthFilter && !mileageMonthValues.includes(mileageMonthFilter)) mileageMonthFilter = "";
+      if (mileageYearFilter && !mileageYearValues.includes(mileageYearFilter)) mileageYearFilter = "";
       const mileageMonthOptions = `<option value="">Todos los meses</option>${mileageMonthValues.map(value => {
-        const [year, month] = value.split("-").map(Number);
-        const label = new Intl.DateTimeFormat("es-CL", { month: "long", year: "numeric" }).format(new Date(year, month - 1, 1));
+        const label = new Intl.DateTimeFormat("es-CL", { month: "long" }).format(new Date(2020, Number(value) - 1, 1));
         return `<option value="${value}"${mileageMonthFilter === value ? " selected" : ""}>${escapeHtml(label)}</option>`;
       }).join("")}`;
+      const mileageYearOptions = `<option value="">Todos los años</option>${mileageYearValues.map(value => `<option value="${value}"${mileageYearFilter === value ? " selected" : ""}>${value}</option>`).join("")}`;
       const showMachineMileagePdf = ["Técnico", "Supervisor"].includes(user?.role) && record.mileage.length > 0;
-      const filteredMileage = sortMileageRecords(record.mileage).filter(entry => !mileageMonthFilter || mileageDateValue(entry).slice(0, 7) === mileageMonthFilter);
+      const filteredMileage = sortMileageRecords(record.mileage).filter(matchesMachineMileageFilters);
       const mileagePageSize = 2;
       const mileagePageCount = Math.max(1, Math.ceil(filteredMileage.length / mileagePageSize));
       mileagePage = Math.max(0, Math.min(mileagePage, mileagePageCount - 1));
@@ -3880,13 +3894,18 @@
               </div>
               <div class="machine-record-actions"><button class="machine-save-button" type="submit">${editingMileage ? "Guardar cambios" : "+ Registrar Km"}</button>${editingMileage ? '<button class="back-button" type="button" data-cancel-machine-edit>Cancelar edición</button>' : ""}</div>
             </form>
-            <div class="machine-mileage-toolbar"><label class="machine-form-field" for="mileageMonthFilter">Filtrar por mes y año<select class="mileage-date-filter" id="mileageMonthFilter" aria-label="Filtrar kilometraje por mes y año">${mileageMonthOptions}</select></label><button class="back-button" id="machineMileagePdfButton" type="button"${showMachineMileagePdf ? "" : " hidden"}${filteredMileage.length ? "" : " disabled"}>PDF Km</button></div>
+            <div class="machine-mileage-toolbar"><div class="machine-mileage-filters"><select class="mileage-date-filter mileage-month-filter" id="mileageMonthFilter" aria-label="Filtrar kilometraje por mes">${mileageMonthOptions}</select><select class="mileage-date-filter mileage-year-filter" id="mileageYearFilter" aria-label="Filtrar kilometraje por año">${mileageYearOptions}</select></div><button class="back-button" id="machineMileagePdfButton" type="button"${showMachineMileagePdf ? "" : " hidden"}${filteredMileage.length ? "" : " disabled"}>PDF Km</button></div>
             <div class="machine-table-wrap"><table class="machine-history-table"><thead><tr><th>Fecha</th><th>Km</th><th>Observación</th><th>Registrado por</th><th>Lubricación</th><th>Acciones</th></tr></thead><tbody>${mileageRows}</tbody></table></div>
             ${mileagePagination}
           </article>
         </section>` : ""}`;
       $("mileageMonthFilter")?.addEventListener("change", event => {
         mileageMonthFilter = event.target.value;
+        mileagePage = 0;
+        renderMachineDetail(currentMachine);
+      });
+      $("mileageYearFilter")?.addEventListener("change", event => {
+        mileageYearFilter = event.target.value;
         mileagePage = 0;
         renderMachineDetail(currentMachine);
       });
