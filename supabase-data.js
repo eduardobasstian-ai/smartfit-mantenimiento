@@ -10,7 +10,7 @@
   const COMMON_KNOWLEDGE_SYNC_KEY = "smartfit.common-knowledge.changed.v1";
   const COMMON_KNOWLEDGE_BUCKET = "equipment-knowledge";
   const INSPECTION_BUCKET = "site-inspections";
-  const REALTIME_REFRESH_MIN_INTERVAL_MS = 20000;
+  const REALTIME_REFRESH_MIN_INTERVAL_MS = 60000;
   let realtimeClient = null;
   let realtimeChannel = null;
   let realtimeRefreshTimer = null;
