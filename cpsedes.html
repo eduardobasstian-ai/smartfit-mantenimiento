@@ -891,6 +891,7 @@
           <button class="back-button" id="viewInspectionsButton" type="button" hidden>Ver Inspecciones</button>
           <button class="qr-search-button" id="searchQrButton" type="button" hidden>Buscar QR</button>
           <button class="back-button" id="inspectionReviewButton" type="button" hidden>Revisar inspección <span id="inspectionReviewCount">0</span></button>
+          <button class="back-button" id="machinePdfLiteButton" type="button" aria-label="Descargar los 10 eventos más recientes de este equipo en PDF Lite" title="Generar PDF Lite con los 10 eventos más recientes, excepto kilometraje" hidden>PDF+10</button>
           <button class="back-button" id="backToSites" type="button" hidden>← Volver a sedes</button>
         </div>
       </div>
@@ -2277,6 +2278,7 @@
       $("siteFilter").placeholder = "Buscar sede...";
       $("siteFilter").setAttribute("aria-label", "Buscar sede por nombre");
       $("requestPartsFromBrands").hidden = true;
+      $("machinePdfLiteButton").hidden = true;
       $("searchQrButton").hidden = true;
       $("inspectionReviewButton").hidden = true;
       $("backToSites").hidden = true;
@@ -2600,6 +2602,7 @@
       const inReview = phase === "review";
       const inInspectionRecords = phase === "inspection-records";
       $("requestPartsFromBrands").hidden = true;
+      $("machinePdfLiteButton").hidden = true;
       $("siteFilter").hidden = !(inList || phase === "site-list");
       $("viewInspectionsButton").hidden = !supervisorMode || maintenanceFromActivityChoice || !(inBrands || inList || (phase === "site-brands"));
       $("searchQrButton").hidden = !(inBrands || inList);
@@ -3185,6 +3188,7 @@
       $("requestPartsFromBrands").hidden = false;
       $("viewInspectionsButton").hidden = !supervisorMode || maintenanceFromActivityChoice;
       $("searchQrButton").hidden = false;
+      $("machinePdfLiteButton").hidden = true;
       $("inspectionReviewButton").hidden = true;
       $("backToSites").hidden = false;
       $("backToSites").textContent = supervisorMode && maintenanceFromActivityChoice ? "← Volver a opciones" : "← Volver a sedes";
@@ -3263,6 +3267,7 @@
       $("panelDescription").textContent = `${currentSite.name} · ${machines.length} ${machines.length === 1 ? "equipo" : "equipos"}`;
       $("backToSites").textContent = supervisorMode && maintenanceFromActivityChoice ? "← Volver a marcas" : "← Cambiar de marca";
       $("searchQrButton").hidden = false;
+      $("machinePdfLiteButton").hidden = true;
       $("inspectionReviewButton").hidden = true;
       $("siteFilter").hidden = false;
       $("siteFilter").placeholder = "Buscar equipo, marca, modelo, categoría o activo fijo...";
@@ -3581,6 +3586,56 @@
       return `fallas-comunes-local.html?${params.toString()}`;
     }
 
+    async function exportMachineRecentEventsLitePdf() {
+      const machine = currentMachine;
+      if (!machine || !["Técnico", "Supervisor"].includes(user?.role)) return;
+      const reportWindow = window.open("", "_blank");
+      if (!reportWindow) {
+        window.alert("El navegador bloqueó la ventana del informe. Permite las ventanas emergentes e inténtalo nuevamente.");
+        return;
+      }
+      if (!inspectionRecordsLoaded) await refreshSharedInspectionRecords();
+
+      const record = readMachineRecord(machine.recordKey);
+      const maintenance = Array.isArray(record.maintenance) ? record.maintenance : [];
+      const inspections = inspectionRecordsForMachine(machine.recordKey);
+      const tickets = readLeaderTickets().filter(ticket => ticketBelongsToMachine(ticket, machine) && canViewMachineTicket(ticket));
+      const events = [
+        ...maintenance.map(entry => ({
+          date: entry.date || entry.recordedAt || entry.createdAt,
+          type: entry.type || "Mantenimiento",
+          detail: [entry.work, entry.replacement && `Repuesto/material: ${entry.replacement}`, entry.observations && `Observaciones: ${entry.observations}`, entry.technician && `Responsable: ${entry.technician}`].filter(Boolean).join("\n")
+        })),
+        ...inspections.map(entry => ({
+          date: entry.occurred_at || entry.created_at,
+          type: `Inspección${entry.inspection_number ? ` · ${entry.inspection_number}` : ""}`,
+          detail: [`Hallazgo: ${entry.finding || "Sin detalle"}`, entry.observations && `Observaciones: ${entry.observations}`, entry.correction && `Corrección: ${entry.correction}`, `Estado: ${inspectionState(entry)}`].filter(Boolean).join("\n")
+        })),
+        ...tickets.map(entry => ({
+          date: entry.date || entry.createdAt || entry.created_at,
+          type: `Ticket${entry.ticketNumber ? ` · ${entry.ticketNumber}` : ""}`,
+          detail: [entry.title || entry.type || "Mantenimiento", entry.description, `Estado: ${entry.status || "Pendiente"}`, entry.technician && `Técnico: ${entry.technician}`].filter(Boolean).join("\n")
+        }))
+      ].sort((a, b) => (Date.parse(b.date || "") || 0) - (Date.parse(a.date || "") || 0)).slice(0, 10);
+
+      if (!events.length) {
+        reportWindow.close();
+        window.alert("Este equipo aún no tiene eventos para incluir en el PDF.");
+        return;
+      }
+      const item = machine.item || {};
+      const brand = brandDirectory.find(entry => entry.id === item.brandId) || brandDirectory.find(entry => normalizeChartLabel(entry.name) === normalizeChartLabel(item.brandName));
+      const activeFixed = machine.unit?.activeFixed === "" || machine.unit?.activeFixed === undefined || machine.unit?.activeFixed === null ? "—" : machine.unit.activeFixed;
+      const exportedAt = new Intl.DateTimeFormat("es-CL", { dateStyle: "long", timeStyle: "short" }).format(new Date());
+      const rows = events.map((entry, index) => `<tr><td>${index + 1}</td><td>${escapeHtml(formatMachineDate(entry.date, false))}</td><td>${escapeHtml(entry.type)}</td><td>${escapeHtml(entry.detail || "—")}</td></tr>`).join("");
+      const logoUrl = new URL("IMG/logo-header.png", window.location.href).href;
+      reportWindow.document.open();
+      reportWindow.document.write(`<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>PDF Lite · ${escapeHtml(item.name || "Equipo")}</title><style>
+        @page{size:letter landscape;margin:12mm}*{box-sizing:border-box}body{margin:0;color:#171923;font:9pt Arial,sans-serif}.header{display:flex;align-items:center;gap:20px;border-bottom:3px solid #ffb51b;padding:0 0 10px;margin-bottom:14px}.header img{width:120px;height:auto;background:#000;padding:4px 8px;border-radius:4px}.header-copy{flex:1;text-align:right}.header h1{font-size:18pt;margin:0 0 6px}.header p{margin:3px 0;color:#555}.summary{display:flex;gap:10px;margin:10px 0 14px}.summary div{flex:1;padding:7px 9px;border:1px solid #cfd1d8;border-radius:7px}.summary b{display:block;font-size:8pt;color:#555}.summary strong{display:block;margin-top:3px;font-size:10pt}table{width:100%;border-collapse:collapse;table-layout:fixed}th,td{padding:6px 7px;border:1px solid #d8dae0;text-align:left;vertical-align:top;overflow-wrap:anywhere;white-space:pre-wrap}th{background:#f0f1f4;font-size:8pt}td:first-child{width:5%;text-align:center}td:nth-child(2){width:13%}td:nth-child(3){width:20%}td:nth-child(4){width:62%;line-height:1.4}thead{display:table-header-group}tr{break-inside:avoid}footer{margin-top:12px;border-top:1px solid #cfd1d8;padding-top:6px;text-align:center;color:#555;font-size:8pt}@media print{*{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+        </style></head><body><header class="header"><img src="${escapeHtml(logoUrl)}" alt="Smart Fit"><div class="header-copy"><h1>PDF LITE · ÚLTIMOS 10 EVENTOS</h1><p><b>${escapeHtml(item.name || "Equipo")}</b> · ${escapeHtml(item.model || "Sin modelo")}</p><p>${escapeHtml(brand?.name || item.brandName || "Sin marca")} · AF: ${escapeHtml(activeFixed)} · ${escapeHtml(currentSite?.name || "")}</p><p>Generado por: <b>${escapeHtml(user?.name || "")}</b> · ${escapeHtml(exportedAt)}</p></div></header><div class="summary"><div><b>Eventos incluidos · kilometraje excluido</b><strong>${events.length} de hasta 10</strong></div></div><table><thead><tr><th>N.º</th><th>Fecha</th><th>Tipo de evento</th><th>Detalle</th></tr></thead><tbody>${rows}</tbody></table><footer>Informe generado desde Smart Fit.</footer><script>window.addEventListener('load',()=>window.opener?.SmartFitPdfReport?.attach(window));<\/script></body></html>`);
+      reportWindow.document.close();
+    }
+
     function renderMachineDetail(machine) {
       if (!machine) return;
       if (!inspectionRecordsLoaded) void refreshSharedInspectionRecords();
@@ -3588,6 +3643,7 @@
       if (currentMachine && String(currentMachine.recordKey) !== String(machine.recordKey)) mileagePage = 0;
       currentMachine = machine;
       $("searchQrButton").hidden = true;
+      $("machinePdfLiteButton").hidden = !["Técnico", "Supervisor"].includes(user?.role);
       const item = machine.item;
       const record = readMachineRecord(machine.recordKey);
       const treadmill = isTreadmill(machine);
@@ -4291,6 +4347,7 @@
       else if (currentBrandId && $("siteGrid").classList.contains("machine-grid")) window.SmartFitQrScanner?.open({ onCode: openBrandEquipmentByQr });
       else window.SmartFitQrScanner?.open({ onCode: openEquipmentByQr });
     });
+    $("machinePdfLiteButton").addEventListener("click", () => { void exportMachineRecentEventsLitePdf(); });
     $("viewInspectionsButton").addEventListener("click", () => renderSiteInspectionRecords());
     $("exportSupervisorInspectionPdf").addEventListener("click", () => { void exportSupervisorInspectionReport(false); });
     $("exportSupervisorInspectionLitePdf").addEventListener("click", () => { void exportSupervisorInspectionReport(true); });
