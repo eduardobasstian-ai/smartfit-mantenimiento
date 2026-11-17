@@ -11,6 +11,8 @@
   const COMMON_KNOWLEDGE_BUCKET = "equipment-knowledge";
   const INSPECTION_BUCKET = "site-inspections";
   const REALTIME_REFRESH_MIN_INTERVAL_MS = 60000;
+  const REALTIME_CLIENT_ID_KEY = "smartfit.realtime.client-id.v1";
+  let realtimeClientIdCache = "";
   let realtimeClient = null;
   let realtimeChannel = null;
   let realtimeRefreshTimer = null;
@@ -62,6 +64,19 @@
   function auth() {
     try { return JSON.parse(sessionStorage.getItem("smartfit.supabase.auth") || "null"); }
     catch (error) { return null; }
+  }
+  function realtimeClientId() {
+    if (realtimeClientIdCache) return realtimeClientIdCache;
+    try {
+      const storage = global.sessionStorage;
+      const existing = storage?.getItem(REALTIME_CLIENT_ID_KEY);
+      if (existing) return realtimeClientIdCache = existing;
+      const created = global.crypto?.randomUUID?.() || `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+      storage?.setItem(REALTIME_CLIENT_ID_KEY, created);
+      return realtimeClientIdCache = created;
+    } catch (error) {
+      return realtimeClientIdCache = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+    }
   }
   let refreshInFlight = null;
   async function refreshAuth(force = false) {
@@ -1189,6 +1204,8 @@
       }, wait);
     };
     const scheduleRefresh = payload => {
+      const originClientId = String(payload?.payload?.origin_client_id || "");
+      if (originClientId && originClientId === realtimeClientId()) return;
       const changedTable = String(payload?.payload?.table || "");
       if (changedTable === "knowledge_entries") {
         announceCommonKnowledgeChange();
@@ -1447,7 +1464,7 @@
       registered_by_name: entry.recordedByName || actor.name || null,
       occurred_at: `${date}T12:00:00.000Z`,
       created_at: existing?.created_at || entry.recordedAt || new Date().toISOString(), updated_at: new Date().toISOString(),
-      metadata: cleanMetadata(entry, "images")
+      metadata: Object.assign({}, cleanMetadata(entry, "images"), { smartfit_origin_client_id: realtimeClientId() })
     }
     // En una edición de texto, omitir photos conserva las fotos existentes.
     // Para un registro nuevo o una galería editada, sí se envía el arreglo.
