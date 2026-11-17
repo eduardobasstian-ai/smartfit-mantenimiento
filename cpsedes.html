@@ -3675,7 +3675,15 @@
         `<div class="maintenance-ticket-action"><div><strong>Inspección ${escapeHtml(inspection.inspection_number || "—")}</strong><span>${escapeHtml(inspection.finding || "Sin detalle")}</span></div>${inspectionActionMarkup(inspection)}</div>`
       ).join("");
       const relatedTicketsById = new Map(readLeaderTickets().map(ticket => [ticket.id, ticket]));
-      const maintenanceRows = record.maintenance.map(entry => `
+      const latestMaintenanceEntries = (Array.isArray(record.maintenance) ? record.maintenance : [])
+        .slice()
+        .sort((a, b) => {
+          const dateA = Date.parse(a.date || "") || Date.parse(a.recordedAt || "") || 0;
+          const dateB = Date.parse(b.date || "") || Date.parse(b.recordedAt || "") || 0;
+          return dateB - dateA;
+        })
+        .slice(0, 2);
+      const maintenanceRows = latestMaintenanceEntries.map(entry => `
         <article class="machine-log-entry">
           <strong>${escapeHtml(formatMachineDate(entry.date, false))} · ${escapeHtml(entry.type || "Mantenimiento")}</strong>
           <p>${escapeHtml(entry.work || "")}${entry.replacement ? `\nRepuesto/material: ${escapeHtml(entry.replacement)}` : ""}${entry.technician ? `\nResponsable: ${escapeHtml(entry.technician)}` : ""}${entry.observations ? `\nObservaciones: ${escapeHtml(entry.observations)}` : ""}</p>
