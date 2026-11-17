@@ -1515,6 +1515,26 @@
       renderMachineCards(normalized);
     }
 
+    function openBrandEquipmentByQr(activeFixed) {
+      const normalized = String(activeFixed).trim();
+      if (!currentSite || !currentBrandId || !currentBrandEquipment.length) {
+        window.alert("Abre una marca con equipos antes de buscar un activo fijo por QR.");
+        return;
+      }
+      const matches = currentBrandEquipment.filter(machine => String(machine.unit?.activeFixed ?? "").trim() === normalized);
+      if (!matches.length) {
+        const brandName = brandDirectory.find(entry => entry.id === currentBrandId)?.name || "esta marca";
+        window.alert(`No se encontró el activo fijo ${normalized} en ${brandName} para la sede seleccionada.`);
+        return;
+      }
+      if (matches.length > 1) {
+        window.alert(`El activo fijo ${normalized} aparece más de una vez en esta marca. Busca el número manualmente para elegir el equipo correcto.`);
+        return;
+      }
+      $("siteFilter").value = normalized;
+      renderMachineCards(normalized);
+    }
+
     function openSupervisorTicketEquipmentByQr(activeFixed) {
       const normalized = String(activeFixed).trim();
       const site = assignedSites.find(entry => String(entry.id) === String(supervisorTicketSiteId));
@@ -3242,7 +3262,7 @@
       $("panelHeading").textContent = `Equipos ${brand.name}`;
       $("panelDescription").textContent = `${currentSite.name} · ${machines.length} ${machines.length === 1 ? "equipo" : "equipos"}`;
       $("backToSites").textContent = supervisorMode && maintenanceFromActivityChoice ? "← Volver a marcas" : "← Cambiar de marca";
-      $("searchQrButton").hidden = true;
+      $("searchQrButton").hidden = false;
       $("inspectionReviewButton").hidden = true;
       $("siteFilter").hidden = false;
       $("siteFilter").placeholder = "Buscar equipo, marca, modelo, categoría o activo fijo...";
@@ -3567,6 +3587,7 @@
       activateSupervisorPanel("sitesPanel");
       if (currentMachine && String(currentMachine.recordKey) !== String(machine.recordKey)) mileagePage = 0;
       currentMachine = machine;
+      $("searchQrButton").hidden = true;
       const item = machine.item;
       const record = readMachineRecord(machine.recordKey);
       const treadmill = isTreadmill(machine);
@@ -4259,6 +4280,7 @@
     });
     $("searchQrButton").addEventListener("click", () => {
       if (supervisorMode && ["brand-list", "equipment-list"].includes(inspectionPhase)) window.SmartFitQrScanner?.open({ onCode: openInspectionEquipmentByQr });
+      else if (currentBrandId && $("siteGrid").classList.contains("machine-grid")) window.SmartFitQrScanner?.open({ onCode: openBrandEquipmentByQr });
       else window.SmartFitQrScanner?.open({ onCode: openEquipmentByQr });
     });
     $("viewInspectionsButton").addEventListener("click", () => renderSiteInspectionRecords());
