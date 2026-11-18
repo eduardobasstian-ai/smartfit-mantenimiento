@@ -71,6 +71,31 @@
     status.dataset.state = "error";
   }
 
+  function readActiveFixed(payload) {
+    const value = String(payload || "").trim();
+    if (/^\d{1,16}$/.test(value)) return value;
+    const namedValue = value.match(/(?:activo(?:\s* fijo)?|active[\s_-]*fixed|fixed[\s_-]*asset|asset(?:\s*(?:no|number))?|\baf\b|c[oó]digo)\s*[:=#/-]?\s*(\d{1,16})/i);
+    if (namedValue) return namedValue[1];
+    try {
+      const parsed = JSON.parse(value);
+      if (parsed && typeof parsed === "object") {
+        for (const field of ["activeFixed", "active_fixed", "fixed_asset", "fixedAsset", "activoFijo", "activo_fijo", "AF", "asset"]) {
+          const match = String(parsed[field] ?? "").match(/^\s*(\d{1,16})\s*$/);
+          if (match) return match[1];
+        }
+      }
+    } catch (error) { /* El QR puede ser una URL o texto plano. */ }
+    try {
+      const url = new URL(value);
+      for (const field of ["activeFixed", "active_fixed", "fixed_asset", "fixedAsset", "activoFijo", "activo_fijo", "AF", "asset"]) {
+        const match = String(url.searchParams.get(field) || "").match(/^\s*(\d{1,16})\s*$/);
+        if (match) return match[1];
+      }
+    } catch (error) { /* Continúa con los números del contenido. */ }
+    const numbers = value.match(/\d{1,16}/g) || [];
+    return numbers.sort((left, right) => right.length - left.length)[0] || "";
+  }
+
   function loadQrDecoder() {
     if (window.jsQR) return Promise.resolve(window.jsQR);
     if (qrDecoderPromise) return qrDecoderPromise;
@@ -104,10 +129,10 @@
     const result = window.jsQR?.(frame.data, frame.width, frame.height, { inversionAttempts: "attemptBoth" });
     if (!result?.data) return;
 
-    const activeFixed = String(result.data).trim();
-    if (!/^\d{1,16}$/.test(activeFixed)) {
+    const activeFixed = readActiveFixed(result.data);
+    if (!activeFixed) {
       status.dataset.state = "error";
-      status.textContent = "El QR leído no contiene solo un número válido de activo fijo. Enfoca el código correcto.";
+      status.textContent = "No se pudo extraer un activo fijo del QR. Enfoca el código del equipo.";
       return;
     }
 

@@ -967,7 +967,7 @@
   <script src="EQU/other-catalogs.js?v=20261026-ubian-rack"></script>
   <script src="common-failures-embed.js?v=20261102-inline-content-1"></script>
   <script src="inventory-export.js?v=20261107-pdf-export-fix-1"></script>
-  <script src="qr-scanner.js?v=20261117-activefixed-length-1"></script>
+  <script src="qr-scanner.js?v=20261118-qr-activefixed-extract-1"></script>
   <script>
     "use strict";
     const $ = id => document.getElementById(id);
@@ -1524,12 +1524,13 @@
     }
 
     function openBrandEquipmentByQr(activeFixed) {
-      const normalized = String(activeFixed).trim();
+      const normalizeFixedAsset = value => String(value ?? "").replace(/\D/g, "").replace(/^0+(?=\d)/, "");
+      const normalized = normalizeFixedAsset(activeFixed);
       if (!currentSite || !currentBrandId || !currentBrandEquipment.length) {
         window.alert("Abre una marca con equipos antes de buscar un activo fijo por QR.");
         return;
       }
-      const matches = currentBrandEquipment.filter(machine => String(machine.unit?.activeFixed ?? "").trim() === normalized);
+      const matches = currentBrandEquipment.filter(machine => normalizeFixedAsset(machine.unit?.activeFixed) === normalized);
       if (!matches.length) {
         const brandName = brandDirectory.find(entry => entry.id === currentBrandId)?.name || "esta marca";
         window.alert(`No se encontró el activo fijo ${normalized} en ${brandName} para la sede seleccionada.`);
@@ -1539,8 +1540,9 @@
         window.alert(`El activo fijo ${normalized} aparece más de una vez en esta marca. Busca el número manualmente para elegir el equipo correcto.`);
         return;
       }
-      $("siteFilter").value = normalized;
-      renderMachineCards(normalized);
+      const matchedFixedAsset = String(matches[0].unit?.activeFixed ?? "").trim() || String(activeFixed).trim();
+      $("siteFilter").value = matchedFixedAsset;
+      renderMachineCards(matchedFixedAsset, { exactFixedAsset: normalized });
     }
 
     function openSupervisorTicketEquipmentByQr(activeFixed) {
@@ -3214,13 +3216,18 @@
       $("siteGrid").innerHTML = cards + notice || '<div class="empty-state">No hay marcas registradas.</div>';
     }
 
-    function renderMachineCards(query = $("siteFilter").value) {
+    function renderMachineCards(query = $("siteFilter").value, { exactFixedAsset = "" } = {}) {
       const normalize = value => String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("es");
       const search = normalize(query.trim());
+      const exactFixed = String(exactFixedAsset || "").replace(/\D/g, "").replace(/^0+(?=\d)/, "");
       const tickets = readLeaderTickets();
       const filteredMachines = currentBrandEquipment
         .map((machine, index) => ({ machine, index }))
         .filter(({ machine }) => {
+          if (exactFixed) {
+            const machineFixed = String(machine.unit?.activeFixed ?? "").replace(/\D/g, "").replace(/^0+(?=\d)/, "");
+            return machineFixed === exactFixed;
+          }
           return equipmentMatchesSearch(machine.item, machine.unit, search, currentSite?.name);
         });
       $("siteGrid").innerHTML = filteredMachines.map(({ machine, index }) => {
