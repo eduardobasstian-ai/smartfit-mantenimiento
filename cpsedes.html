@@ -1539,9 +1539,10 @@
         return;
       }
       renderBrandEquipment(brand.id, { resetFilter: false });
-      const matchedFixedAsset = String(machine.unit?.activeFixed ?? "").trim() || String(activeFixed).trim();
-      $("siteFilter").value = matchedFixedAsset;
-      renderMachineCards(matchedFixedAsset, { exactFixedAsset: normalized });
+      const selectedMachine = currentBrandEquipment.find(entry => String(entry.recordKey) === String(machine.recordKey)) || machine;
+      currentMachineTab = "maintenance";
+      renderMachineDetail(selectedMachine);
+      void loadMachineDetailMedia(selectedMachine);
     }
 
     function openBrandEquipmentByQr(activeFixed) {

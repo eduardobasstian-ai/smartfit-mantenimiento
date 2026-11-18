@@ -141,7 +141,15 @@
     status.textContent = `Activo fijo ${activeFixed} encontrado en el QR. Buscando equipo…`;
     const callback = onCode;
     close();
-    if (typeof callback === "function") callback(activeFixed);
+    try {
+      if (typeof callback !== "function") throw new Error("No se configuró una acción para abrir el equipo.");
+      callback(activeFixed);
+    } catch (error) {
+      console.error("No se pudo abrir el equipo leído por QR.", error);
+      backdrop.hidden = false;
+      document.body.style.overflow = "hidden";
+      showError(`Se leyó el activo fijo ${activeFixed}, pero no se pudo abrir su mantenimiento. ${error?.message || "Inténtalo nuevamente."}`);
+    }
   }
 
   async function open(options = {}) {
