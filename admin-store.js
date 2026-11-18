@@ -105,7 +105,7 @@
     const existingSiteIds = new Set(sites.map(site => site.id));
     const assigned = new Set((Array.isArray(user.siteIds) ? user.siteIds : []).filter(id => existingSiteIds.has(id)));
     sites.forEach(site => {
-      if (site.technicianUserId === user.id || site.supervisorUserId === user.id) assigned.add(site.id);
+      if (site.technicianUserId === user.id || site.supervisorUserId === user.id || site.coordinatorUserId === user.id) assigned.add(site.id);
     });
     return Array.from(assigned);
   }
@@ -463,6 +463,7 @@
       const siteId = makeId();
       const technician = assignSiteStaff(users, siteId, "Técnico", String(fields.technicianUserId || ""));
       const supervisor = assignSiteStaff(users, siteId, "Supervisor", String(fields.supervisorUserId || ""));
+      const coordinator = assignSiteStaff(users, siteId, "Coordinador", String(fields.coordinatorUserId || ""));
       const site = {
         id: siteId,
         internalCode,
@@ -472,8 +473,10 @@
         equipment: preparedEquipment.equipment || [],
         technicianUserId: technician ? technician.id : "",
         supervisorUserId: supervisor ? supervisor.id : "",
+        coordinatorUserId: coordinator ? coordinator.id : "",
         technician: technician ? technician.name : "",
         supervisor: supervisor ? supervisor.name : "",
+        coordinator: coordinator ? coordinator.name : "",
         updatedAt: new Date().toISOString()
       };
       sites.push(site);
@@ -498,6 +501,7 @@
       }
       const technician = assignSiteStaff(users, id, "Técnico", String(fields.technicianUserId || ""));
       const supervisor = assignSiteStaff(users, id, "Supervisor", String(fields.supervisorUserId || ""));
+      const coordinator = assignSiteStaff(users, id, "Coordinador", String(fields.coordinatorUserId || ""));
       sites[index] = Object.assign({}, sites[index], {
         name,
         region,
@@ -505,8 +509,10 @@
         ...(preparedEquipment.equipment ? { equipment: preparedEquipment.equipment } : {}),
         technicianUserId: technician ? technician.id : "",
         supervisorUserId: supervisor ? supervisor.id : "",
+        coordinatorUserId: coordinator ? coordinator.id : "",
         technician: technician ? technician.name : "",
         supervisor: supervisor ? supervisor.name : "",
+        coordinator: coordinator ? coordinator.name : "",
         updatedAt: new Date().toISOString()
       });
       writeUsers(users);

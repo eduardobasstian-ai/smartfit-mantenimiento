@@ -511,6 +511,8 @@
 .record-photo-carousel-track{display:flex;width:100%;height:100%;will-change:transform}.record-photo-carousel-slide{flex:0 0 100%;width:100%;height:100%;display:grid;place-items:center;overflow:hidden}
 .record-photo-carousel-slide img{display:block;max-width:none;max-height:none;object-fit:contain;pointer-events:none;-webkit-user-drag:none}
 .lightbox-frame.has-record-photo-carousel{display:block!important;position:relative;width:auto;height:auto;max-width:96vw!important;max-height:94dvh!important}
+.lightbox-frame.has-record-photo-carousel>.lightbox-close{position:fixed;z-index:10002;top:max(12px,env(safe-area-inset-top,12px));right:max(12px,env(safe-area-inset-right,12px))}
+.lightbox-frame.has-record-photo-carousel>.record-photo-download{position:fixed;z-index:10002;top:max(58px,calc(env(safe-area-inset-top,0px) + 58px));right:max(12px,env(safe-area-inset-right,12px))}
 .record-photo-download[hidden]{display:none!important}.record-photo-download{position:absolute;z-index:2;top:58px;right:12px;width:38px;height:38px;display:grid;place-items:center;padding:0;border:1px solid #d1d3d8;border-radius:50%;background:#fff;color:#17191f;box-shadow:0 2px 12px #0003;cursor:pointer}.record-photo-download:hover{border-color:var(--yellow);color:#8a5a00}
 </style>
   <style>
@@ -1040,6 +1042,10 @@
               <select class="form-control form-select" id="siteSupervisor"></select>
             </div>
             <div class="form-field full">
+              <label for="siteCoordinator">Coordinador asignado</label>
+              <select class="form-control form-select" id="siteCoordinator"></select>
+            </div>
+            <div class="form-field full">
               <label for="siteMachineCount">Cantidad de máquinas</label>
               <div class="table-tools">
                 <input class="form-control" id="siteMachineCount" type="number" min="0" step="1" readonly aria-readonly="true">
@@ -1163,7 +1169,7 @@
       <div class="record-photo-carousel-viewport" id="matrixRecordPhotoViewport" hidden><div class="record-photo-carousel-track" id="matrixRecordPhotoTrack"></div></div>
     </div>
   </div>
-  <script src="record-photo-carousel.js?v=20261102-shadow-root-1"></script>
+  <script src="record-photo-carousel.js?v=20261118-zoom-native-1"></script>
   <script src="mobile-back-navigation.js?v=20261029-mobile-back-1"></script>
   <script src="admin-store.js?v=20261029-performance-stage-2"></script>
   <script src="supabase-data.js?v=20261105-offline-queue-1"></script>
@@ -1781,7 +1787,7 @@
       }).join("");
       reportWindow.document.open();
       reportWindow.document.write(`<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Informe Lite</title><style>
-        @page{size:letter landscape;margin:12mm;@bottom-right{content:"Página " counter(page) " de " counter(pages);font:8pt Arial,sans-serif;color:#555}}*{box-sizing:border-box}body{margin:0;color:#171923;font:9pt Arial,sans-serif}.header{display:flex;align-items:center;gap:20px;border-bottom:3px solid #ffb51b;padding:0 0 10px;margin-bottom:14px}.header img{width:120px;height:auto;background:#000;padding:4px 8px;border-radius:4px}.header-copy{flex:1;text-align:right}.header h1{font-size:19pt;margin:0 0 6px}.header p{margin:3px 0;color:#555}.summary{display:flex;gap:10px;margin:10px 0 14px}.summary div{flex:1;padding:8px 10px;border:1px solid #cfd1d8;border-radius:7px}.summary b{display:block;font-size:8pt;color:#555}.summary strong{display:block;margin-top:3px;font-size:13pt}table{width:100%;border-collapse:collapse;table-layout:fixed}col.row-number{width:4%}col.site{width:11%}col.asset{width:8%}col.brand{width:9%}col.equipment{width:12%}col.event-date{width:10%}col.ticket-number{width:10%}col.ticket-status{width:11%}col.work{width:25%}thead{display:table-header-group}th,td{padding:6px 7px;border:1px solid #d8dae0;text-align:justify;vertical-align:top;overflow-wrap:break-word;word-break:normal;hyphens:none}th{background:#f0f1f4;font-weight:700;font-size:8pt;text-align:center;white-space:normal}td{font-size:8pt;line-height:1.4}td:first-child{text-align:center;white-space:nowrap}td:last-child{white-space:pre-wrap}tr{break-inside:avoid}footer{margin-top:14px;border-top:1px solid #d8dae0;padding-top:6px;text-align:center;color:#555;font-size:8pt}@media print{*{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+        @page{size:letter landscape;margin:8mm;@bottom-right{content:"Página " counter(page) " de " counter(pages);font:8pt Arial,sans-serif;color:#555}}*{box-sizing:border-box}body{margin:0;color:#171923;font:8.5pt Arial,sans-serif}.header{display:flex;align-items:center;gap:20px;border-bottom:3px solid #ffb51b;padding:0 0 10px;margin-bottom:8px}.header img{width:120px;height:auto;background:#000;padding:4px 8px;border-radius:4px}.header-copy{flex:1;text-align:right}.header h1{font-size:19pt;margin:0 0 6px}.header p{margin:3px 0;color:#555}.summary{display:flex;gap:10px;margin:6px 0 8px}.summary div{flex:1;padding:8px 10px;border:1px solid #cfd1d8;border-radius:7px}.summary b{display:block;font-size:8pt;color:#555}.summary strong{display:block;margin-top:3px;font-size:13pt}table{width:100%;border-collapse:collapse;table-layout:fixed}col.row-number{width:4%}col.site{width:11%}col.asset{width:8%}col.brand{width:9%}col.equipment{width:12%}col.event-date{width:10%}col.ticket-number{width:10%}col.ticket-status{width:11%}col.work{width:25%}thead{display:table-header-group}th,td{padding:4px 5px;border:1px solid #d8dae0;text-align:justify;vertical-align:top;overflow-wrap:break-word;word-break:normal;hyphens:none}th{background:#f0f1f4;font-weight:700;font-size:8pt;text-align:center;white-space:normal}td{font-size:7.5pt;line-height:1.25}td:first-child{text-align:center;white-space:nowrap}td:last-child{white-space:pre-wrap}tr{break-inside:auto;page-break-inside:auto}footer{margin-top:8px;border-top:1px solid #d8dae0;padding-top:6px;text-align:center;color:#555;font-size:8pt}@media print{*{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
         </style></head><body><header class="header"><img src="${escapeHtml(logoUrl)}" alt="Smart Fit"><div class="header-copy"><h1>INFORME LITE</h1><p>Generado por: <b>${escapeHtml(adminSession?.name || "Administrador")}</b></p><p>Fecha y hora: ${escapeHtml(exportedAt)}</p></div></header><div class="summary"><div><b>Registros incluidos</b><strong>${events.length.toLocaleString("es-CL")}</strong></div></div><table><colgroup><col class="row-number"><col class="site"><col class="asset"><col class="brand"><col class="equipment"><col class="event-date"><col class="ticket-number"><col class="ticket-status"><col class="work"></colgroup><thead><tr><th>N.º</th><th>Sede</th><th>Activo fijo</th><th>Marca</th><th>Equipo</th><th>Fecha evento</th><th>N.º ticket</th><th>Estado ticket</th><th>Trabajo realizado</th></tr></thead><tbody>${rows}</tbody></table><footer>Informe generado desde el panel administrador de Smart Fit.</footer><script>window.addEventListener('load',()=>window.opener?.SmartFitPdfReport?.attach(window));<\/script></body></html>`);
       reportWindow.document.close();
     }
@@ -2171,7 +2177,7 @@
       }).join("") || '<tr><td colspan="6" class="empty-state">No se encontraron usuarios.</td></tr>';
 
       const filteredSites = sites.filter(site =>
-        `${site.internalCode || ""} ${site.name} ${site.region || ""} ${site.technician || ""} ${site.supervisor || ""}`.toLocaleLowerCase("es").includes(siteSearchTerm)
+        `${site.internalCode || ""} ${site.name} ${site.region || ""} ${site.technician || ""} ${site.supervisor || ""} ${site.coordinator || ""}`.toLocaleLowerCase("es").includes(siteSearchTerm)
       );
       $("sitesBody").innerHTML = filteredSites.map(site => {
         const assignedUsers = users.filter(user => (user.siteIds || []).includes(site.id) || site.technicianUserId === user.id || site.supervisorUserId === user.id);
@@ -2747,8 +2753,10 @@
       const users = AdminStore.listUsers();
       const technician = editing && users.find(user => user.role === "Técnico" && (user.siteIds || []).includes(site.id));
       const supervisor = editing && users.find(user => user.role === "Supervisor" && (user.siteIds || []).includes(site.id));
+      const coordinator = editing && users.find(user => user.role === "Coordinador" && (user.siteIds || []).includes(site.id));
       populateSiteStaffSelect("siteTechnician", "Técnico", technician ? technician.id : site && site.technicianUserId, editing ? site.technician : "");
       populateSiteStaffSelect("siteSupervisor", "Supervisor", supervisor ? supervisor.id : site && site.supervisorUserId, editing ? site.supervisor : "");
+      populateSiteStaffSelect("siteCoordinator", "Coordinador", coordinator ? coordinator.id : site && site.coordinatorUserId, editing ? site.coordinator : "");
       selectedSiteEquipment = editing && Array.isArray(site.equipment)
         ? site.equipment.map(item => resizeMachineUnits(Object.assign({}, item), Number(item.quantity) || 0))
         : [];
@@ -3229,6 +3237,7 @@
         machineCount: $("siteMachineCount").value,
         technicianUserId: $("siteTechnician").value,
         supervisorUserId: $("siteSupervisor").value,
+        coordinatorUserId: $("siteCoordinator").value,
         equipment: siteEquipmentTouched || !$("siteId").value ? selectedSiteEquipment : undefined
       };
       try {

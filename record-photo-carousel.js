@@ -2,7 +2,7 @@
   "use strict";
 
   const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
-  const PHOTO_GROUPS = ".maintenance-image-list, .machine-log-photos, .ticket-detail-photos, .ticket-history-detail-photos";
+  const PHOTO_GROUPS = ".maintenance-image-list, .machine-log-photos, .ticket-detail-photos, .ticket-history-detail-photos, .inspection-photo-list";
   const PHOTO_ITEMS = "[data-enlarge-image], [data-history-image], [data-ticket-enlarge]";
 
   function create(options) {
@@ -18,36 +18,48 @@
 
     let photos = [];
     let index = 0;
+    let scale = 1;
+    let offsetX = 0;
+    let offsetY = 0;
     let startPoint = null;
     let pointerId = null;
+    let activePointers = new Map();
+    let gestureType = "";
+    let pinchStart = null;
     let mouseStartPoint = null;
+    let mousePanning = false;
+    let lastTap = 0;
     let normalizeAfterTransition = false;
 
     function activePhysicalIndex() { return index + 1; }
+
+    function activeImage() {
+      return track.children[activePhysicalIndex()]?.querySelector("img") || null;
+    }
 
     function positionTrack(animate = false, dragX = 0, physicalIndex = activePhysicalIndex()) {
       track.style.transition = animate ? "transform 230ms cubic-bezier(.2,.75,.25,1)" : "none";
       track.style.transform = `translate3d(${-physicalIndex * viewport.clientWidth + dragX}px, 0, 0)`;
     }
 
-    function fitSlide(slide, image) {
-      if (!image.naturalWidth || !image.naturalHeight) return null;
+    function fitSlide(image) {
+      if (!image?.naturalWidth || !image.naturalHeight) return null;
       const maxWidth = Math.min(window.innerWidth * 0.94, 1400);
       const maxHeight = Math.min(window.innerHeight * 0.92, 1000);
-      const scale = Math.min(maxWidth / image.naturalWidth, maxHeight / image.naturalHeight);
+      const fit = Math.min(maxWidth / image.naturalWidth, maxHeight / image.naturalHeight);
       const size = {
-        width: Math.max(1, Math.floor(image.naturalWidth * scale)),
-        height: Math.max(1, Math.floor(image.naturalHeight * scale))
+        width: Math.max(1, Math.floor(image.naturalWidth * fit)),
+        height: Math.max(1, Math.floor(image.naturalHeight * fit))
       };
       image.style.width = `${size.width}px`;
       image.style.height = `${size.height}px`;
+      image.style.transformOrigin = "center center";
+      image.style.transition = "transform 120ms ease-out";
       return size;
     }
 
-    function sizeFrameToSlide(slide) {
-      const image = slide?.querySelector("img");
-      if (!image?.naturalWidth || !image.naturalHeight) return;
-      const size = fitSlide(slide, image);
+    function sizeFrameToSlide(image) {
+      const size = fitSlide(image);
       if (!size) return;
       frame.style.width = `${size.width}px`;
       frame.style.height = `${size.height}px`;
@@ -56,10 +68,35 @@
     function fitImages() {
       [...track.children].forEach((slide, physicalIndex) => {
         const image = slide.querySelector("img");
-        if (!image) return;
-        fitSlide(slide, image);
-        if (physicalIndex === activePhysicalIndex()) sizeFrameToSlide(slide);
+        fitSlide(image);
+        if (physicalIndex === activePhysicalIndex()) sizeFrameToSlide(image);
       });
+      applyZoom();
+    }
+
+    function applyZoom() {
+      const image = activeImage();
+      if (!image) return;
+      const maxX = Math.max(0, (frame.clientWidth || image.clientWidth) * (scale - 1) / 2);
+      const maxY = Math.max(0, (frame.clientHeight || image.clientHeight) * (scale - 1) / 2);
+      offsetX = clamp(offsetX, -maxX, maxX);
+      offsetY = clamp(offsetY, -maxY, maxY);
+      image.style.transform = `translate3d(${offsetX}px, ${offsetY}px, 0) scale(${scale})`;
+      viewport.style.cursor = scale > 1 ? (mousePanning ? "grabbing" : "grab") : "grab";
+    }
+
+    function resetZoom() {
+      scale = 1;
+      offsetX = 0;
+      offsetY = 0;
+      applyZoom();
+    }
+
+    function setScale(nextScale, centerDeltaX = 0, centerDeltaY = 0) {
+      scale = clamp(nextScale, 1, 4);
+      if (scale === 1) { offsetX = 0; offsetY = 0; }
+      else { offsetX += centerDeltaX; offsetY += centerDeltaY; }
+      applyZoom();
     }
 
     function render() {
@@ -68,13 +105,14 @@
       items.forEach((photo, physicalIndex) => {
         const slide = document.createElement("div");
         slide.className = "record-photo-carousel-slide";
-        slide.setAttribute("aria-hidden", physicalIndex === activePhysicalIndex() ? "false" : "true");
+        const isCurrent = physicalIndex === activePhysicalIndex();
+        slide.setAttribute("aria-hidden", String(!isCurrent));
         const image = document.createElement("img");
         image.alt = photo.alt || "Fotografía adjunta al registro";
         image.draggable = false;
         image.addEventListener("load", () => {
-          fitSlide(slide, image);
-          if (physicalIndex === activePhysicalIndex()) sizeFrameToSlide(slide);
+          fitSlide(image);
+          if (physicalIndex === activePhysicalIndex()) sizeFrameToSlide(image);
         }, { once: true });
         image.addEventListener("error", () => removeUnavailablePhoto(photo.src), { once: true });
         image.src = photo.src;
@@ -87,21 +125,27 @@
 
     function openFromTrigger(trigger, src, alt) {
       const group = trigger?.closest?.(PHOTO_GROUPS);
-      if (!group) return false;
-      const items = [...group.querySelectorAll(PHOTO_ITEMS)].map(node => ({
+      const groupItems = group ? [...group.querySelectorAll(PHOTO_ITEMS)].map(node => ({
         src: node.dataset.enlargeImage || node.dataset.historyImage || node.dataset.ticketEnlarge || node.currentSrc || node.src || "",
         alt: node.dataset.imageAlt || node.alt || alt || "Fotografía adjunta al registro"
-      })).filter(photo => photo.src);
-      if (items.length < 2) return false;
-
+      })).filter(photo => photo.src) : [];
+      const source = src || trigger?.dataset?.enlargeImage || trigger?.dataset?.historyImage || trigger?.dataset?.ticketEnlarge || trigger?.currentSrc || trigger?.src || "";
+      const items = groupItems.length ? groupItems : (source ? [{ src: source, alt: alt || trigger?.dataset?.imageAlt || trigger?.alt || "Fotografía" }] : []);
+      if (!items.length) return false;
       const resolve = value => { try { return new URL(value, document.baseURI).href; } catch (error) { return value; } };
-      const targetSrc = src || trigger.dataset.enlargeImage || trigger.dataset.historyImage || trigger.dataset.ticketEnlarge || trigger.currentSrc || trigger.src;
-      const targetIndex = items.findIndex(photo => resolve(photo.src) === resolve(targetSrc));
+      const targetIndex = items.findIndex(photo => resolve(photo.src) === resolve(source));
       photos = items;
       index = Math.max(0, targetIndex);
+      scale = 1;
+      offsetX = 0;
+      offsetY = 0;
       startPoint = null;
       pointerId = null;
+      activePointers.clear();
+      gestureType = "";
+      pinchStart = null;
       mouseStartPoint = null;
+      mousePanning = false;
       normalizeAfterTransition = false;
       originalImage.hidden = true;
       downloadButton.hidden = false;
@@ -115,15 +159,23 @@
     function close() {
       photos = [];
       index = 0;
+      scale = 1;
+      offsetX = 0;
+      offsetY = 0;
       startPoint = null;
       pointerId = null;
+      activePointers.clear();
+      gestureType = "";
+      pinchStart = null;
       mouseStartPoint = null;
+      mousePanning = false;
       normalizeAfterTransition = false;
       track.replaceChildren();
       track.style.transition = "none";
       track.style.transform = "translate3d(0, 0, 0)";
       frame.style.removeProperty("width");
       frame.style.removeProperty("height");
+      viewport.style.cursor = "";
       viewport.hidden = true;
       downloadButton.hidden = true;
       originalImage.hidden = false;
@@ -132,12 +184,13 @@
 
     function step(direction) {
       if (photos.length < 2) return;
+      resetZoom();
       const physicalTarget = activePhysicalIndex() + direction;
       index = (index + direction + photos.length) % photos.length;
       normalizeAfterTransition = physicalTarget === 0 || physicalTarget === photos.length + 1;
-      sizeFrameToSlide(track.children[physicalTarget]);
+      sizeFrameToSlide(track.children[physicalTarget]?.querySelector("img"));
       positionTrack(true, 0, physicalTarget);
-      [...track.children].forEach((slide, physicalIndex) => slide.setAttribute("aria-hidden", physicalIndex === activePhysicalIndex() ? "false" : "true"));
+      [...track.children].forEach((slide, physicalIndex) => slide.setAttribute("aria-hidden", String(physicalIndex !== activePhysicalIndex())));
     }
 
     function removeUnavailablePhoto(source) {
@@ -146,72 +199,134 @@
       if (!photos.some(photo => resolve(photo.src) === failed)) return;
       const currentSource = photos[index]?.src;
       photos = photos.filter(photo => resolve(photo.src) !== failed);
-      if (!photos.length) {
-        close();
-        overlay.hidden = true;
-        return;
-      }
+      if (!photos.length) { close(); overlay.hidden = true; return; }
       const currentIndex = photos.findIndex(photo => resolve(photo.src) === resolve(currentSource));
       index = currentIndex >= 0 ? currentIndex : 0;
+      resetZoom();
       render();
     }
 
+    const pointerPoint = event => ({ x: event.clientX, y: event.clientY });
+    const distanceBetween = (first, second) => Math.hypot(first.x - second.x, first.y - second.y);
+    const centerBetween = (first, second) => ({ x: (first.x + second.x) / 2, y: (first.y + second.y) / 2 });
+
     viewport.addEventListener("pointerdown", event => {
-      // El ratón se atiende con eventos mouse dedicados más abajo. Esto evita
-      // que dos flujos de eventos compitan durante el mismo arrastre.
-      if (event.pointerType === "mouse") return;
-      if (pointerId !== null) return;
-      pointerId = event.pointerId;
-      startPoint = { x: event.clientX, y: event.clientY };
+      if (event.pointerType === "mouse" || photos.length === 0) return;
       viewport.setPointerCapture?.(event.pointerId);
+      activePointers.set(event.pointerId, pointerPoint(event));
+      if (activePointers.size >= 2) {
+        const points = [...activePointers.values()].slice(0, 2);
+        const center = centerBetween(points[0], points[1]);
+        pinchStart = { distance: distanceBetween(points[0], points[1]), scale, center, x: offsetX, y: offsetY };
+        gestureType = "pinch";
+        startPoint = null;
+      } else {
+        pointerId = event.pointerId;
+        startPoint = pointerPoint(event);
+        gestureType = scale > 1 ? "pan" : "swipe";
+      }
     });
 
     viewport.addEventListener("pointermove", event => {
+      if (!activePointers.has(event.pointerId)) return;
+      const point = pointerPoint(event);
+      activePointers.set(event.pointerId, point);
+      if (gestureType === "pinch" && activePointers.size >= 2 && pinchStart) {
+        const points = [...activePointers.values()].slice(0, 2);
+        const center = centerBetween(points[0], points[1]);
+        const nextScale = pinchStart.scale * distanceBetween(points[0], points[1]) / Math.max(1, pinchStart.distance);
+        scale = clamp(nextScale, 1, 4);
+        offsetX = pinchStart.x + center.x - pinchStart.center.x;
+        offsetY = pinchStart.y + center.y - pinchStart.center.y;
+        event.preventDefault();
+        applyZoom();
+        return;
+      }
       if (event.pointerId !== pointerId || !startPoint) return;
-      const deltaX = event.clientX - startPoint.x;
-      const deltaY = event.clientY - startPoint.y;
-      if (Math.abs(deltaX) > Math.abs(deltaY) * 0.8) {
+      const deltaX = point.x - startPoint.x;
+      const deltaY = point.y - startPoint.y;
+      if (gestureType === "pan") {
+        offsetX += deltaX;
+        offsetY += deltaY;
+        startPoint = point;
+        event.preventDefault();
+        applyZoom();
+      } else if (Math.abs(deltaX) > Math.abs(deltaY) * 0.8) {
         event.preventDefault();
         positionTrack(false, deltaX);
       }
     });
 
-    function finishSwipe(event) {
-      if (event.pointerId !== pointerId || !startPoint) return;
-      const deltaX = event.clientX - startPoint.x;
-      const deltaY = event.clientY - startPoint.y;
-      if (Math.abs(deltaX) >= 48 && Math.abs(deltaX) > Math.abs(deltaY) * 1.15) step(deltaX < 0 ? 1 : -1);
-      else positionTrack(true);
-      startPoint = null;
-      pointerId = null;
+    function finishPointer(event) {
+      if (!activePointers.has(event.pointerId)) return;
+      const point = pointerPoint(event);
+      const wasPinching = gestureType === "pinch" || activePointers.size > 1;
+      const wasSwipe = gestureType === "swipe" && event.pointerId === pointerId && startPoint;
+      const deltaX = wasSwipe ? point.x - startPoint.x : 0;
+      const deltaY = wasSwipe ? point.y - startPoint.y : 0;
+      activePointers.delete(event.pointerId);
+      if (wasSwipe && Math.abs(deltaX) >= 48 && Math.abs(deltaX) > Math.abs(deltaY) * 1.15) step(deltaX < 0 ? 1 : -1);
+      else if (wasSwipe) positionTrack(true);
+      if (!wasPinching && wasSwipe && Math.abs(deltaX) < 10 && Math.abs(deltaY) < 10) {
+        const now = Date.now();
+        if (now - lastTap < 320) { setScale(scale > 1 ? 1 : 2.2); lastTap = 0; }
+        else lastTap = now;
+      }
+      if (activePointers.size === 1 && wasPinching) {
+        const [remainingId, remainingPoint] = [...activePointers.entries()][0];
+        pointerId = remainingId;
+        startPoint = remainingPoint;
+        gestureType = scale > 1 ? "pan" : "ignore";
+      } else if (activePointers.size === 0) {
+        pointerId = null;
+        startPoint = null;
+        pinchStart = null;
+        gestureType = "";
+      }
     }
 
-    viewport.addEventListener("pointerup", finishSwipe);
-    viewport.addEventListener("pointercancel", finishSwipe);
+    viewport.addEventListener("pointerup", finishPointer);
+    viewport.addEventListener("pointercancel", finishPointer);
 
-    // Arrastre explícito de mouse para PC. Se escucha el movimiento y la
-    // liberación en document para no perder el gesto si el cursor sale del visor.
+    viewport.addEventListener("wheel", event => {
+      if (overlay.hidden || viewport.hidden) return;
+      event.preventDefault();
+      const factor = event.deltaY < 0 ? 1.15 : 0.87;
+      setScale(scale * factor);
+    }, { passive: false });
+    viewport.addEventListener("dblclick", event => {
+      event.preventDefault();
+      setScale(scale > 1 ? 1 : 2.2);
+    });
+
     viewport.addEventListener("mousedown", event => {
-      if (event.button !== 0 || photos.length < 2) return;
+      if (event.button !== 0 || photos.length === 0) return;
       mouseStartPoint = { x: event.clientX, y: event.clientY };
+      mousePanning = scale > 1;
       event.preventDefault();
     });
     document.addEventListener("mousemove", event => {
       if (!mouseStartPoint || overlay.hidden || viewport.hidden) return;
-      const deltaX = event.clientX - mouseStartPoint.x;
-      const deltaY = event.clientY - mouseStartPoint.y;
-      if (Math.abs(deltaX) > Math.abs(deltaY) * 0.8) {
-        event.preventDefault();
-        positionTrack(false, deltaX);
-      }
+      const point = { x: event.clientX, y: event.clientY };
+      const deltaX = point.x - mouseStartPoint.x;
+      const deltaY = point.y - mouseStartPoint.y;
+      if (mousePanning || scale > 1) {
+        mousePanning = true;
+        offsetX += deltaX;
+        offsetY += deltaY;
+        mouseStartPoint = point;
+        applyZoom();
+      } else if (Math.abs(deltaX) > Math.abs(deltaY) * 0.8) positionTrack(false, deltaX);
     });
     document.addEventListener("mouseup", event => {
       if (!mouseStartPoint) return;
       const deltaX = event.clientX - mouseStartPoint.x;
       const deltaY = event.clientY - mouseStartPoint.y;
-      if (Math.abs(deltaX) >= 48 && Math.abs(deltaX) > Math.abs(deltaY) * 1.15) step(deltaX < 0 ? 1 : -1);
+      if (mousePanning) applyZoom();
+      else if (Math.abs(deltaX) >= 48 && Math.abs(deltaX) > Math.abs(deltaY) * 1.15) step(deltaX < 0 ? 1 : -1);
       else positionTrack(true);
       mouseStartPoint = null;
+      mousePanning = false;
     });
 
     async function downloadCurrentPhoto() {
@@ -246,8 +361,6 @@
         triggerDownload(downloadUrl, `fotografia-registro-${photoIndex + 1}.${extensionFor(blob, photo.src)}`);
         window.setTimeout(() => URL.revokeObjectURL(downloadUrl), 30000);
       } catch (error) {
-        // If the image is same-origin or a data URL, the browser can still
-        // download it directly even when fetching a blob is unavailable.
         triggerDownload(photo.src, filename);
       }
     }

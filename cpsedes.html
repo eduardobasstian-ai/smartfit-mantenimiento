@@ -595,6 +595,8 @@
 .record-photo-carousel-track{display:flex;width:100%;height:100%;will-change:transform}.record-photo-carousel-slide{flex:0 0 100%;width:100%;height:100%;display:grid;place-items:center;overflow:hidden}
 .record-photo-carousel-slide img{display:block;max-width:none;max-height:none;object-fit:contain;pointer-events:none;-webkit-user-drag:none}
 .image-lightbox-frame.has-record-photo-carousel{display:block!important;position:relative;width:auto;height:auto;max-width:96vw!important;max-height:94dvh!important}
+.image-lightbox-frame.has-record-photo-carousel>.image-lightbox-close{position:fixed;z-index:10002;top:max(12px,env(safe-area-inset-top,12px));right:max(12px,env(safe-area-inset-right,12px))}
+.image-lightbox-frame.has-record-photo-carousel>.record-photo-download{position:fixed;z-index:10002;top:max(56px,calc(env(safe-area-inset-top,0px) + 56px));right:max(10px,env(safe-area-inset-right,10px))}
 .record-photo-download[hidden]{display:none!important}.record-photo-download{position:absolute;z-index:2;top:56px;right:10px;width:38px;height:38px;display:grid;place-items:center;padding:0;border:1px solid #d1d3d8;border-radius:50%;background:#fff;color:#17191f;box-shadow:0 2px 12px #0003;cursor:pointer}.record-photo-download:hover{border-color:var(--yellow);color:#8a5a00}
 </style>
   <style>
@@ -934,7 +936,7 @@
       <div class="record-photo-carousel-viewport" id="equipmentRecordPhotoViewport" hidden><div class="record-photo-carousel-track" id="equipmentRecordPhotoTrack"></div></div>
     </div>
   </div>
-  <script src="record-photo-carousel.js?v=20261102-shadow-root-1"></script>
+  <script src="record-photo-carousel.js?v=20261118-zoom-native-1"></script>
 
   <div class="ticket-modal-backdrop" id="supervisorTicketModal" hidden>
     <section class="ticket-modal" role="dialog" aria-modal="true" aria-labelledby="supervisorTicketModalTitle">
@@ -971,6 +973,16 @@
   <script>
     "use strict";
     const $ = id => document.getElementById(id);
+    function openNativePhoneCamera(inputId) {
+      const mobileAgent = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+      const compactTouch = navigator.maxTouchPoints > 0 && window.matchMedia?.("(pointer: coarse)")?.matches === true && Math.min(screen.width || innerWidth, screen.height || innerHeight) <= 900;
+      if (!mobileAgent && !compactTouch) return false;
+      const input = $(inputId);
+      if (!input) return false;
+      input.value = "";
+      input.click();
+      return true;
+    }
     function saveDraftImagesFor(form, images) {
       const key = form?.dataset.smartfitDraftKey;
       if (key) document.dispatchEvent(new CustomEvent("smartfit:form-draft-save-images", { detail: { key, images } }));
@@ -2212,7 +2224,7 @@
       }).join("");
       reportWindow.document.open();
       reportWindow.document.write(`<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Informe Lite</title><style>
-        @page{size:letter landscape;margin:12mm;@bottom-right{content:"Página " counter(page) " de " counter(pages);font:8pt Arial,sans-serif;color:#555}}*{box-sizing:border-box}body{margin:0;color:#171923;font:9pt Arial,sans-serif}.header{display:flex;align-items:center;gap:20px;border-bottom:3px solid #ffb51b;padding:0 0 10px;margin-bottom:14px}.header img{width:120px;height:auto;background:#000;padding:4px 8px;border-radius:4px}.header-copy{flex:1;text-align:right}.header h1{font-size:19pt;margin:0 0 6px}.header p{margin:3px 0;color:#555}.summary{display:flex;gap:10px;margin:10px 0 14px}.summary div{flex:1;padding:8px 10px;border:1px solid #cfd1d8;border-radius:7px}.summary b{display:block;font-size:8pt;color:#555}.summary strong{display:block;margin-top:3px;font-size:13pt}table{width:100%;border-collapse:collapse;table-layout:fixed}col.row-number{width:4%}col.site{width:11%}col.asset{width:8%}col.brand{width:9%}col.equipment{width:12%}col.event-date{width:10%}col.ticket-number{width:10%}col.ticket-status{width:11%}col.work{width:25%}thead{display:table-header-group}th,td{padding:6px 7px;border:1px solid #d8dae0;text-align:justify;vertical-align:top;overflow-wrap:break-word;word-break:normal;hyphens:none}th{background:#f0f1f4;font-weight:700;font-size:8pt;text-align:center;white-space:normal}td{font-size:8pt;line-height:1.4}td:first-child{text-align:center;white-space:nowrap}td:last-child{white-space:pre-wrap}tr{break-inside:avoid}footer{margin-top:14px;border-top:1px solid #d8dae0;padding-top:6px;text-align:center;color:#555;font-size:8pt}@media print{*{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+        @page{size:letter landscape;margin:8mm;@bottom-right{content:"Página " counter(page) " de " counter(pages);font:8pt Arial,sans-serif;color:#555}}*{box-sizing:border-box}body{margin:0;color:#171923;font:8.5pt Arial,sans-serif}.header{display:flex;align-items:center;gap:20px;border-bottom:3px solid #ffb51b;padding:0 0 10px;margin-bottom:8px}.header img{width:120px;height:auto;background:#000;padding:4px 8px;border-radius:4px}.header-copy{flex:1;text-align:right}.header h1{font-size:19pt;margin:0 0 6px}.header p{margin:3px 0;color:#555}.summary{display:flex;gap:10px;margin:6px 0 8px}.summary div{flex:1;padding:8px 10px;border:1px solid #cfd1d8;border-radius:7px}.summary b{display:block;font-size:8pt;color:#555}.summary strong{display:block;margin-top:3px;font-size:13pt}table{width:100%;border-collapse:collapse;table-layout:fixed}col.row-number{width:4%}col.site{width:11%}col.asset{width:8%}col.brand{width:9%}col.equipment{width:12%}col.event-date{width:10%}col.ticket-number{width:10%}col.ticket-status{width:11%}col.work{width:25%}thead{display:table-header-group}th,td{padding:4px 5px;border:1px solid #d8dae0;text-align:justify;vertical-align:top;overflow-wrap:break-word;word-break:normal;hyphens:none}th{background:#f0f1f4;font-weight:700;font-size:8pt;text-align:center;white-space:normal}td{font-size:7.5pt;line-height:1.25}td:first-child{text-align:center;white-space:nowrap}td:last-child{white-space:pre-wrap}tr{break-inside:auto;page-break-inside:auto}footer{margin-top:8px;border-top:1px solid #d8dae0;padding-top:6px;text-align:center;color:#555;font-size:8pt}@media print{*{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
         </style></head><body><header class="header"><img src="${escapeHtml(logoUrl)}" alt="Smart Fit"><div class="header-copy"><h1>INFORME LITE</h1><p>Generado por: <b>${escapeHtml(user?.name || "Supervisor")}</b></p><p>Fecha y hora: ${escapeHtml(exportedAt)}</p></div></header><div class="summary"><div><b>Registros incluidos</b><strong>${events.length.toLocaleString("es-CL")}</strong></div></div><table><colgroup><col class="row-number"><col class="site"><col class="asset"><col class="brand"><col class="equipment"><col class="event-date"><col class="ticket-number"><col class="ticket-status"><col class="work"></colgroup><thead><tr><th>N.º</th><th>Sede</th><th>Activo fijo</th><th>Marca</th><th>Equipo</th><th>Fecha evento</th><th>N.º ticket</th><th>Estado ticket</th><th>Trabajo realizado</th></tr></thead><tbody>${rows}</tbody></table><footer>Informe generado desde el panel supervisor de Smart Fit.</footer><script>window.addEventListener('load',()=>window.opener?.SmartFitPdfReport?.attach(window));<\/script></body></html>`);
       reportWindow.document.close();
     }
@@ -3422,8 +3434,8 @@
         window.alert("Solo puedes adjuntar un máximo de 4 fotografías.");
         return;
       }
+      if (openNativePhoneCamera("supervisorTicketCameraInput")) return;
       if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
-        window.alert("El acceso directo a la cámara requiere una conexión segura (HTTPS) y un navegador compatible. Abre el sitio publicado con HTTPS y permite el acceso a la cámara cuando Edge, Chrome o Safari lo solicite.");
         $("supervisorTicketCameraInput")?.click();
         return;
       }
@@ -3487,8 +3499,8 @@
         window.alert("Solo puedes adjuntar un máximo de 4 fotografías.");
         return;
       }
+      if (openNativePhoneCamera("maintenanceCameraInput")) return;
       if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
-        window.alert("El acceso directo a la cámara requiere una conexión segura (HTTPS) y un navegador compatible. Abre el sitio publicado con HTTPS y permite el acceso a la cámara cuando Edge, Chrome o Safari lo solicite.");
         $("maintenanceCameraInput")?.click();
         return;
       }
@@ -3692,7 +3704,7 @@
       const logoUrl = new URL("IMG/logo-header.png", window.location.href).href;
       reportWindow.document.open();
       reportWindow.document.write(`<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>PDF Lite · ${escapeHtml(item.name || "Equipo")}</title><style>
-        @page{size:letter landscape;margin:12mm}*{box-sizing:border-box}body{margin:0;color:#171923;font:9pt Arial,sans-serif}.header{display:flex;align-items:center;gap:20px;border-bottom:3px solid #ffb51b;padding:0 0 10px;margin-bottom:14px}.header img{width:120px;height:auto;background:#000;padding:4px 8px;border-radius:4px}.header-copy{flex:1;text-align:right}.header h1{font-size:18pt;margin:0 0 6px}.header p{margin:3px 0;color:#555}.summary{display:flex;gap:10px;margin:10px 0 14px}.summary div{flex:1;padding:7px 9px;border:1px solid #cfd1d8;border-radius:7px}.summary b{display:block;font-size:8pt;color:#555}.summary strong{display:block;margin-top:3px;font-size:10pt}table{width:100%;border-collapse:collapse;table-layout:fixed}col.event-number{width:5%}col.event-date{width:13%}col.event-type{width:20%}col.event-detail{width:62%}th,td{padding:6px 7px;border:1px solid #d8dae0;text-align:left;vertical-align:top;overflow-wrap:anywhere;white-space:pre-wrap}th{background:#f0f1f4;font-size:8pt}td:first-child{text-align:center}td:last-child{line-height:1.4}thead{display:table-header-group}tr{break-inside:avoid}footer{margin-top:12px;border-top:1px solid #cfd1d8;padding-top:6px;text-align:center;color:#555;font-size:8pt}@media print{*{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+        @page{size:letter landscape;margin:8mm}*{box-sizing:border-box}body{margin:0;color:#171923;font:9pt Arial,sans-serif}.header{display:flex;align-items:center;gap:20px;border-bottom:3px solid #ffb51b;padding:0 0 10px;margin-bottom:8px}.header img{width:120px;height:auto;background:#000;padding:4px 8px;border-radius:4px}.header-copy{flex:1;text-align:right}.header h1{font-size:18pt;margin:0 0 6px}.header p{margin:3px 0;color:#555}.summary{display:flex;gap:10px;margin:6px 0 8px}.summary div{flex:1;padding:7px 9px;border:1px solid #cfd1d8;border-radius:7px}.summary b{display:block;font-size:8pt;color:#555}.summary strong{display:block;margin-top:3px;font-size:10pt}table{width:100%;border-collapse:collapse;table-layout:fixed}col.event-number{width:5%}col.event-date{width:13%}col.event-type{width:20%}col.event-detail{width:62%}th,td{padding:4px 5px;border:1px solid #d8dae0;text-align:left;vertical-align:top;overflow-wrap:anywhere;white-space:pre-wrap}th{background:#f0f1f4;font-size:8pt}td:first-child{text-align:center}td:last-child{line-height:1.4}thead{display:table-header-group}tr{break-inside:auto;page-break-inside:auto}footer{margin-top:8px;border-top:1px solid #cfd1d8;padding-top:6px;text-align:center;color:#555;font-size:8pt}@media print{*{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
         </style></head><body><header class="header"><img src="${escapeHtml(logoUrl)}" alt="Smart Fit"><div class="header-copy"><h1>PDF LITE · ÚLTIMOS 10 EVENTOS</h1><p><b>${escapeHtml(item.name || "Equipo")}</b> · ${escapeHtml(item.model || "Sin modelo")}</p><p>${escapeHtml(brand?.name || item.brandName || "Sin marca")} · AF: ${escapeHtml(activeFixed)} · ${escapeHtml(currentSite?.name || "")}</p><p>Generado por: <b>${escapeHtml(user?.name || "")}</b> · ${escapeHtml(exportedAt)}</p></div></header><div class="summary"><div><b>Eventos incluidos · kilometraje excluido</b><strong>${events.length} de hasta 10</strong></div></div><table><colgroup><col class="event-number"><col class="event-date"><col class="event-type"><col class="event-detail"></colgroup><thead><tr><th>N.º</th><th>Fecha</th><th>Tipo de evento</th><th>Detalle</th></tr></thead><tbody>${rows}</tbody></table><footer>Informe generado desde Smart Fit.</footer><script>window.addEventListener('load',()=>window.opener?.SmartFitPdfReport?.attach(window));<\/script></body></html>`);
       reportWindow.document.close();
     }
@@ -4200,8 +4212,10 @@
       const files = selectedFiles.slice(0, availableSlots);
       event.target.value = "";
       if (!files.length) return;
+      const equipmentKey = supervisorTicketEquipment?.recordKey;
       try {
         const images = await Promise.all(files.map(compressMaintenanceImage));
+        if (!supervisorTicketEquipment || supervisorTicketEquipment.recordKey !== equipmentKey) return;
         supervisorTicketImages.push(...images);
         if (draftKey) document.dispatchEvent(new CustomEvent("smartfit:form-draft-save-images", { detail: { key: draftKey, images: supervisorTicketImages } }));
         renderSupervisorTicketForm(supervisorTicketEquipment);
@@ -4771,13 +4785,15 @@
       if (!files.length) return;
       const room = Math.max(0, 4 - (inspectionEntryDraft.photos || []).length);
       if (files.length > room) window.alert("Puedes adjuntar hasta 4 fotografías por equipo.");
+      const equipmentKey = inspectionMachine?.recordKey;
       try {
         const images = await Promise.all(files.slice(0, room).map(compressMaintenanceImage));
+        if (!inspectionMachine || inspectionMachine.recordKey !== equipmentKey) return;
         inspectionEntryDraft.photos = [...(inspectionEntryDraft.photos || []), ...images].slice(0, 4);
         if (inspectionDraft) {
           inspectionDraft.pendingEntries ||= {};
           if (inspectionMachine) inspectionDraft.pendingEntries[inspectionMachine.recordKey] = inspectionEntryDraft;
-          inspectionDraft.currentEntry = inspectionEntryDraft;
+          inspectionDraft.currentEntry = Object.assign({ recordKey: inspectionMachine.recordKey }, inspectionEntryDraft);
           await persistInspectionDraft();
         }
         if (inspectionMachine) renderInspectionForm(inspectionMachine);

@@ -964,7 +964,7 @@
     const remoteSites = preflightSites;
     const users = AdminStore.listUsers();
     const desiredAssignments = [];
-    for (const [role, localUserId] of [["Técnico", site.technicianUserId], ["Supervisor", site.supervisorUserId]]) {
+    for (const [role, localUserId] of [["Técnico", site.technicianUserId], ["Supervisor", site.supervisorUserId], ["Coordinador", site.coordinatorUserId]]) {
       if (!localUserId) continue;
       const localUser = users.find(user => String(user.id) === String(localUserId) && user.role === role && user.active);
       if (!localUser) throw new Error(`No se encontró el perfil activo de ${role.toLocaleLowerCase("es")} seleccionado para la sede.`);
@@ -978,7 +978,7 @@
     const desiredAssignmentKeys = new Set(desiredAssignments.map(row => `${row.assignment_role}::${row.user_id}`));
     for (const row of assignments) {
       const key = `${row.assignment_role}::${row.user_id}`;
-      if (["Técnico", "Supervisor"].includes(row.assignment_role) && !desiredAssignmentKeys.has(key)) {
+      if (["Técnico", "Supervisor", "Coordinador"].includes(row.assignment_role) && !desiredAssignmentKeys.has(key)) {
         await deleteRow("site_assignments", `site_id=eq.${encodeURIComponent(remoteSite.id)}&user_id=eq.${encodeURIComponent(row.user_id)}&assignment_role=eq.${encodeURIComponent(row.assignment_role)}`);
       }
     }
@@ -1798,8 +1798,15 @@
     return [...map.values()];
   }
 
-  function hydrateSites(remoteSites, remoteBrands, remoteEquipment, localSites) {
+  function hydrateSites(remoteSites, remoteBrands, remoteEquipment, localSites, assignments = [], profiles = []) {
     const brandById = new Map(remoteBrands.map(brand => [brand.id, brand]));
+    const profileById = new Map(profiles.map(profile => [profile.id, profile]));
+    const assignmentsBySite = new Map();
+    assignments.forEach(assignment => {
+      const rows = assignmentsBySite.get(assignment.site_id) || [];
+      rows.push(assignment);
+      assignmentsBySite.set(assignment.site_id, rows);
+    });
     const equipmentBySite = new Map();
     remoteEquipment.forEach(row => {
       const groupKey = `${row.brand_id || row.metadata?.legacyBrandId || "sin-marca"}::${row.metadata?.catalogId || row.name}::${row.model || ""}`;
@@ -1824,11 +1831,15 @@
       if (!legacyId) return;
       const prior = merged.get(legacyId) || {};
       const groups = [...(equipmentBySite.get(row.id)?.values() || [])];
+      const coordinatorAssignment = (assignmentsBySite.get(row.id) || []).find(assignment => assignment.assignment_role === "Coordinador");
+      const coordinatorProfile = coordinatorAssignment ? profileById.get(coordinatorAssignment.user_id) : null;
       merged.set(legacyId, Object.assign({}, prior, {
         id: legacyId,
         name: row.name || prior.name,
         region: row.region || prior.region || "",
         internalCode: row.internal_code ?? prior.internalCode,
+        coordinatorUserId: coordinatorProfile?.legacy_id ? String(coordinatorProfile.legacy_id) : "",
+        coordinator: coordinatorProfile?.full_name || "",
         equipment: groups,
         machineCount: groups.reduce((sum, group) => sum + group.quantity, 0),
         active: row.active
@@ -1974,7 +1985,7 @@
       admin_user_access: accountAccess, audit_log: accessRows } = hydrationSnapshot;
     const changed = new Set(requestedTables);
     const fullHydration = !useSnapshot;
-    const refreshSites = fullHydration || ["sites", "brands", "equipment"].some(table => changed.has(table));
+    const refreshSites = fullHydration || ["sites", "brands", "equipment", "site_assignments", "profiles"].some(table => changed.has(table));
     const refreshTickets = fullHydration || ["tickets", "sites", "profiles"].some(table => changed.has(table));
     const refreshRecords = fullHydration || ["maintenance_events", "mileage_records", "maintenance_event_tickets", "tickets", "sites", "profiles"].some(table => changed.has(table));
     const refreshUsers = fullHydration || ["profiles", "site_assignments", "sites", "tickets", "admin_user_access"].some(table => changed.has(table));
@@ -2034,7 +2045,7 @@
       }
     }
     const siteRowsForLocal = refreshSites
-      ? hydrateSites(sites, brands, equipment, parseLocal("smartfit.admin.sites.v1", []))
+      ? hydrateSites(sites, brands, equipment, parseLocal("smartfit.admin.sites.v1", []), assignments, profiles)
       : null;
     const brandLegacyIdByUuid = new Map(refreshSites ? brands.map(row => [row.id, String(row.legacy_id || row.id)]) : []);
     const equipmentCountByBrand = new Map();
