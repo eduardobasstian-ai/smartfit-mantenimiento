@@ -1495,16 +1495,32 @@
       return entries;
     }
 
-    function openEquipmentByQr(activeFixed) {
-      const normalized = String(activeFixed).trim();
+    function normalizeQrFixedAsset(value) {
+      return String(value ?? "").replace(/\D/g, "").replace(/^0+(?=\d)/, "");
+    }
+
+    function openEquipmentByQr(activeFixed, { requiredBrandId = "" } = {}) {
+      const normalized = normalizeQrFixedAsset(activeFixed);
       const site = assignedSites.find(entry => String(entry.id) === String(currentSite?.id));
       if (!site) {
         window.alert("Primero abre una sede para buscar uno de sus equipos.");
         return;
       }
-      const matches = currentBrandEquipmentFromSite(site).filter(machine => String(machine.unit?.activeFixed ?? "").trim() === normalized);
+      let matches = currentBrandEquipmentFromSite(site).filter(machine => normalizeQrFixedAsset(machine.unit?.activeFixed) === normalized);
+      if (requiredBrandId) {
+        const requiredBrand = brandDirectory.find(entry => String(entry.id) === String(requiredBrandId));
+        matches = matches.filter(machine => {
+          const machineBrand = brandDirectory.find(entry => String(entry.id) === String(machine.item.brandId)) ||
+            brandDirectory.find(entry => normalizeChartLabel(entry.name) === normalizeChartLabel(machine.item.brandName));
+          return String(machine.item.brandId || machineBrand?.id || "") === String(requiredBrandId) ||
+            (requiredBrand && normalizeChartLabel(machine.item.brandName || machineBrand?.name) === normalizeChartLabel(requiredBrand.name));
+        });
+      }
       if (!matches.length) {
-        window.alert(`No se encontró el activo fijo ${normalized} en la sede seleccionada.`);
+        const brandName = brandDirectory.find(entry => String(entry.id) === String(requiredBrandId))?.name;
+        window.alert(brandName
+          ? `El activo fijo ${normalized} no está registrado en ${brandName} para esta sede.`
+          : `No se encontró el activo fijo ${normalized} en la sede seleccionada.`);
         return;
       }
       if (matches.length > 1) {
@@ -1518,31 +1534,18 @@
         window.alert("No se pudo identificar la marca del equipo escaneado.");
         return;
       }
-      renderBrandEquipment(brand.id);
-      $("siteFilter").value = normalized;
-      renderMachineCards(normalized);
+      renderBrandEquipment(brand.id, { resetFilter: false });
+      const matchedFixedAsset = String(machine.unit?.activeFixed ?? "").trim() || String(activeFixed).trim();
+      $("siteFilter").value = matchedFixedAsset;
+      renderMachineCards(matchedFixedAsset, { exactFixedAsset: normalized });
     }
 
     function openBrandEquipmentByQr(activeFixed) {
-      const normalizeFixedAsset = value => String(value ?? "").replace(/\D/g, "").replace(/^0+(?=\d)/, "");
-      const normalized = normalizeFixedAsset(activeFixed);
       if (!currentSite || !currentBrandId || !currentBrandEquipment.length) {
         window.alert("Abre una marca con equipos antes de buscar un activo fijo por QR.");
         return;
       }
-      const matches = currentBrandEquipment.filter(machine => normalizeFixedAsset(machine.unit?.activeFixed) === normalized);
-      if (!matches.length) {
-        const brandName = brandDirectory.find(entry => entry.id === currentBrandId)?.name || "esta marca";
-        window.alert(`No se encontró el activo fijo ${normalized} en ${brandName} para la sede seleccionada.`);
-        return;
-      }
-      if (matches.length > 1) {
-        window.alert(`El activo fijo ${normalized} aparece más de una vez en esta marca. Busca el número manualmente para elegir el equipo correcto.`);
-        return;
-      }
-      const matchedFixedAsset = String(matches[0].unit?.activeFixed ?? "").trim() || String(activeFixed).trim();
-      $("siteFilter").value = matchedFixedAsset;
-      renderMachineCards(matchedFixedAsset, { exactFixedAsset: normalized });
+      openEquipmentByQr(activeFixed, { requiredBrandId: currentBrandId });
     }
 
     function openSupervisorTicketEquipmentByQr(activeFixed) {
