@@ -126,6 +126,7 @@
     .inspection-form input[readonly] { color: #c9cad0; }
     .inspection-form textarea { min-height: 100px; resize: vertical; }
     .inspection-form-actions, .inspection-photo-list { display: flex; flex-wrap: wrap; gap: 8px; }
+    .inspection-photo-picker { display: grid; justify-items: start; gap: 8px; }
     .inspection-photo-list { gap: 9px; }
     .inspection-photo-thumb-wrap { position: relative; flex: 0 0 72px; width: 72px; height: 72px; }
     .inspection-photo-list img { display: block; width: 72px; height: 72px; border: 1px solid #3d404b; border-radius: 9px; object-fit: cover; cursor: zoom-in; }
@@ -2787,7 +2788,7 @@
       setInspectionTools("equipment-form");
       $("siteGrid").className = "inspection-form-host";
       const photos = (inspectionEntryDraft.photos || []).map((photo, index) => `<div class="inspection-photo-thumb-wrap"><img src="${escapeHtml(photo)}" alt="Foto de inspección ${index + 1}" data-enlarge-image="${escapeHtml(photo)}" data-image-alt="Fotografía ${index + 1} de inspección"><button class="inspection-photo-remove" type="button" data-inspection-photo-remove="${index}" aria-label="Quitar foto ${index + 1}">×</button></div>`).join("");
-      $("siteGrid").innerHTML = `<form class="inspection-form" id="siteInspectionForm"><h3>Registro del equipo</h3><div class="inspection-form-grid"><label>Fecha<input type="date" id="inspectionDate" value="${escapeHtml(inspectionEntryDraft.date || currentLocalDate())}" required></label><label>Activo fijo<input type="text" value="${escapeHtml(machine.activeFixed || "Sin activo fijo")}" readonly></label><label class="full">Hallazgo / revisión realizada<textarea id="inspectionFinding" required placeholder="Describe lo revisado o el hallazgo detectado...">${escapeHtml(inspectionEntryDraft.finding || "")}</textarea></label><label class="full">Observaciones<textarea id="inspectionObservations" placeholder="Detalle adicional (opcional)">${escapeHtml(inspectionEntryDraft.observations || "")}</textarea></label></div><div class="inspection-form-actions"><button class="machine-save-button" type="submit">Agregar a la inspección</button><button class="back-button" type="button" data-inspection-photo-pick="gallery">Agregar fotos (${(inspectionEntryDraft.photos || []).length}/4)</button><button class="back-button" type="button" data-inspection-photo-pick="camera">Usar cámara</button><input id="inspectionGalleryInput" class="maintenance-image-input" type="file" accept="image/*" multiple><input id="inspectionCameraInput" class="maintenance-image-input" type="file" accept="image/*" capture="environment"></div><div class="inspection-photo-list">${photos}</div><span class="site-count" id="inspectionStorageStatus">${inspectionDraft?.storageError ? "No se pudo guardar localmente. Mantén esta página abierta y revisa el espacio disponible del navegador." : "Borrador guardado en este dispositivo."}</span><span class="site-count">Hasta 4 fotografías. Las imágenes se preparan conservando sus dimensiones y reduciendo su peso.</span></form>`;
+      $("siteGrid").innerHTML = `<form class="inspection-form" id="siteInspectionForm"><h3>Registro del equipo</h3><div class="inspection-form-grid"><label>Fecha<input type="date" id="inspectionDate" value="${escapeHtml(inspectionEntryDraft.date || currentLocalDate())}" required></label><label>Activo fijo<input type="text" value="${escapeHtml(machine.activeFixed || "Sin activo fijo")}" readonly></label><label class="full">Hallazgo / revisión realizada<textarea id="inspectionFinding" required placeholder="Describe lo revisado o el hallazgo detectado...">${escapeHtml(inspectionEntryDraft.finding || "")}</textarea></label><label class="full">Observaciones<textarea id="inspectionObservations" placeholder="Detalle adicional (opcional)">${escapeHtml(inspectionEntryDraft.observations || "")}</textarea></label></div><div class="inspection-form-actions"><button class="machine-save-button" type="submit">Agregar a la inspección</button><div class="inspection-photo-picker"><button class="back-button" type="button" data-toggle-inspection-photo-menu aria-expanded="false">Agregar fotos (${(inspectionEntryDraft.photos || []).length}/4)</button><div class="maintenance-image-menu" data-inspection-photo-menu hidden><button class="back-button" type="button" data-select-inspection-photo="gallery">Desde almacenamiento</button><button class="back-button" type="button" data-select-inspection-photo="camera">Usar cámara</button></div><input id="inspectionGalleryInput" class="maintenance-image-input" type="file" accept="image/*" multiple><input id="inspectionCameraInput" class="maintenance-image-input" type="file" accept="image/*" capture="environment"></div></div><div class="inspection-photo-list">${photos}</div><span class="site-count" id="inspectionStorageStatus">${inspectionDraft?.storageError ? "No se pudo guardar localmente. Mantén esta página abierta y revisa el espacio disponible del navegador." : "Borrador guardado en este dispositivo."}</span><span class="site-count">Hasta 4 fotografías. Las imágenes se preparan conservando sus dimensiones y reduciendo su peso.</span></form>`;
     }
 
     async function saveCurrentInspectionEntry() {
@@ -4729,13 +4730,29 @@
         if (machine) renderInspectionForm(machine);
         return;
       }
-      const photoPicker = event.target.closest("[data-inspection-photo-pick]");
-      if (photoPicker) {
+      const photoMenuToggle = event.target.closest("[data-toggle-inspection-photo-menu]");
+      if (photoMenuToggle) {
         if ((inspectionEntryDraft.photos || []).length >= 4) {
           window.alert("Solo puedes adjuntar un máximo de 4 fotografías por equipo.");
           return;
         }
-        const input = $(photoPicker.dataset.inspectionPhotoPick === "camera" ? "inspectionCameraInput" : "inspectionGalleryInput");
+        const menu = $("siteGrid").querySelector("[data-inspection-photo-menu]");
+        if (menu) {
+          menu.hidden = !menu.hidden;
+          photoMenuToggle.setAttribute("aria-expanded", String(!menu.hidden));
+        }
+        return;
+      }
+      const photoSource = event.target.closest("[data-select-inspection-photo]");
+      if (photoSource) {
+        if ((inspectionEntryDraft.photos || []).length >= 4) {
+          window.alert("Solo puedes adjuntar un máximo de 4 fotografías por equipo.");
+          return;
+        }
+        const menu = $("siteGrid").querySelector("[data-inspection-photo-menu]");
+        if (menu) menu.hidden = true;
+        $("siteGrid").querySelector("[data-toggle-inspection-photo-menu]")?.setAttribute("aria-expanded", "false");
+        const input = $(photoSource.dataset.selectInspectionPhoto === "camera" ? "inspectionCameraInput" : "inspectionGalleryInput");
         input?.click();
         return;
       }
