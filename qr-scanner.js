@@ -105,7 +105,7 @@
     if (!result?.data) return;
 
     const activeFixed = String(result.data).trim();
-    if (!/^\d{4,16}$/.test(activeFixed)) {
+    if (!/^\d{1,16}$/.test(activeFixed)) {
       status.dataset.state = "error";
       status.textContent = "El QR leído no contiene solo un número válido de activo fijo. Enfoca el código correcto.";
       return;
