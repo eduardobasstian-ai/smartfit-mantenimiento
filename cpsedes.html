@@ -1506,6 +1506,10 @@
         window.alert("Primero abre una sede para buscar uno de sus equipos.");
         return;
       }
+      // Supabase puede refrescar assignedSites mientras la vista conserva la
+      // referencia anterior a currentSite. Renderizar siempre desde la misma
+      // sede usada para resolver el activo evita que el filtro oculte el equipo.
+      currentSite = site;
       let matches = currentBrandEquipmentFromSite(site).filter(machine => normalizeQrFixedAsset(machine.unit?.activeFixed) === normalized);
       if (requiredBrandId) {
         const requiredBrand = brandDirectory.find(entry => String(entry.id) === String(requiredBrandId));
