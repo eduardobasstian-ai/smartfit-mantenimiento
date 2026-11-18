@@ -10,7 +10,7 @@
   const COMMON_KNOWLEDGE_SYNC_KEY = "smartfit.common-knowledge.changed.v1";
   const COMMON_KNOWLEDGE_BUCKET = "equipment-knowledge";
   const INSPECTION_BUCKET = "site-inspections";
-  const REALTIME_REFRESH_MIN_INTERVAL_MS = 60000;
+  const REALTIME_REFRESH_MIN_INTERVAL_MS = 300000;
   const REALTIME_CLIENT_ID_KEY = "smartfit.realtime.client-id.v1";
   let realtimeClientIdCache = "";
   let realtimeClient = null;
@@ -1469,8 +1469,19 @@
     // En una edición de texto, omitir photos conserva las fotos existentes.
     // Para un registro nuevo o una galería editada, sí se envía el arreglo.
     if (entry.imagesChanged || !existing) row.photos = incomingPhotos;
-    const saved = await postRow("maintenance_events", row, "legacy_id", "id");
+    const includesPhotos = Object.prototype.hasOwnProperty.call(row, "photos");
+    const saved = await postRow(
+      "maintenance_events",
+      row,
+      "legacy_id",
+      includesPhotos ? "id,photos_count" : "id"
+    );
     if (!saved?.id) throw new Error("Supabase no confirmó el guardado del mantenimiento. Se conservará la copia local para reintentar.");
+    if (includesPhotos && Number(saved.photos_count) !== incomingPhotos.length) {
+      throw new Error(
+        `Supabase confirmó ${Number(saved.photos_count) || 0} de ${incomingPhotos.length} fotos. Se conservará la copia local y se reintentará.`
+      );
+    }
     const ticketIds = [...new Set(Array.isArray(entry.ticketIds) ? entry.ticketIds : [])];
     if (saved?.id) {
       const links = [];
