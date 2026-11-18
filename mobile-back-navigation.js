@@ -127,8 +127,16 @@
       }
     });
 
+    function handleHardwareBack() {
+      const state = history.state;
+      if (!state || state.smartfitMobileBack !== page) return false;
+      history.back();
+      return true;
+    }
+
+    global.SmartFitMobileBack = { start, handleHardwareBack };
     return true;
   }
 
-  global.SmartFitMobileBack = { start };
+  global.SmartFitMobileBack = { start, handleHardwareBack: () => false };
 })(window);
