@@ -453,8 +453,8 @@
 .record-photo-carousel-track{display:flex;width:100%;height:100%;will-change:transform}.record-photo-carousel-slide{flex:0 0 100%;width:100%;height:100%;display:grid;place-items:center;overflow:hidden}
 .record-photo-carousel-slide img{display:block;max-width:none;max-height:none;object-fit:contain;pointer-events:none;-webkit-user-drag:none}
 .image-lightbox-frame.has-record-photo-carousel{display:block!important;position:relative;width:auto;height:auto;max-width:96vw!important;max-height:94dvh!important}
-.image-lightbox-frame.has-record-photo-carousel>.image-lightbox-close{position:fixed;z-index:10002;top:max(12px,env(safe-area-inset-top,12px));right:max(12px,env(safe-area-inset-right,12px))}
-.image-lightbox-frame.has-record-photo-carousel>.record-photo-download{position:fixed;z-index:10002;top:max(56px,calc(env(safe-area-inset-top,0px) + 56px));right:max(10px,env(safe-area-inset-right,10px))}
+.image-lightbox-frame.has-record-photo-carousel>.image-lightbox-close{position:absolute;z-index:10002;top:10px;right:10px}
+.image-lightbox-frame.has-record-photo-carousel>.record-photo-download{position:absolute;z-index:10002;top:56px;right:10px}
 .record-photo-download[hidden]{display:none!important}.record-photo-download{position:absolute;z-index:2;top:56px;right:10px;width:38px;height:38px;display:grid;place-items:center;padding:0;border:1px solid #d1d3d8;border-radius:50%;background:#fff;color:#17191f;box-shadow:0 2px 12px #0003;cursor:pointer}.record-photo-download:hover{border-color:var(--yellow);color:#8a5a00}
 </style>
   <style>
@@ -1777,7 +1777,7 @@
       return new Promise((resolve, reject) => {
         const source = URL.createObjectURL(file);
         const image = new Image();
-        image.onload = () => {
+        image.onload = async () => {
           URL.revokeObjectURL(source);
           const canvas = document.createElement("canvas");
           const context = canvas.getContext("2d");
@@ -1791,10 +1791,19 @@
           context.fillRect(0, 0, canvas.width, canvas.height);
           context.drawImage(image, 0, 0, canvas.width, canvas.height);
           try {
-            const webp = canvas.toDataURL("image/webp", 0.9);
-            resolve(webp.startsWith("data:image/webp") ? webp : canvas.toDataURL("image/jpeg", 0.78));
+            const toBlob = (type, quality) => new Promise(done => canvas.toBlob(done, type, quality));
+            let blob = await toBlob("image/webp", 0.9);
+            if (!blob || blob.type !== "image/webp") blob = await toBlob("image/jpeg", 0.78);
+            if (!blob) throw new Error("No se pudo comprimir la imagen seleccionada.");
+            const reader = new FileReader();
+            reader.onload = () => resolve(String(reader.result || ""));
+            reader.onerror = () => reject(new Error("No se pudo preparar la imagen seleccionada."));
+            reader.readAsDataURL(blob);
           } catch (error) {
             reject(new Error("No se pudo comprimir la imagen seleccionada."));
+          } finally {
+            canvas.width = 0;
+            canvas.height = 0;
           }
         };
         image.onerror = () => {
