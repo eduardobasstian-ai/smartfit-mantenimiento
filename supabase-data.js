@@ -10,6 +10,7 @@
   const COMMON_KNOWLEDGE_SYNC_KEY = "smartfit.common-knowledge.changed.v1";
   const COMMON_KNOWLEDGE_BUCKET = "equipment-knowledge";
   const INSPECTION_BUCKET = "site-inspections";
+  const INFRASTRUCTURE_BUCKET = "infrastructure-photos";
   const REALTIME_REFRESH_MIN_INTERVAL_MS = 300000;
   const REALTIME_CLIENT_ID_KEY = "smartfit.realtime.client-id.v1";
   let realtimeClientIdCache = "";
@@ -757,6 +758,253 @@
     const siteNames = new Map(sites.map(site => [site.id, site.name || ""]));
     const siteCodes = new Map(sites.map(site => [site.id, site.internal_code ?? null]));
     return rows.map(row => Object.assign({}, row, { site_name: siteNames.get(row.site_id) || row.site_legacy_id || "Sede", site_internal_code: siteCodes.get(row.site_id) }));
+  }
+  async function listCoordinatorInfrastructureSummary() {
+    const actor = appSession();
+    const authUserId = String(actor?.authId || auth()?.user?.id || "");
+    if (actor?.role !== "Coordinador" || !authUserId) throw new Error("Esta consulta está disponible para perfiles Coordinador con sesión activa.");
+    const [siteRows, profileRows, assignmentRows] = await Promise.all([
+      getRows("sites", "id,legacy_id,name,region,internal_code,active"),
+      getRows("profiles", "id,legacy_id,full_name,username,role,active"),
+      getRows("site_assignments", "site_id,user_id,assignment_role")
+    ]);
+    const coordinatorSiteIds = new Set(assignmentRows
+      .filter(row => String(row.user_id) === authUserId && row.assignment_role === "Coordinador")
+      .map(row => String(row.site_id)));
+    const sites = siteRows.filter(site => coordinatorSiteIds.has(String(site.id)) && site.active !== false)
+      .map(site => ({ id:String(site.legacy_id || site.id), name:site.name || "Sede", region:site.region || "", internalCode:site.internal_code || "", databaseId:String(site.id) }));
+    const siteByDatabaseId = new Map(sites.map(site => [site.databaseId, site]));
+    const profilesById = new Map(profileRows.map(profile => [String(profile.id), profile]));
+    const techniciansById = new Map();
+    assignmentRows.forEach(assignment => {
+      if (assignment.assignment_role !== "Técnico" || !siteByDatabaseId.has(String(assignment.site_id))) return;
+      const profile = profilesById.get(String(assignment.user_id));
+      if (!profile || profile.active === false) return;
+      const key = String(profile.legacy_id || profile.id);
+      const technician = techniciansById.get(key) || { id:key, name:profile.full_name || "Técnico", username:profile.username || "", siteIds:[] };
+      const assignedSite = siteByDatabaseId.get(String(assignment.site_id));
+      if (!technician.siteIds.includes(assignedSite.id)) technician.siteIds.push(assignedSite.id);
+      techniciansById.set(key, technician);
+    });
+    let inspections = [];
+    let inspectionReadError = "";
+    if (sites.length) {
+      const databaseSiteIds = [...siteByDatabaseId.keys()];
+      const siteFilter = `site_id=in.(${databaseSiteIds.map(encodeURIComponent).join(",")})`;
+      try {
+        inspections = await queryRows(`inspection_records?select=id,inspection_number,inspection_counter,legacy_id,site_id,site_legacy_id,equipment_name,equipment_model,fixed_asset,technician_id,technician_name,registered_by_name,occurred_at,finding,observations,status,deleted_at,created_at&${siteFilter}&order=occurred_at.desc`);
+      } catch (error) {
+        inspectionReadError = error?.message || "No se pudieron consultar las inspecciones.";
+      }
+    }
+    const siteNameByDatabaseId = new Map([...siteByDatabaseId].map(([databaseId, site]) => [databaseId, site.name]));
+    return {
+      sites,
+      technicians:[...techniciansById.values()],
+      inspections:inspections.map(row => Object.assign({}, row, { site_name:siteNameByDatabaseId.get(String(row.site_id)) || row.site_legacy_id || "Sede" })),
+      inspectionReadError
+    };
+  }
+  function requireInfrastructureAdmin() {
+    const actor = appSession();
+    if (actor?.role !== "Administrador" || !(actor.authId || auth()?.user?.id)) {
+      throw new Error("Solo un Administrador con sesión activa puede modificar el catálogo de infraestructura.");
+    }
+    return actor;
+  }
+  function announceInfrastructureCatalogChange() {
+    try { localStorage.setItem("smartfit.infrastructure.catalog.changed.v1", String(Date.now())); } catch (error) {}
+    global.dispatchEvent(new CustomEvent("smartfit:infrastructure-catalog-changed"));
+  }
+  async function listInfrastructureCatalog() {
+    if (!auth()?.access_token) throw new Error("Inicia sesión para consultar el catálogo de infraestructura.");
+    const [sectors, events] = await Promise.all([
+      queryRows("infrastructure_sectors?select=id,sector_number,name,active,created_at,updated_at&active=eq.true&order=sector_number.asc"),
+      queryRows("infrastructure_events?select=id,sector_id,name,sort_order,active,created_at,updated_at&active=eq.true&order=sector_id.asc,sort_order.asc,name.asc")
+    ]);
+    const eventsBySector = new Map();
+    events.forEach(event => {
+      const key = String(event.sector_id);
+      if (!eventsBySector.has(key)) eventsBySector.set(key, []);
+      eventsBySector.get(key).push(event);
+    });
+    return sectors.map(sector => Object.assign({}, sector, { events:eventsBySector.get(String(sector.id)) || [] }));
+  }
+  async function listInfrastructureVisits({ siteLegacyId = "", technicianOnly = false } = {}) {
+    const actor = appSession();
+    if (!actor?.authId || !["Administrador", "Coordinador", "Técnico"].includes(actor.role)) {
+      throw new Error("Este perfil no tiene acceso a los informes de infraestructura.");
+    }
+    const filters = ["status=eq.complete"];
+    if (actor.role === "Técnico" || technicianOnly) filters.push(`technician_id=eq.${encodeURIComponent(actor.authId)}`);
+    if (siteLegacyId) {
+      const siteUuid = await siteUuidForLegacy(siteLegacyId);
+      if (!siteUuid) throw new Error("La sede seleccionada no está vinculada a Supabase.");
+      filters.push(`site_id=eq.${encodeURIComponent(siteUuid)}`);
+    }
+    return queryRows(`infrastructure_visits?select=id,site_id,sector_id,sector_number,sector_name,technician_id,technician_name,visit_date,status,events,created_at,completed_at,site:sites!infrastructure_visits_site_id_fkey(name,legacy_id,internal_code)&${filters.join("&")}&order=visit_date.desc,completed_at.desc`);
+  }
+  async function uploadInfrastructurePhoto(siteUuid, visitId, eventId, index, dataUrl) {
+    const blob = inspectionPhotoBlob(dataUrl);
+    const extension = blob.type === "image/webp" ? "webp" : blob.type === "image/png" ? "png" : "jpg";
+    const path = `${siteUuid}/${visitId}/${eventId}-${index + 1}.${extension}`;
+    const response = await authorizedFetch(`${URL}/storage/v1/object/${INFRASTRUCTURE_BUCKET}/${encodedStoragePath(path)}`, {
+      method:"POST", headers:{ "Content-Type":blob.type, "cache-control":"31536000", "x-upsert":"true" }, body:blob
+    });
+    if (!response.ok) throw new Error(`No se pudo subir una fotografía del evento (${response.status}): ${await response.text()}`);
+    return { path, type:blob.type, size:blob.size };
+  }
+  async function saveInfrastructureVisit(siteLegacyId, sector, eventEntries = [], visitDate = "") {
+    const actor = appSession();
+    if (actor?.role !== "Técnico" || !actor.authId) throw new Error("Solo el técnico asignado puede guardar una visita de infraestructura.");
+    if (!sector?.id || !Number.isInteger(Number(sector.sector_number)) || !Array.isArray(eventEntries) || !eventEntries.length) {
+      throw new Error("La visita debe incluir un sector y sus eventos.");
+    }
+    const siteUuid = await siteUuidForLegacy(siteLegacyId);
+    if (!siteUuid) throw new Error("La sede no está vinculada a Supabase.");
+    const eventIds = new Set();
+    const allowedEvents = new Map((Array.isArray(sector.events) ? sector.events : []).map(event => [String(event.id), String(event.name || "").trim()]));
+    const entries = eventEntries.map(entry => {
+      const eventId = String(entry?.eventId || "");
+      const name = String(entry?.name || "").trim();
+      const status = String(entry?.status || "").trim();
+      const observations = String(entry?.observations || "").trim();
+      const photos = Array.isArray(entry?.photos) ? entry.photos : [];
+      if (!eventId || eventIds.has(eventId)) throw new Error("La visita contiene un evento duplicado o no válido.");
+      eventIds.add(eventId);
+      if (!allowedEvents.has(eventId) || allowedEvents.get(eventId) !== name) throw new Error("La visita incluye un evento que no pertenece al sector seleccionado.");
+      if (!name || !["Preventivo", "Correctivo", "Sin observación"].includes(status)) throw new Error(`Completa el estado del evento “${name || "sin nombre"}”.`);
+      if (photos.length > 2) throw new Error(`El evento “${name}” permite hasta 2 fotografías.`);
+      return { eventId, name, status, observations, photos };
+    });
+    const visitId = global.crypto?.randomUUID?.();
+    if (!visitId) throw new Error("El dispositivo no pudo generar el identificador de la visita.");
+    const cleanDate = /^\d{4}-\d{2}-\d{2}$/.test(String(visitDate)) ? String(visitDate) : new Date().toISOString().slice(0, 10);
+    const sectorSnapshot = { id:String(sector.id), name:String(sector.name || "Sector"), number:Number(sector.sector_number) };
+    const uploadedPaths = [];
+    let headerSaved = false;
+    try {
+      await postRow("infrastructure_visits", {
+        id:visitId, site_id:siteUuid, sector_id:sectorSnapshot.id, sector_number:sectorSnapshot.number,
+        sector_name:sectorSnapshot.name, technician_id:actor.authId, technician_name:String(actor.name || "Técnico"),
+        visit_date:cleanDate, status:"uploading", events:[]
+      }, "id", "id");
+      headerSaved = true;
+      const savedEvents = new Array(entries.length);
+      let nextEvent = 0;
+      await Promise.all(Array.from({ length:Math.min(3, entries.length) }, async () => {
+        while (nextEvent < entries.length) {
+          const index = nextEvent++;
+          const entry = entries[index];
+          const eventId = global.crypto.randomUUID();
+          const photos = await Promise.all(entry.photos.map((photo, photoIndex) => uploadInfrastructurePhoto(siteUuid, visitId, eventId, photoIndex, photo)));
+          uploadedPaths.push(...photos.map(photo => photo.path));
+          savedEvents[index] = { id:eventId, catalog_event_id:entry.eventId, name:entry.name, status:entry.status, observations:entry.observations || null, photos };
+        }
+      }));
+      const response = await authorizedFetch(`${URL}/rest/v1/infrastructure_visits?id=eq.${encodeURIComponent(visitId)}&status=eq.uploading`, {
+        method:"PATCH", headers:{ "Content-Type":"application/json", Prefer:"return=representation" },
+        body:JSON.stringify({ events:savedEvents, status:"complete", completed_at:new Date().toISOString() })
+      });
+      const text = await response.text();
+      if (!response.ok || !text) throw new Error(`Supabase no confirmó el cierre de la visita (${response.status}): ${text}`);
+      announceInfrastructureCatalogChange();
+      return JSON.parse(text)[0];
+    } catch (error) {
+      await Promise.allSettled(uploadedPaths.map(path => authorizedFetch(`${URL}/storage/v1/object/${INFRASTRUCTURE_BUCKET}/${encodedStoragePath(path)}`, { method:"DELETE" })));
+      if (headerSaved) await Promise.resolve(deleteRow("infrastructure_visits", `id=eq.${encodeURIComponent(visitId)}`)).catch(() => {});
+      throw error;
+    }
+  }
+  async function getInfrastructurePhotoUrls(paths = []) {
+    const uniquePaths = [...new Set((Array.isArray(paths) ? paths : []).map(String).filter(Boolean))];
+    const urls = {};
+    await Promise.all(uniquePaths.map(async path => {
+      const response = await authorizedFetch(`${URL}/storage/v1/object/sign/${INFRASTRUCTURE_BUCKET}/${encodedStoragePath(path)}`, {
+        method:"POST", headers:{ "Content-Type":"application/json" }, body:JSON.stringify({ expiresIn:3600 })
+      });
+      const text = await response.text();
+      let result = {}; try { result = text ? JSON.parse(text) : {}; } catch (error) {}
+      if (!response.ok) throw new Error(`No se pudo abrir una fotografía de infraestructura (${response.status}).`);
+      const signed = result.signedURL || result.signedUrl;
+      if (!signed) throw new Error("Supabase no devolvió el enlace temporal de la fotografía.");
+      urls[path] = signed.startsWith("http") ? signed : `${URL}/storage/v1${signed.startsWith("/") ? "" : "/"}${signed}`;
+    }));
+    return urls;
+  }
+  async function saveInfrastructureSector({ id, name } = {}) {
+    const actor = requireInfrastructureAdmin();
+    const cleanName = String(name || "").trim();
+    if (cleanName.length < 2 || cleanName.length > 120) throw new Error("El sector debe tener entre 2 y 120 caracteres.");
+    const row = { name:cleanName, active:true, updated_at:new Date().toISOString() };
+    if (id) row.id = id;
+    else row.created_by = actor.authId || auth()?.user?.id;
+    const result = await postRow("infrastructure_sectors", row, "id", "id,sector_number,name,active,created_at,updated_at");
+    if (!result?.id) throw new Error("Supabase no confirmó el guardado del sector.");
+    announceInfrastructureCatalogChange();
+    return result;
+  }
+  async function deleteInfrastructureSector(id) {
+    requireInfrastructureAdmin();
+    if (!id) throw new Error("El sector no tiene un identificador válido.");
+    await deleteRow("infrastructure_sectors", `id=eq.${encodeURIComponent(String(id))}`);
+    announceInfrastructureCatalogChange();
+  }
+  async function saveInfrastructureEvent({ id, sectorId, name } = {}) {
+    const actor = requireInfrastructureAdmin();
+    const cleanName = String(name || "").trim();
+    if (!sectorId) throw new Error("Selecciona el sector al que pertenece el evento.");
+    if (cleanName.length < 2 || cleanName.length > 180) throw new Error("El evento debe tener entre 2 y 180 caracteres.");
+    const row = {
+      sector_id:String(sectorId), name:cleanName, sort_order:0, active:true,
+      updated_at:new Date().toISOString()
+    };
+    if (id) row.id = id;
+    else row.created_by = actor.authId || auth()?.user?.id;
+    const result = await postRow("infrastructure_events", row, "id", "id,sector_id,name,sort_order,active,created_at,updated_at");
+    if (!result?.id) throw new Error("Supabase no confirmó el guardado del evento.");
+    announceInfrastructureCatalogChange();
+    return result;
+  }
+  async function saveInfrastructureEvents(entries = []) {
+    const actor = requireInfrastructureAdmin();
+    if (!Array.isArray(entries)) throw new Error("La lista de eventos no tiene un formato válido.");
+    if (!entries.length) return [];
+    const sectorId = String(entries[0]?.sectorId || "");
+    if (!sectorId || entries.some(entry => String(entry?.sectorId || "") !== sectorId)) throw new Error("Los eventos deben pertenecer al mismo sector.");
+    const seen = new Set();
+    const rows = entries.map((entry, index) => {
+      const name = String(entry?.name || "").trim();
+      if (name.length < 2 || name.length > 180) throw new Error("Cada evento debe tener entre 2 y 180 caracteres.");
+      const normalized = name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("es");
+      if (seen.has(normalized)) throw new Error("No repitas el mismo evento dentro de un sector.");
+      seen.add(normalized);
+      const row = {
+        sector_id:sectorId, name, sort_order:index + 1,
+        active:true, updated_at:new Date().toISOString()
+      };
+      if (entry.id) row.id = String(entry.id);
+      else row.created_by = actor.authId || auth()?.user?.id;
+      return row;
+    });
+    const saved = await postRows("infrastructure_events", rows, "id", "id,sector_id,name,sort_order,active,created_at,updated_at");
+    if (saved.length !== rows.length) throw new Error("Supabase no confirmó todos los eventos.");
+    announceInfrastructureCatalogChange();
+    return saved;
+  }
+  async function deleteInfrastructureEvents(ids = []) {
+    requireInfrastructureAdmin();
+    const uniqueIds = [...new Set((Array.isArray(ids) ? ids : []).map(String).filter(id => /^[0-9a-f-]{36}$/i.test(id)))];
+    if (!uniqueIds.length) return;
+    if (uniqueIds.length !== new Set(ids.map(String)).size) throw new Error("La lista de eventos a eliminar contiene identificadores no válidos.");
+    await deleteRow("infrastructure_events", `id=in.(${uniqueIds.join(",")})`);
+    announceInfrastructureCatalogChange();
+  }
+  async function deleteInfrastructureEvent(id) {
+    requireInfrastructureAdmin();
+    if (!id) throw new Error("El evento no tiene un identificador válido.");
+    await deleteRow("infrastructure_events", `id=eq.${encodeURIComponent(String(id))}`);
+    announceInfrastructureCatalogChange();
   }
   async function listPendingInspectionCounts() {
     const actor = appSession();
@@ -2315,5 +2563,5 @@
     try { return JSON.parse(sessionStorage.getItem(key) || "null"); } catch (error) { return null; }
   }
 
-  global.SmartFitSupabaseData = { hydrate, manageUser, persistSite, persistBrand, deleteBrand, deleteSite, recordAccess, syncPendingAccessLogs, startRealtimeSync, persistTicket: persistTicketQueued, assignTicketTechnician, listAssignableTicketTechnicians, persistMachineRecord, retryPending: flushPending, getReportImages, loadMachineRecordMedia, prepareMachineRecordStorage, writeMachineRecordCache, getMachineRecordWithCachedMediaSync, prepareTicketStorage, writeTicketCache, getTicketsWithCachedMediaSync, listCommonKnowledgeEntries, saveCommonKnowledgeEntry, deleteCommonKnowledgeEntry, uploadCommonKnowledgeImage, deleteCommonKnowledgeImages, getCommonKnowledgeImageUrls, saveInspectionBatch, listInspectionRecords, listPendingInspectionCounts, getInspectionPhotoUrls, updateInspectionStatus, startInspectionExecution, importLocalCommonKnowledge };
+  global.SmartFitSupabaseData = { hydrate, manageUser, persistSite, persistBrand, deleteBrand, deleteSite, recordAccess, syncPendingAccessLogs, startRealtimeSync, persistTicket: persistTicketQueued, assignTicketTechnician, listAssignableTicketTechnicians, persistMachineRecord, retryPending: flushPending, getReportImages, loadMachineRecordMedia, prepareMachineRecordStorage, writeMachineRecordCache, getMachineRecordWithCachedMediaSync, prepareTicketStorage, writeTicketCache, getTicketsWithCachedMediaSync, listCommonKnowledgeEntries, saveCommonKnowledgeEntry, uploadCommonKnowledgeImage, deleteCommonKnowledgeImages, getCommonKnowledgeImageUrls, saveInspectionBatch, listInspectionRecords, listCoordinatorInfrastructureSummary, listInfrastructureCatalog, listInfrastructureVisits, saveInfrastructureVisit, getInfrastructurePhotoUrls, saveInfrastructureSector, deleteInfrastructureSector, saveInfrastructureEvent, saveInfrastructureEvents, deleteInfrastructureEvents, deleteInfrastructureEvent, listPendingInspectionCounts, getInspectionPhotoUrls, updateInspectionStatus, startInspectionExecution, importLocalCommonKnowledge };
 })(window);

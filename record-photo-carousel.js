@@ -2,7 +2,7 @@
   "use strict";
 
   const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
-  const PHOTO_GROUPS = ".maintenance-image-list, .machine-log-photos, .ticket-detail-photos, .ticket-history-detail-photos, .inspection-photo-list";
+  const PHOTO_GROUPS = ".maintenance-image-list, .machine-log-photos, .ticket-detail-photos, .ticket-history-detail-photos, .inspection-photo-list, .infrastructure-report-photos";
   const PHOTO_ITEMS = "[data-enlarge-image], [data-history-image], [data-ticket-enlarge]";
 
   function create(options) {

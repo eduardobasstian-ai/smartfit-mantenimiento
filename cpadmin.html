@@ -537,6 +537,144 @@
       .topbar { gap: 8px; }
     }
   </style>
+  <style>
+    /* Apariencia clara: se limita al contenido, sin tocar encabezado ni navegación. */
+    .main-content.theme-light {
+      --panel: #ffffff;
+      --panel-2: #f0f1f4;
+      --border: #d5d7de;
+      --text: #17191f;
+      --muted: #626775;
+      color: var(--text);
+      background: #f5f6f8;
+      border-radius: 15px;
+    }
+    .main-content.theme-light .page-heading h1,
+    .main-content.theme-light .panel-heading h2,
+    .main-content.theme-light .chart-card h3,
+    .main-content.theme-light .setting-row strong,
+    .main-content.theme-light .equipment-card h3,
+    .main-content.theme-light .matrix-info h3,
+    .main-content.theme-light .detail-title-row h2,
+    .main-content.theme-light .user-name { color: #17191f; }
+    .main-content.theme-light .page-description,
+    .main-content.theme-light .panel-heading p,
+    .main-content.theme-light .chart-card p,
+    .main-content.theme-light .stat-label,
+    .main-content.theme-light .stat-detail,
+    .main-content.theme-light .setting-row p,
+    .main-content.theme-light .equipment-card p,
+    .main-content.theme-light .subtext,
+    .main-content.theme-light .history-filter,
+    .main-content.theme-light .history-event-detail,
+    .main-content.theme-light .empty-state,
+    .main-content.theme-light .chart-empty { color: #626775; }
+    .main-content.theme-light .eyebrow { color: #9a6500; }
+    .main-content.theme-light .equipment-steps { color:#626775; }
+    .main-content.theme-light .equipment-steps .current { color:#9a6500; }
+    .main-content.theme-light .equipment-steps .step-arrow { color:#8a8e98; }
+    .main-content.theme-light .matrix-info p { color:#626775; }
+    .main-content.theme-light .pie-tooltip { border-color:#d5d7de; background:#fff; color:#17191f; box-shadow:0 8px 24px #18202b1f; }
+    .main-content.theme-light .pie-slice { stroke:#fff; }
+    .main-content.theme-light .pie-empty { fill:#e2e4e9; }
+    .main-content.theme-light .matrix-list { scrollbar-color:#c7a34a #eceef2; }
+    .main-content.theme-light .note { border-color:#ecd18a; background:#fff8e7; color:#4c4025; }
+    .main-content.theme-light .note strong { color:#805500; }
+    .main-content.theme-light .stat-card,
+    .main-content.theme-light .panel-card,
+    .main-content.theme-light .chart-card {
+      background: #fff;
+      border-color: #d5d7de;
+      box-shadow: 0 8px 24px #18202b0d;
+    }
+    .main-content.theme-light .setting-row,
+    .main-content.theme-light .equipment-card,
+    .main-content.theme-light .matrix-item,
+    .main-content.theme-light .site-equipment-choice,
+    .main-content.theme-light .ticket-detail-item,
+    .main-content.theme-light .inventory-site-suggestions,
+    .main-content.theme-light .inventory-list {
+      background: #f8f9fb;
+      border-color: #d5d7de;
+      color: #17191f;
+    }
+    .main-content.theme-light .stat-card,
+    .main-content.theme-light .equipment-card,
+    .main-content.theme-light .matrix-item { color: #17191f; }
+    .main-content.theme-light .secondary-button {
+      border-color: #17191f;
+      background: #fff;
+      color: #17191f;
+    }
+    .main-content.theme-light .secondary-button:hover { background: #eceef2; border-color: #000; }
+    .main-content.theme-light .primary-button {
+      border: 1px solid #17191f;
+      background: var(--yellow);
+      color: #111;
+    }
+    .main-content.theme-light .primary-button:hover { background: var(--yellow-hover); }
+    .main-content.theme-light .search-input,
+    .main-content.theme-light .form-control {
+      border-color: #c9ccd4;
+      background: #fff;
+      color: #17191f;
+    }
+    .main-content.theme-light .search-input::placeholder,
+    .main-content.theme-light .form-control::placeholder { color: #777c88; }
+    .main-content.theme-light table th,
+    .main-content.theme-light table td { border-color: #dfe1e6; }
+    .main-content.theme-light table th { color: #5e6370; }
+    .main-content.theme-light table td { color: #242731; }
+    .main-content.theme-light .legend-item { color: #343844; }
+    .main-content.theme-light .legend-item:hover,
+    .main-content.theme-light .legend-item.selected { border-color: #e4ae32; background: #fff7e5; }
+    .main-content.theme-light .inventory-site-suggestions button { color:#242731; }
+    .main-content.theme-light .inventory-site-suggestions button:hover,
+    .main-content.theme-light .inventory-site-suggestions button:focus-visible { background:#eceef2; color:#805500; }
+    .main-content.theme-light .event-status { background: #e8eaf0; color: #343844; }
+    .main-content.theme-light .equipment-tag { background: #e8eaf0; color: #343844; }
+    .main-content.theme-light .inventory-brand-row td { background: #eceef2; color: #805500; }
+    .main-content.theme-light .check-row { color: #343844; }
+    .settings-appearance-row { display:flex; justify-content:space-between; align-items:center; gap:18px; }
+    .appearance-actions { display:flex; flex-wrap:wrap; gap:8px; }
+    .appearance-button { min-height:38px; padding:0 13px; border:1px solid #383b47; border-radius:9px; background:#20222a; color:#e7e7eb; font-size:12px; font-weight:750; }
+    .appearance-button[aria-pressed="true"] { border-color:var(--yellow); background:#2c261b; color:var(--yellow); box-shadow:0 0 0 1px #ffb51b33; }
+    .main-content.theme-light .appearance-button { border-color:#17191f; background:#fff; color:#17191f; }
+    .main-content.theme-light .appearance-button[aria-pressed="true"] { border-color:#17191f; background:var(--yellow); color:#111; }
+    .infrastructure-intro { margin:0 0 18px; color:var(--muted); font-size:13px; line-height:1.6; }
+    .infrastructure-heading-actions { display:flex; align-items:center; gap:9px; }
+    .infrastructure-toolbar { display:flex; justify-content:space-between; align-items:center; gap:14px; margin-bottom:16px; }
+    .infrastructure-table { min-width:760px; }
+    .infrastructure-table td { vertical-align:middle; }
+    .infrastructure-sector-name { font-weight:800; }
+    .infrastructure-sector-code { display:inline-flex; min-width:34px; justify-content:center; padding:4px 7px; border:1px solid #5a4720; border-radius:7px; background:#2c261b; color:var(--yellow); font-size:12px; font-variant-numeric:tabular-nums; }
+    .infrastructure-event-count { color:var(--muted); font-size:11px; }
+    .infrastructure-event-preview { margin:0; padding-left:18px; color:var(--muted); font-size:11px; line-height:1.6; }
+    .infrastructure-event-preview li + li { margin-top:3px; }
+    .infrastructure-modal { width:min(760px,100%); }
+    .infrastructure-sector-edit-row { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:end; gap:12px; }
+    .infrastructure-event-draft-list { display:grid; gap:9px; margin-top:15px; }
+    .infrastructure-event-draft-row { display:grid; grid-template-columns:36px minmax(0,1fr) 36px; align-items:end; gap:9px; padding:12px; border:1px solid #343743; border-radius:11px; background:#14161c; }
+    .infrastructure-event-number { align-self:center; color:var(--yellow); font-size:13px; font-weight:850; text-align:center; }
+    .infrastructure-remove-event { width:36px; min-height:38px; padding:0; border:1px solid #53353b; border-radius:9px; background:#2a1b20; color:#ff9ca4; font-size:19px; }
+    .infrastructure-feedback { min-height:20px; margin:10px 0 0; color:var(--muted); font-size:12px; line-height:1.5; }
+    .infrastructure-feedback.error { color:var(--danger); }
+    .infrastructure-events-empty { margin:15px 0 0; padding:18px; border:1px dashed #414450; border-radius:10px; color:var(--muted); font-size:12px; text-align:center; }
+    .infrastructure-events-empty[hidden] { display:none; }
+    .main-content.theme-light .infrastructure-event-draft-row { border-color:#d5d7de; background:#fff; }
+    @media (max-width:600px) {
+      .settings-appearance-row { align-items:flex-start; flex-direction:column; }
+      .appearance-actions { width:100%; }
+      .appearance-button { flex:1; }
+      .infrastructure-heading-actions { width:100%; }
+      .infrastructure-heading-actions button { flex:1; }
+      .infrastructure-toolbar { align-items:stretch; flex-direction:column; }
+      .infrastructure-toolbar .search-input { width:100%; }
+      .infrastructure-sector-edit-row,.infrastructure-event-draft-row { grid-template-columns:1fr; }
+      .infrastructure-remove-event { justify-self:end; }
+      .infrastructure-event-number { text-align:left; }
+    }
+  </style>
 </head>
 <body>
   <header class="topbar">
@@ -696,6 +834,16 @@
           </div>
         </div>
         <section class="panel-card settings-list">
+          <div class="setting-row settings-appearance-row">
+            <div>
+              <strong>Apariencia del contenido</strong>
+              <p>Elige el tema que se aplicará al contenido del panel en esta cuenta.</p>
+            </div>
+            <div class="appearance-actions" role="group" aria-label="Apariencia del contenido">
+              <button class="appearance-button" id="appearanceDark" type="button" aria-pressed="true">☾ Oscuro</button>
+              <button class="appearance-button" id="appearanceLight" type="button" aria-pressed="false">☼ Claro</button>
+            </div>
+          </div>
           <div class="setting-row">
             <strong>Gestión de usuarios</strong>
             <p>Las cuentas, roles, sedes y claves temporales se administran en Supabase. El usuario debe cambiar su clave temporal al ingresar.</p>
@@ -828,10 +976,19 @@
       <section class="view" id="infrastructureView" hidden aria-labelledby="infrastructurePageTitle">
         <div class="page-heading">
           <div>
-            <div class="eyebrow">Administración</div>
+            <div class="eyebrow">Catálogo de infraestructura</div>
             <h1 id="infrastructurePageTitle">Infraestructura</h1>
+            <p class="page-description">Organiza sectores y los eventos que podrán registrar los técnicos.</p>
           </div>
+          <div class="infrastructure-heading-actions"><button class="secondary-button" id="refreshInfrastructureCatalog" type="button">Actualizar</button><button class="primary-button" id="newInfrastructureSector" type="button">+ Nuevo sector</button></div>
         </div>
+        <section class="panel-card" aria-labelledby="infrastructureSectorTitle">
+          <div class="panel-heading"><div><h2 id="infrastructureSectorTitle">Directorio de sectores</h2><p id="infrastructureSectorSummary">Sectores y eventos disponibles para asignación a los técnicos.</p></div></div>
+          <div class="infrastructure-toolbar"><span class="subtext" id="infrastructureSectorCount" aria-live="polite">Cargando sectores…</span><input class="search-input" id="infrastructureSectorSearch" type="search" placeholder="Buscar sector o evento..." aria-label="Buscar sector o evento"></div>
+          <p class="infrastructure-feedback" id="infrastructureCatalogMessage" role="status" aria-live="polite"></p>
+          <div class="table-wrap"><table class="infrastructure-table"><thead><tr><th>Código</th><th>Sector</th><th>Eventos registrados</th><th style="text-align:right">Acciones</th></tr></thead><tbody id="infrastructureSectorTableBody"></tbody></table></div>
+          <div class="empty-state" id="infrastructureCatalogEmpty" hidden>Cargando sectores de infraestructura…</div>
+        </section>
       </section>
 
       <section class="view" id="maintenanceHistoryView" hidden aria-labelledby="maintenanceHistoryPageTitle">
@@ -843,9 +1000,9 @@
             </div>
           </div>
           <div class="equipment-grid">
-            <button class="chart-card" type="button" disabled aria-disabled="true" style="text-align: left; color: #777b87; cursor: not-allowed;">
+            <button class="chart-card" id="openInfrastructureReports" type="button" style="text-align: left; color: var(--text);">
               <h3>Infraestructura</h3>
-              <p>Solicitudes relacionadas con infraestructura</p>
+              <p>Visitas, eventos y reportes de los técnicos</p>
             </button>
             <button class="chart-card" id="openMaintenanceHistory" type="button" style="text-align: left; color: var(--text);">
               <h3>Mantenimiento</h3>
@@ -898,6 +1055,10 @@
           </div>
           <div class="table-tools" style="justify-content:space-between;margin:0 0 10px"><span class="subtext" id="inspectionHistoryResultCount" aria-live="polite">Cargando inspecciones…</span><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="secondary-button" id="exportInspectionHistoryPdf" type="button">PDF Full</button><button class="secondary-button" id="exportInspectionHistoryLitePdf" type="button">PDF Lite</button><button class="secondary-button" id="clearInspectionHistoryFilters" type="button">Limpiar filtros</button></div></div>
           <div class="table-wrap"><table class="history-table"><thead><tr><th>N.º inspección</th><th>Fecha</th><th>Sede</th><th>Equipo</th><th>Activo fijo</th><th>Técnico</th><th>Supervisor</th><th>Estado</th><th>Acciones</th></tr></thead><tbody id="inspectionHistoryBody"></tbody></table></div>
+        </section>
+        <section id="infrastructureReportsBlank" class="panel-card" aria-labelledby="infrastructureReportsTitle" style="padding:24px" hidden>
+          <div class="page-heading" style="margin:0 0 16px;align-items:center"><div><h1 id="infrastructureReportsTitle" style="font-size:21px">Infraestructura · Informes</h1><p class="page-description">Visitas por sector registradas por los técnicos.</p></div><button class="secondary-button" id="backToHistoryChooserFromInfrastructure" type="button">← Volver</button></div>
+          <div id="adminInfrastructureReportsHost"></div>
         </section>
         <section id="mileageHistoryBlank" class="panel-card" aria-labelledby="mileageHistoryPageTitle" style="padding: 24px;" hidden>
           <div class="page-heading" style="margin: 0; align-items: center;">
@@ -1143,6 +1304,32 @@
     </section>
   </div>
 
+  <div class="modal-backdrop" id="infrastructureSectorModal" hidden>
+    <section class="modal infrastructure-modal" role="dialog" aria-modal="true" aria-labelledby="infrastructureModalTitle">
+      <header class="modal-header">
+        <div><h2 id="infrastructureModalTitle">Nuevo sector</h2><span class="form-help">Agrega el sector y, si corresponde, uno o más eventos.</span></div>
+        <button class="modal-close" type="button" id="closeInfrastructureSectorModal" aria-label="Cerrar ventana">×</button>
+      </header>
+      <div class="modal-body">
+        <form id="infrastructureSectorForm" novalidate>
+          <input type="hidden" id="infrastructureSectorId">
+          <div class="infrastructure-sector-edit-row">
+            <div class="form-field"><label for="infrastructureSectorName">Nombre del sector</label><input class="form-control" id="infrastructureSectorName" maxlength="120" placeholder="Ej.: Camarín damas" required></div>
+            <button class="primary-button" id="addInfrastructureEventRow" type="button">+ Evento</button>
+          </div>
+          <div class="form-help" style="margin-top:9px">El orden numerado será el que verá el técnico. El tipo de trabajo lo elegirá el técnico al registrar el evento.</div>
+          <div class="infrastructure-event-draft-list" id="infrastructureEventDraftList"></div>
+          <div class="infrastructure-events-empty" id="infrastructureEventsEmpty">Aún no agregas eventos. Presiona “+ Evento” para añadir el primero.</div>
+          <div class="form-error" id="infrastructureSectorFormError" role="alert" style="margin-top:12px"></div>
+          <div class="modal-actions">
+            <button class="secondary-button" id="cancelInfrastructureSectorModal" type="button">Cancelar</button>
+            <button class="primary-button" id="saveInfrastructureSector" type="submit">Guardar sector</button>
+          </div>
+        </form>
+      </div>
+    </section>
+  </div>
+
   <div class="modal-backdrop" id="matrixModal" hidden>
     <section class="modal equipment-modal" role="dialog" aria-modal="true" aria-labelledby="matrixModalTitle">
       <header class="modal-header">
@@ -1169,10 +1356,11 @@
       <div class="record-photo-carousel-viewport" id="matrixRecordPhotoViewport" hidden><div class="record-photo-carousel-track" id="matrixRecordPhotoTrack"></div></div>
     </div>
   </div>
-  <script src="record-photo-carousel.js?v=20261118-zoom-native-1"></script>
+  <script src="record-photo-carousel.js?v=20261119-infrastructure-gallery-1"></script>
+  <script src="infrastructure-reports.js?v=20261119-infrastructure-reports-1"></script>
   <script src="mobile-back-navigation.js?v=20261029-mobile-back-1"></script>
   <script src="admin-store.js?v=20261029-performance-stage-2"></script>
-  <script src="supabase-data.js?v=20261105-offline-queue-1"></script>
+  <script src="supabase-data.js?v=20261119-infrastructure-visits-1"></script>
   <script src="pdf-report.js?v=20261107-pdf-export-fix-1"></script>
   <script src="inspection-reports.js?v=20261107-pdf-export-fix-1"></script>
   <script src="EQU/matrix-catalog.js"></script>
@@ -1195,6 +1383,19 @@
     }
 
     const $ = id => document.getElementById(id);
+    const adminThemeKey = `smartfit.admin.appearance.v1:${encodeURIComponent(String(adminSession?.id || adminSession?.username || adminSession?.name || "admin"))}`;
+    function setAdminAppearance(theme, persist = true) {
+      const light = theme === "light";
+      document.querySelector(".main-content")?.classList.toggle("theme-light", light);
+      $("appearanceDark")?.setAttribute("aria-pressed", String(!light));
+      $("appearanceLight")?.setAttribute("aria-pressed", String(light));
+      if (persist) {
+        try { localStorage.setItem(adminThemeKey, light ? "light" : "dark"); } catch (error) { /* La sesión sigue funcionando aunque el almacenamiento esté bloqueado. */ }
+      }
+    }
+    let savedAdminTheme = "dark";
+    try { savedAdminTheme = localStorage.getItem(adminThemeKey) === "light" ? "light" : "dark"; } catch (error) { /* Usa el tema oscuro predeterminado. */ }
+    setAdminAppearance(savedAdminTheme, false);
     const escapeHtml = value => String(value).replace(/[&<>"']/g, character => ({
       "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;"
     }[character]));
@@ -1215,6 +1416,8 @@
     let adminFilteredTickets = [];
     let ticketAssignmentId = "";
     let ticketAssignmentCandidates = [];
+    let infrastructureCatalog = [];
+    let infrastructureCatalogLoaded = false;
     let ticketAssignmentSelectedId = "";
     let maintenanceHistoryFilteredEvents = [];
     let mileageHistoryFilteredEntries = [];
@@ -2542,8 +2745,182 @@
       if (name === "users") $("userSearch").focus({ preventScroll: true });
       if (name === "tickets") renderTickets();
       if (name === "inventory") renderAdminInventory();
+      if (name === "infrastructure") void loadInfrastructureCatalog();
       if (name === "maintenanceHistory" && !$("maintenanceHistoryBlank").hidden) renderMaintenanceHistory();
       if (name === "maintenanceHistory" && !$("inspectionHistoryBlank").hidden) void refreshInspectionHistory();
+    }
+
+    function normalizeInfrastructureName(value) {
+      return String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLocaleLowerCase("es");
+    }
+
+    function setInfrastructureMessage(message, isError = false) {
+      const element = $("infrastructureCatalogMessage");
+      element.textContent = message || "";
+      element.classList.toggle("error", Boolean(isError));
+    }
+
+    function renderInfrastructureCatalog() {
+      const query = normalizeInfrastructureName($("infrastructureSectorSearch").value);
+      const terms = query.split(/\s+/).filter(Boolean);
+      const filtered = infrastructureCatalog.filter(sector => {
+        if (!terms.length) return true;
+        const searchable = normalizeInfrastructureName([String(sector.sector_number || "").padStart(2, "0"), sector.name, ...(sector.events || []).map(item => item.name)].join(" "));
+        return terms.every(term => searchable.includes(term));
+      });
+      const totalEvents = infrastructureCatalog.reduce((sum, sector) => sum + (sector.events || []).length, 0);
+      $("infrastructureSectorSummary").textContent = `${infrastructureCatalog.length} ${infrastructureCatalog.length === 1 ? "sector" : "sectores"} · ${totalEvents} ${totalEvents === 1 ? "evento" : "eventos"} disponibles para asignación a los técnicos.`;
+      $("infrastructureSectorCount").textContent = query ? `${filtered.length} de ${infrastructureCatalog.length} sectores` : `${infrastructureCatalog.length} ${infrastructureCatalog.length === 1 ? "sector" : "sectores"}`;
+      $("infrastructureSectorTableBody").innerHTML = filtered.map(sector => {
+        const events = (sector.events || []).slice().sort((a,b) => (Number(a.sort_order) || 0) - (Number(b.sort_order) || 0) || String(a.name).localeCompare(String(b.name), "es"));
+        const eventMarkup = events.length
+          ? `<ol class="infrastructure-event-preview">${events.map(item => `<li>${escapeHtml(item.name)}</li>`).join("")}</ol>`
+          : '<span class="subtext">Sin eventos registrados</span>';
+        const sectorCode = String(sector.sector_number || 0).padStart(2, "0");
+        return `<tr><td><strong class="infrastructure-sector-code">${escapeHtml(sectorCode)}</strong></td><td><span class="infrastructure-sector-name">${escapeHtml(sector.name)}</span></td><td>${eventMarkup}<span class="infrastructure-event-count">${events.length} ${events.length === 1 ? "evento" : "eventos"}</span></td><td><div class="row-actions"><button class="secondary-button" type="button" data-edit-infrastructure-sector="${escapeHtml(sector.id)}">Editar</button><button class="danger-button" type="button" data-delete-infrastructure-sector="${escapeHtml(sector.id)}">Eliminar</button></div></td></tr>`;
+      }).join("");
+      $("infrastructureCatalogEmpty").hidden = filtered.length > 0;
+      if (!infrastructureCatalog.length) $("infrastructureCatalogEmpty").textContent = "Aún no hay sectores. Usa “+ Nuevo sector” para agregar el primero.";
+      else if (query && !filtered.length) $("infrastructureCatalogEmpty").textContent = "No hay sectores ni eventos que coincidan con la búsqueda.";
+      else $("infrastructureCatalogEmpty").textContent = "No hay sectores para mostrar.";
+    }
+
+    async function loadInfrastructureCatalog(force = false) {
+      if (infrastructureCatalogLoaded && !force) { renderInfrastructureCatalog(); return; }
+      const button = $("refreshInfrastructureCatalog");
+      button.disabled = true;
+      setInfrastructureMessage("Cargando sectores y eventos desde Supabase…");
+      try {
+        infrastructureCatalog = await SmartFitSupabaseData.listInfrastructureCatalog();
+        infrastructureCatalogLoaded = true;
+        renderInfrastructureCatalog();
+        setInfrastructureMessage("Catálogo actualizado desde Supabase.");
+      } catch (error) {
+        setInfrastructureMessage(`No se pudo cargar el catálogo. Revisa tu sesión y aplica la migración de infraestructura en Supabase. ${error.message || ""}`.trim(), true);
+        if (!infrastructureCatalog.length) {
+          $("infrastructureSectorTableBody").innerHTML = "";
+          $("infrastructureCatalogEmpty").hidden = false;
+          $("infrastructureCatalogEmpty").textContent = "El catálogo aún no está disponible.";
+        }
+      } finally { button.disabled = false; }
+    }
+
+    function renderInfrastructureEventDrafts(events = []) {
+      $("infrastructureEventDraftList").innerHTML = events.map((item, index) => `
+        <div class="infrastructure-event-draft-row" data-event-id="${escapeHtml(item.id || "")}">
+          <span class="infrastructure-event-number" aria-label="Evento ${index + 1}">${String(index + 1).padStart(2, "0")}</span>
+          <div class="form-field"><label>Evento ${index + 1}</label><input class="form-control" name="eventName" type="text" maxlength="180" value="${escapeHtml(item.name || "")}" placeholder="Ej.: Limpieza de sifones del lavamanos" required></div>
+          <button class="infrastructure-remove-event" type="button" data-remove-infrastructure-event aria-label="Eliminar evento ${index + 1}" title="Quitar evento">×</button>
+        </div>`).join("");
+      $("infrastructureEventsEmpty").hidden = events.length > 0;
+    }
+
+    function openInfrastructureSectorModal(sector = null) {
+      const form = $("infrastructureSectorForm");
+      form.reset();
+      $("infrastructureSectorId").value = sector?.id || "";
+      $("infrastructureSectorName").value = sector?.name || "";
+      $("infrastructureModalTitle").textContent = sector ? "Modificar sector y eventos" : "Nuevo sector";
+      $("saveInfrastructureSector").textContent = sector ? "Guardar cambios" : "Guardar sector";
+      $("infrastructureSectorFormError").textContent = "";
+      $("infrastructureSectorFormError").classList.remove("visible");
+      const events = (sector?.events || []).slice().sort((a,b) => (Number(a.sort_order) || 0) - (Number(b.sort_order) || 0) || String(a.name).localeCompare(String(b.name), "es"));
+      renderInfrastructureEventDrafts(events);
+      $("infrastructureSectorModal").hidden = false;
+      requestAnimationFrame(() => $("infrastructureSectorName").focus());
+    }
+
+    function closeInfrastructureSectorModal() {
+      $("infrastructureSectorModal").hidden = true;
+      $("infrastructureSectorForm").reset();
+      $("infrastructureSectorId").value = "";
+      $("infrastructureEventDraftList").innerHTML = "";
+      $("infrastructureSectorFormError").classList.remove("visible");
+    }
+
+    function showInfrastructureModalError(message) {
+      const element = $("infrastructureSectorFormError");
+      element.textContent = message || "";
+      element.classList.toggle("visible", Boolean(message));
+    }
+
+    async function submitInfrastructureSector(event) {
+      event.preventDefault();
+      const form = event.currentTarget;
+      if (!form.reportValidity()) return;
+      const sectorIdInput = $("infrastructureSectorId");
+      const name = $("infrastructureSectorName").value.trim();
+      let sectorId = sectorIdInput.value;
+      const duplicate = infrastructureCatalog.some(sector => String(sector.id) !== String(sectorId) && normalizeInfrastructureName(sector.name) === normalizeInfrastructureName(name));
+      if (duplicate) { showInfrastructureModalError("Ya existe un sector con ese nombre."); return; }
+      const draftRows = [...$("infrastructureEventDraftList").querySelectorAll(".infrastructure-event-draft-row")];
+      const eventEntries = draftRows.map(row => ({
+        id:row.dataset.eventId || "", name:row.querySelector('[name="eventName"]').value.trim(), sectorId
+      }));
+      const normalizedNames = eventEntries.map(item => normalizeInfrastructureName(item.name));
+      if (new Set(normalizedNames).size !== normalizedNames.length) { showInfrastructureModalError("No repitas el mismo evento dentro del sector."); return; }
+      const saveButton = $("saveInfrastructureSector");
+      saveButton.disabled = true;
+      saveButton.textContent = "Guardando…";
+      showInfrastructureModalError("");
+      try {
+        const savedSector = await SmartFitSupabaseData.saveInfrastructureSector({ id:sectorId, name });
+        sectorId = savedSector.id;
+        sectorIdInput.value = sectorId;
+        const original = infrastructureCatalog.find(sector => String(sector.id) === String(sectorId));
+        const originalIds = new Set((original?.events || []).map(item => String(item.id)));
+        const keptIds = new Set(eventEntries.map(item => String(item.id)).filter(Boolean));
+        const removedIds = [...originalIds].filter(id => !keptIds.has(id));
+        const rowsToSave = eventEntries.map((item, index) => Object.assign({}, item, { sectorId, sortOrder:index + 1 }));
+        const savedEvents = await SmartFitSupabaseData.saveInfrastructureEvents(rowsToSave);
+        const savedByName = new Map(savedEvents.map(saved => [normalizeInfrastructureName(saved.name), saved]));
+        draftRows.forEach(row => {
+          const saved = savedByName.get(normalizeInfrastructureName(row.querySelector('[name="eventName"]').value));
+          if (saved) row.dataset.eventId = saved.id;
+        });
+        if (removedIds.length) await SmartFitSupabaseData.deleteInfrastructureEvents(removedIds);
+        await loadInfrastructureCatalog(true);
+        closeInfrastructureSectorModal();
+        setInfrastructureMessage(original ? "Sector y eventos actualizados." : "Sector y eventos guardados.");
+      } catch (error) {
+        if (sectorId) {
+          sectorIdInput.value = sectorId;
+          try { await loadInfrastructureCatalog(true); } catch (loadError) {}
+        }
+        showInfrastructureModalError(error.message || "No se pudo guardar el sector y sus eventos.");
+      } finally {
+        saveButton.disabled = false;
+        saveButton.textContent = sectorId ? "Guardar cambios" : "Guardar sector";
+      }
+    }
+
+    function handleInfrastructureCatalogClick(event) {
+      const editButton = event.target.closest("[data-edit-infrastructure-sector]");
+      if (editButton) {
+        const sector = infrastructureCatalog.find(item => String(item.id) === String(editButton.dataset.editInfrastructureSector));
+        if (sector) openInfrastructureSectorModal(sector);
+        return;
+      }
+      const deleteButton = event.target.closest("[data-delete-infrastructure-sector]");
+      if (!deleteButton) return;
+      const sector = infrastructureCatalog.find(item => String(item.id) === String(deleteButton.dataset.deleteInfrastructureSector));
+      if (!sector) return;
+      const eventCount = (sector.events || []).length;
+      const warning = eventCount
+        ? `¿Eliminar el sector “${sector.name}” y sus ${eventCount} eventos asociados?`
+        : `¿Eliminar el sector “${sector.name}”?`;
+      if (!window.confirm(warning)) return;
+      deleteButton.disabled = true;
+      void (async () => {
+        try {
+          await SmartFitSupabaseData.deleteInfrastructureSector(sector.id);
+          await loadInfrastructureCatalog(true);
+          setInfrastructureMessage("Sector eliminado.");
+        } catch (error) {
+          setInfrastructureMessage(error.message || "No se pudo eliminar el sector.", true);
+          deleteButton.disabled = false;
+        }
+      })();
     }
 
     function openUserModal(user) {
@@ -2790,32 +3167,77 @@
     document.querySelectorAll(".nav-button").forEach(button => {
       button.addEventListener("click", () => showView(button.dataset.view));
     });
+    $("infrastructureSectorForm").addEventListener("submit", submitInfrastructureSector);
+    $("newInfrastructureSector").addEventListener("click", () => openInfrastructureSectorModal());
+    $("infrastructureSectorTableBody").addEventListener("click", handleInfrastructureCatalogClick);
+    $("infrastructureSectorSearch").addEventListener("input", renderInfrastructureCatalog);
+    $("addInfrastructureEventRow").addEventListener("click", () => {
+      const rows = [...$("infrastructureEventDraftList").querySelectorAll(".infrastructure-event-draft-row")];
+      const drafts = rows.map(row => ({ id:row.dataset.eventId || "", name:row.querySelector('[name="eventName"]').value }));
+      drafts.push({ id:"", name:"" });
+      renderInfrastructureEventDrafts(drafts);
+      const input = $("infrastructureEventDraftList").lastElementChild?.querySelector('[name="eventName"]');
+      input?.focus();
+      input?.scrollIntoView({ block:"nearest", behavior:"smooth" });
+    });
+    $("infrastructureEventDraftList").addEventListener("click", event => {
+      const remove = event.target.closest("[data-remove-infrastructure-event]");
+      if (!remove) return;
+      const row = remove.closest(".infrastructure-event-draft-row");
+      if (row) row.remove();
+      const remaining = [...$("infrastructureEventDraftList").querySelectorAll(".infrastructure-event-draft-row")].map(item => ({ id:item.dataset.eventId || "", name:item.querySelector('[name="eventName"]').value }));
+      renderInfrastructureEventDrafts(remaining);
+    });
+    $("closeInfrastructureSectorModal").addEventListener("click", closeInfrastructureSectorModal);
+    $("cancelInfrastructureSectorModal").addEventListener("click", closeInfrastructureSectorModal);
+    $("infrastructureSectorModal").addEventListener("click", event => { if (event.target === $("infrastructureSectorModal")) closeInfrastructureSectorModal(); });
+    document.addEventListener("keydown", event => { if (event.key === "Escape" && !$("infrastructureSectorModal").hidden) closeInfrastructureSectorModal(); });
+    $("refreshInfrastructureCatalog").addEventListener("click", () => void loadInfrastructureCatalog(true));
+    $("appearanceDark").addEventListener("click", () => setAdminAppearance("dark"));
+    $("appearanceLight").addEventListener("click", () => setAdminAppearance("light"));
     $("openMaintenanceHistory").addEventListener("click", () => {
       $("maintenanceHistoryChooser").hidden = true;
       $("mileageHistoryBlank").hidden = true;
       $("inspectionHistoryBlank").hidden = true;
+      $("infrastructureReportsBlank").hidden = true;
       $("maintenanceHistoryBlank").hidden = false;
       renderMaintenanceHistory();
+    });
+    $("openInfrastructureReports").addEventListener("click", () => {
+      $("maintenanceHistoryChooser").hidden = true;
+      $("maintenanceHistoryBlank").hidden = true;
+      $("mileageHistoryBlank").hidden = true;
+      $("inspectionHistoryBlank").hidden = true;
+      $("infrastructureReportsBlank").hidden = false;
+      window.SmartFitInfrastructureReports.mount({ host:$("adminInfrastructureReportsHost"), heading:"Visitas e informes de infraestructura" });
+    });
+    $("backToHistoryChooserFromInfrastructure").addEventListener("click", () => {
+      $("infrastructureReportsBlank").hidden = true;
+      $("maintenanceHistoryChooser").hidden = false;
     });
     $("backToMaintenanceHistory").addEventListener("click", () => {
       $("maintenanceHistoryBlank").hidden = true;
       $("mileageHistoryBlank").hidden = true;
       $("inspectionHistoryBlank").hidden = true;
+      $("infrastructureReportsBlank").hidden = true;
       $("maintenanceHistoryChooser").hidden = false;
     });
     $("openInspectionHistoryPage").addEventListener("click", () => {
       $("maintenanceHistoryBlank").hidden = true;
       $("mileageHistoryBlank").hidden = true;
+      $("infrastructureReportsBlank").hidden = true;
       $("inspectionHistoryBlank").hidden = false;
       void refreshInspectionHistory();
     });
     $("backToMaintenanceFromInspection").addEventListener("click", () => {
       $("inspectionHistoryBlank").hidden = true;
+      $("infrastructureReportsBlank").hidden = true;
       $("maintenanceHistoryBlank").hidden = false;
       renderMaintenanceHistory();
     });
     $("openMileageHistoryPage").addEventListener("click", () => {
       $("maintenanceHistoryBlank").hidden = true;
+      $("infrastructureReportsBlank").hidden = true;
       $("mileageHistoryBlank").hidden = false;
       renderMileageHistory();
     });
@@ -3325,6 +3747,7 @@
         if (activeView === "maintenanceHistory") {
           if (!$('mileageHistoryBlank').hidden) historyPage = "mileage";
           else if (!$('inspectionHistoryBlank').hidden) historyPage = "inspection";
+          else if (!$('infrastructureReportsBlank').hidden) historyPage = "infrastructure";
           else if (!$('maintenanceHistoryBlank').hidden) historyPage = "maintenance";
         }
         const commonHost = document.querySelector("#commonFailuresView [data-common-failures-src]");
@@ -3338,6 +3761,7 @@
         $('maintenanceHistoryBlank').hidden = state.historyPage !== "maintenance";
         $('mileageHistoryBlank').hidden = state.historyPage !== "mileage";
         $('inspectionHistoryBlank').hidden = state.historyPage !== "inspection";
+        $('infrastructureReportsBlank').hidden = state.historyPage !== "infrastructure";
         if (state.historyPage === "maintenance") renderMaintenanceHistory();
         if (state.historyPage === "mileage") renderMileageHistory();
         if (state.historyPage === "inspection") void refreshInspectionHistory();

@@ -113,9 +113,48 @@
     .inspection-choice-card, .inspection-equipment-card, .inspection-review-card { min-width: 0; padding: 16px; border: 1px solid #343743; border-radius: 12px; background: #22252e; color: var(--text); }
     .inspection-choice-card { display: grid; gap: 8px; min-height: 130px; text-align: left; cursor: pointer; }
     .inspection-choice-card:hover, .inspection-choice-card:focus-visible, .inspection-equipment-card:hover { border-color: var(--yellow); }
+    .inspection-choice-card.is-disabled, .inspection-choice-card:disabled { opacity: .55; cursor: not-allowed; }
+    .inspection-choice-card.is-disabled:hover, .inspection-choice-card:disabled:hover { border-color: #343743; }
     .inspection-choice-card strong, .inspection-equipment-card strong, .inspection-review-card strong { font-size: 14px; }
     .inspection-choice-card span, .inspection-equipment-card span, .inspection-review-card p { color: var(--muted); font-size: 11px; line-height: 1.5; }
     .inspection-choice-icon { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 10px; background: #3b321d; color: var(--yellow) !important; font-size: 18px !important; }
+    .infrastructure-technician-view { display:grid; gap:14px; width:100%; }
+    .infrastructure-tech-toolbar,.infrastructure-start-row { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; padding:12px; border:1px solid var(--border); border-radius:12px; background:var(--panel); }
+    .infrastructure-sector-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+    .infrastructure-sector-card { display:grid; grid-template-columns:auto 1fr; align-items:center; gap:7px 10px; text-align:left; cursor:pointer; }
+    .infrastructure-sector-card > span:last-child { grid-column:2; }
+    .infrastructure-sector-card.is-selected { border-color:var(--yellow); box-shadow:0 0 0 1px var(--yellow); }
+    .infrastructure-event-list { display:grid; gap:12px; }
+    .infrastructure-event-card { display:grid; gap:10px; padding:14px; border:1px solid #343743; border-radius:12px; background:#191b22; }
+    .infrastructure-event-card header { display:flex; align-items:center; gap:10px; }
+    .infrastructure-event-card h3 { margin:0; font-size:14px; }
+    .infrastructure-event-card label { display:grid; gap:6px; color:#dedfe4; font-weight:750; font-size:11px; }
+    .infrastructure-event-card input,.infrastructure-event-card select,.infrastructure-event-card textarea,.infrastructure-tech-toolbar input { width:100%; min-height:40px; padding:9px 11px; border:1px solid #383b47; border-radius:9px; background:#111319; color:var(--text); font:inherit; font-size:12px; }
+    .infrastructure-event-card textarea { min-height:76px; resize:vertical; }
+    .infrastructure-event-card input:focus-visible,.infrastructure-event-card select:focus-visible,.infrastructure-event-card textarea:focus-visible,.infrastructure-tech-toolbar input:focus-visible { outline:2px solid var(--yellow); outline-offset:2px; }
+    .infrastructure-visit-form .infrastructure-tech-toolbar { align-items:end; }
+    .infrastructure-visit-form .infrastructure-tech-toolbar label { display:grid; gap:6px; min-width:min(250px,100%); color:#dedfe4; font-size:11px; font-weight:750; }
+    .infrastructure-visit-form .infrastructure-tech-toolbar span { padding:0 0 10px; color:var(--muted); font-size:11px; }
+    .infrastructure-event-photo-picker { display:grid; gap:8px; }
+    .infrastructure-event-photo-picker > .back-button { justify-self:start; }
+    .infrastructure-event-card .infrastructure-report-photos { display:flex; gap:8px; flex-wrap:wrap; }
+    .infrastructure-event-card .infrastructure-draft-photo { position:relative; display:inline-flex; width:82px; height:82px; }
+    .infrastructure-event-card .infrastructure-draft-photo > button:first-child { display:block; width:82px; height:82px; overflow:hidden; padding:0; border:1px solid #383b47; border-radius:9px; background:#111319; }
+    .infrastructure-event-card .infrastructure-draft-photo img { display:block; width:100%; height:100%; object-fit:cover; }
+    .infrastructure-event-card [data-infra-remove] { position:absolute; top:-6px; right:-6px; z-index:2; width:24px; height:24px; padding:0; border:1px solid #fff; border-radius:50%; background:#a9202d; color:#fff; font-size:17px; line-height:1; }
+    .infrastructure-event-number { color:var(--yellow); font-weight:850; }
+    .infrastructure-event-photo-tools { display:flex; gap:8px; flex-wrap:wrap; }
+    .infrastructure-draft-photos { display:flex; gap:8px; flex-wrap:wrap; }
+    .infrastructure-draft-photo { position:relative; display:inline-flex; }
+    .infrastructure-draft-photo img { width:74px; height:74px; object-fit:cover; border-radius:9px; }
+    .infrastructure-draft-photo-open,.infrastructure-draft-photo-remove { border:0; padding:0; background:transparent; }
+    .infrastructure-draft-photo-remove { position:absolute; top:-6px; right:-6px; width:24px; height:24px; border:1px solid #fff; border-radius:50%; background:#a9202d; color:#fff; font-size:17px; }
+    .infrastructure-visit-form form { display:grid; gap:12px; padding:14px; border:1px solid #343743; border-radius:12px; background:#191b22; }
+    .infrastructure-visit-form form > .infrastructure-tech-toolbar { padding:0 0 10px; border:0; border-bottom:1px solid #30323c; border-radius:0; background:transparent; }
+    .infrastructure-visit-form form > .infrastructure-event-list { display:grid; gap:10px; }
+    .infrastructure-visit-form form > .machine-save-button { width:100%; }
+    .infrastructure-visit-form small { color:var(--muted); font-size:10px; line-height:1.45; }
+    @media(max-width:600px){.infrastructure-sector-grid{grid-template-columns:1fr}.infrastructure-start-row{align-items:stretch;flex-direction:column}.infrastructure-start-row button{width:100%}.infrastructure-visit-form form{padding:11px}.infrastructure-visit-form .infrastructure-tech-toolbar{align-items:stretch;flex-direction:column}.infrastructure-visit-form .infrastructure-tech-toolbar label{min-width:0;width:100%}.infrastructure-visit-form .infrastructure-tech-toolbar span{padding:0}}
     .inspection-status-note { margin: 12px 0 0; padding: 10px 12px; border: 1px solid #4b4028; border-radius: 9px; background: #2c261b; color: #f4d58c; font-size: 11px; line-height: 1.5; }
     .inspection-form { display: grid; gap: 12px; padding: 16px; border: 1px solid #343743; border-radius: 12px; background: #191b22; }
     .inspection-form h3 { margin: 0; font-size: 15px; }
@@ -940,7 +979,9 @@
       <div class="record-photo-carousel-viewport" id="equipmentRecordPhotoViewport" hidden><div class="record-photo-carousel-track" id="equipmentRecordPhotoTrack"></div></div>
     </div>
   </div>
-  <script src="record-photo-carousel.js?v=20261118-zoom-native-1"></script>
+  <script src="record-photo-carousel.js?v=20261119-infrastructure-gallery-1"></script>
+  <script src="infrastructure-reports.js?v=20261119-infrastructure-reports-1"></script>
+  <script src="infrastructure-technician.js?v=20261119-infrastructure-technician-1"></script>
 
   <div class="ticket-modal-backdrop" id="supervisorTicketModal" hidden>
     <section class="ticket-modal" role="dialog" aria-modal="true" aria-labelledby="supervisorTicketModalTitle">
@@ -965,7 +1006,7 @@
   </div>
   <script src="mobile-back-navigation.js?v=20261118-back-session-1"></script>
   <script src="admin-store.js?v=20261029-performance-stage-2"></script>
-  <script src="supabase-data.js?v=20261117-photo-ack-1"></script>
+  <script src="supabase-data.js?v=20261119-infrastructure-visits-1"></script>
   <script src="pdf-report.js?v=20261107-pdf-export-fix-1"></script>
   <script src="inspection-reports.js?v=20261107-pdf-export-fix-1"></script>
   <script src="EQU/matrix-catalog.js"></script>
@@ -1012,6 +1053,10 @@
       // en el catálogo local para evitar redirigir sesiones Auth válidas al login.
       user = Object.assign({}, session);
     }
+    if (!adminMode && user?.role === "Coordinador") {
+      window.location.replace("coordinador.html");
+      user = null;
+    }
     const supervisorMode = Boolean(user && !adminMode && user.role === "Supervisor");
     const technicianMode = Boolean(user && !adminMode && user.role === "Técnico");
     const canManageMachineRecords = Boolean(user && (adminMode || user.role === "Supervisor"));
@@ -1050,6 +1095,7 @@
     let inspectionSearch = "";
     let inspectionReviewReturnPhase = "equipment-list";
     let maintenanceFromActivityChoice = false;
+    let technicianFromActivityChoice = false;
     let inspectionSaveTimer = 0;
     const inspectionDraftDb = (() => {
       let opening;
@@ -1217,7 +1263,7 @@
     }
 
     if (!user) {
-      window.location.replace("index.html");
+      window.location.replace(session?.role === "Coordinador" ? "coordinador.html" : "index.html");
     } else {
       $("userName").textContent = user.name;
       $("technicianHeading").textContent = user.name;
@@ -2284,6 +2330,7 @@
       inspectionMachine = null;
       inspectionBrandId = "";
       maintenanceFromActivityChoice = false;
+      technicianFromActivityChoice = false;
       if (supervisorMode) $("supervisorTicketContext").hidden = true;
       currentSite = null;
       currentBrandId = "";
@@ -2655,20 +2702,26 @@
     }
 
     function renderSiteActivityChoice() {
-      if (!currentSite || !supervisorMode) return;
+      if (!currentSite || !(supervisorMode || technicianMode)) return;
       activateSupervisorPanel("sitesPanel");
-      inspectionPhase = "choice";
+      inspectionPhase = supervisorMode ? "choice" : "";
       maintenanceFromActivityChoice = false;
+      technicianFromActivityChoice = technicianMode;
       currentBrandId = "";
       currentMachine = null;
       $("panelHeading").textContent = currentSite.name;
-      $("panelDescription").textContent = "Selecciona el tipo de trabajo que realizarás en esta sede.";
+      $("panelDescription").textContent = technicianMode
+        ? "Selecciona el módulo que necesitas abrir para esta sede."
+        : "Selecciona el tipo de trabajo que realizarás en esta sede.";
       $("siteSummary").textContent = `${currentSite.name} — ${user.role} ${user.name}`;
       $("equipmentSummary").textContent = `${Number(currentSite.machineCount) || 0} equipos`;
       $("siteFilter").value = "";
       setInspectionTools("choice");
       $("siteGrid").className = "inspection-choice-grid";
-      $("siteGrid").innerHTML = `
+      $("siteGrid").innerHTML = technicianMode ? `
+        <button class="inspection-choice-card" type="button" data-site-work="maintenance"><span class="inspection-choice-icon" aria-hidden="true">⚙</span><strong>Mantenimiento</strong><span>Abre el flujo completo de equipos, fichas y registros de mantenimiento.</span></button>
+        <button class="inspection-choice-card" type="button" data-site-work="infrastructure"><span class="inspection-choice-icon" aria-hidden="true">⌂</span><strong>Infraestructura</strong><span>Registra visitas por sector, eventos y fotografías.</span></button>
+      ` : `
         <button class="inspection-choice-card" type="button" data-site-work="inspection"><span class="inspection-choice-icon" aria-hidden="true">✓</span><strong>Inspección</strong><span>Registra hallazgos de varios equipos y envía el conjunto al terminar.</span></button>
         <button class="inspection-choice-card" type="button" data-site-work="maintenance"><span class="inspection-choice-icon" aria-hidden="true">⚙</span><strong>Mantenimiento</strong><span>Accede al flujo habitual de equipos y mantenimiento.</span></button>
       `;
@@ -3224,7 +3277,7 @@
       $("machinePdfLiteButton").hidden = true;
       $("inspectionReviewButton").hidden = true;
       $("backToSites").hidden = false;
-      $("backToSites").textContent = supervisorMode && maintenanceFromActivityChoice ? "← Volver a opciones" : "← Volver a sedes";
+      $("backToSites").textContent = (supervisorMode && maintenanceFromActivityChoice) || (technicianMode && technicianFromActivityChoice) ? "← Volver a opciones" : "← Volver a sedes";
       $("siteGrid").className = "brand-grid";
       const cards = brandDirectory.filter(brand => (equipmentByBrand.get(brand.id) || 0) > 0).map(brand => {
         const count = equipmentByBrand.get(brand.id) || 0;
@@ -3303,7 +3356,7 @@
 
       $("panelHeading").textContent = `Equipos ${brand.name}`;
       $("panelDescription").textContent = `${currentSite.name} · ${machines.length} ${machines.length === 1 ? "equipo" : "equipos"}`;
-      $("backToSites").textContent = supervisorMode && maintenanceFromActivityChoice ? "← Volver a marcas" : "← Cambiar de marca";
+      $("backToSites").textContent = (supervisorMode && maintenanceFromActivityChoice) || (technicianMode && technicianFromActivityChoice) ? "← Volver a marcas" : "← Cambiar de marca";
       $("searchQrButton").hidden = false;
       $("machinePdfLiteButton").hidden = true;
       $("inspectionReviewButton").hidden = true;
@@ -4040,7 +4093,7 @@
       const siteCard = event.target.closest("[data-open-site]");
       if (siteCard) {
         currentSite = assignedSites.find(entry => entry.id === siteCard.dataset.openSite) || null;
-        if (supervisorMode) renderSiteActivityChoice();
+        if (supervisorMode || technicianMode) renderSiteActivityChoice();
         else renderSiteBrands(currentSite);
         return;
       }
@@ -4399,6 +4452,7 @@
       $("supervisorMenuToggle").setAttribute("aria-label", "Abrir menú");
     });
     $("backToSites").addEventListener("click", () => {
+      if (technicianMode && window.SmartFitInfrastructureTechnician?.handleBack()) return;
       if (requestReturnTo) {
         closePartsRequest();
       } else if (inspectionPhase === "inspection-records") {
@@ -4407,6 +4461,9 @@
         if (returnPhase === "equipment-list") renderInspectionEquipmentList();
         else if (returnPhase === "brand-list") renderInspectionBrandsList();
         else renderSiteBrands(currentSite);
+      } else if (technicianMode && technicianFromActivityChoice && $('siteGrid').classList.contains('inspection-choice-grid')) {
+        technicianFromActivityChoice = false;
+        renderSiteList();
       } else if (supervisorMode && inspectionPhase === "choice") {
         inspectionPhase = "";
         renderSiteList();
@@ -4431,8 +4488,9 @@
       } else if (supervisorMode && inspectionPhase === "review") {
         if (inspectionReviewReturnPhase === "brand-list") renderInspectionBrandsList();
         else renderInspectionEquipmentList();
-      } else if (supervisorMode && maintenanceFromActivityChoice && !currentMachine && !currentBrandId && $('siteGrid').classList.contains('brand-grid')) {
-        maintenanceFromActivityChoice = false;
+      } else if (((supervisorMode && maintenanceFromActivityChoice) || (technicianMode && technicianFromActivityChoice)) && !currentMachine && !currentBrandId && $('siteGrid').classList.contains('brand-grid')) {
+        if (supervisorMode) maintenanceFromActivityChoice = false;
+        if (technicianMode) technicianFromActivityChoice = false;
         renderSiteActivityChoice();
       } else if (currentMachine) {
         currentMachine = null;
@@ -4708,12 +4766,15 @@
     $("inspectionReviewButton").addEventListener("click", () => renderInspectionReview(inspectionPhase));
     $("siteGrid").addEventListener("click", async event => {
       const workChoice = event.target.closest("[data-site-work]");
-      if (workChoice && supervisorMode) {
+      if (workChoice && (supervisorMode || technicianMode)) {
         if (workChoice.dataset.siteWork === "maintenance") {
-          maintenanceFromActivityChoice = true;
+          if (supervisorMode) maintenanceFromActivityChoice = true;
+          if (technicianMode) technicianFromActivityChoice = true;
           renderSiteBrands(currentSite);
-        }
-        else await openSiteInspection();
+        } else if (technicianMode && workChoice.dataset.siteWork === "infrastructure") {
+          technicianFromActivityChoice = true;
+          await window.SmartFitInfrastructureTechnician?.open();
+        } else if (supervisorMode) await openSiteInspection();
         return;
       }
       const brandChoice = event.target.closest("[data-inspection-brand]");
@@ -5054,7 +5115,8 @@
           : supervisorTicketBrandId ? "equipment"
             : supervisorTicketSiteId ? "brands"
               : ticketContent?.querySelector("#supervisorTicketSiteSearch") ? "sites" : "chooser";
-        const maintenancePhase = !maintenanceFromActivityChoice ? ""
+        const hasModuleChoiceFlow = (supervisorMode && maintenanceFromActivityChoice) || (technicianMode && technicianFromActivityChoice);
+        const maintenancePhase = !hasModuleChoiceFlow ? ""
           : currentMachine ? "machine"
             : $('siteGrid').classList.contains('machine-grid') ? "equipment"
               : $('siteGrid').classList.contains('brand-grid') ? "brands"
@@ -5103,6 +5165,7 @@
           inspectionMachineKey: inspectionMachine?.recordKey || "",
           inspectionReviewReturnPhase,
           maintenanceFromActivityChoice,
+          technicianFromActivityChoice,
           maintenancePhase,
           commonFailuresState: commonHost ? window.SmartFitCommonFailuresEmbed?.capture(commonHost) || null : null
         };
@@ -5205,6 +5268,26 @@
         if (state.siteId) {
           if (supervisorMode) renderSiteList();
           currentSite = assignedSites.find(site => String(site.id) === String(state.siteId)) || null;
+          if (currentSite && technicianMode && state.technicianFromActivityChoice) {
+            technicianFromActivityChoice = true;
+            if (state.maintenancePhase === "choice") {
+              renderSiteActivityChoice();
+            } else {
+              renderSiteBrands(currentSite);
+              technicianFromActivityChoice = true;
+              const brandId = state.brandId || "";
+              if (brandId) renderBrandEquipment(brandId, { resetFilter: false });
+              if (state.machineKey) {
+                const machine = currentBrandEquipment.find(entry => String(entry.recordKey) === String(state.machineKey));
+                if (machine) {
+                  currentMachineTab = state.machineTab || "maintenance";
+                  renderMachineDetail(machine);
+                  void loadMachineDetailMedia(machine);
+                }
+              }
+            }
+            return;
+          }
           if (currentSite && supervisorMode && state.maintenanceFromActivityChoice) {
             maintenanceFromActivityChoice = true;
             const maintenancePhase = state.maintenancePhase || (state.brandId ? "equipment" : "brands");
@@ -5238,13 +5321,28 @@
         }
       }
     });
-    SmartFitSupabaseData.syncPendingAccessLogs().catch(error => console.warn("El inicio de sesión quedó en cola para sincronizarse.", error));
-    SmartFitSupabaseData.hydrate().then(result => {
-      if (!result.skipped) {
-        SmartFitSupabaseData.startRealtimeSync();
-        window.dispatchEvent(new CustomEvent("smartfit:supabase-data-hydrated", { detail: { tables: ["sites", "brands", "equipment", "tickets", "maintenance_events", "mileage_records", "maintenance_event_tickets", "inspection_records", "profiles", "site_assignments", "admin_user_access", "audit_log"] } }));
-      }
-    }).catch(error => console.error("No se pudieron cargar los datos de Supabase:", error));
+    window.SmartFitInfrastructureTechnician?.attach({
+      getSite:() => currentSite,
+      getUser:() => user,
+      getGrid:() => $("siteGrid"),
+      activatePanel:() => {},
+      setTools:phase => setInspectionTools(phase),
+      setBack:label => { $("backToSites").hidden = false; $("backToSites").textContent = label; },
+      setHeader:(title,description) => { $("panelHeading").textContent = title; $("panelDescription").textContent = description; },
+      today:() => currentLocalDate(),
+      escapeHtml:value => escapeHtml(value),
+      compressPhoto:file => compressMaintenanceImage(file),
+      onReturn:() => { technicianFromActivityChoice = false; renderSiteActivityChoice(); }
+    });
+    if (user) {
+      SmartFitSupabaseData.syncPendingAccessLogs().catch(error => console.warn("El inicio de sesión quedó en cola para sincronizarse.", error));
+      SmartFitSupabaseData.hydrate().then(result => {
+        if (!result.skipped) {
+          SmartFitSupabaseData.startRealtimeSync();
+          window.dispatchEvent(new CustomEvent("smartfit:supabase-data-hydrated", { detail: { tables: ["sites", "brands", "equipment", "tickets", "maintenance_events", "mileage_records", "maintenance_event_tickets", "inspection_records", "profiles", "site_assignments", "admin_user_access", "audit_log"] } }));
+        }
+      }).catch(error => console.error("No se pudieron cargar los datos de Supabase:", error));
+    }
   </script>
 </body>
 </html>

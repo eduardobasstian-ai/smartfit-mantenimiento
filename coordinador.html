@@ -1,0 +1,324 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#101116">
+  <title>Panel de coordinador | Smart Fit</title>
+  <link rel="icon" type="image/png" href="IMG/favicon.png">
+  <script src="./online-only.js"></script>
+  <style>
+    :root{color-scheme:dark;--bg:#101116;--panel:#191b22;--panel2:#22252e;--border:#343743;--yellow:#ffb51b;--text:#f5f5f7;--muted:#a3a6b2;--green:#35c987;--red:#ff737b;--blue:#73c5ff}
+    *{box-sizing:border-box} [hidden]{display:none!important} body{margin:0;min-height:100vh;background:radial-gradient(ellipse at 50% 0%,#25232a 0%,transparent 55%),var(--bg);color:var(--text);font-family:Inter,"Segoe UI",Arial,sans-serif} button,input,select{font:inherit} button{cursor:pointer}
+    .topbar{min-height:76px;padding:14px clamp(18px,5vw,64px);display:flex;justify-content:space-between;align-items:center;gap:18px;border-bottom:1px solid #292b33}.brand{display:flex;align-items:center;gap:13px}.brand img{height:42px;max-width:120px;object-fit:contain}.brand-title{margin:0;font-size:14px;font-weight:850;letter-spacing:.5px}.brand-subtitle{margin:5px 0 0;color:var(--muted);font-size:12px}.top-actions{display:flex;align-items:center;gap:12px}.identity{color:var(--muted);font-size:13px}.identity strong{color:var(--text)}
+    .logout,.button,.nav-button{border-radius:10px;font-weight:750;transition:background .15s,border-color .15s,transform .15s}.logout{min-height:40px;padding:0 13px;border:1px solid #4b4028;background:#2c261b;color:var(--yellow);font-size:12px}.logout:hover{border-color:var(--yellow);background:#3a301f}
+    .shell{width:min(1320px,100%);margin:auto;padding:30px 22px 50px;display:grid;grid-template-columns:220px minmax(0,1fr);gap:24px}.sidebar{align-self:start;padding:14px;background:#191b22cc;border:1px solid var(--border);border-radius:17px}.sidebar-label{margin:4px 10px 12px;color:#777b87;font-size:10px;font-weight:800;letter-spacing:1.4px;text-transform:uppercase}.nav-button{width:100%;min-height:44px;padding:0 11px;margin:3px 0;border:1px solid transparent;background:transparent;color:#c9cad0;text-align:left;font-size:13px}.nav-button:hover,.nav-button.active{border-color:#4b4028;background:#2c261b;color:var(--yellow)}.main{min-width:0}.heading{display:flex;justify-content:space-between;align-items:flex-end;gap:18px;margin:2px 0 24px}.eyebrow{margin-bottom:8px;color:var(--yellow);font-size:10px;font-weight:800;letter-spacing:1.8px;text-transform:uppercase}h1{margin:0;font-size:clamp(24px,3vw,32px);letter-spacing:-.5px}.description{margin:8px 0 0;color:var(--muted);font-size:13px;line-height:1.55}.view[hidden]{display:none}
+    .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px;margin-bottom:18px}.card{min-width:0;padding:18px;border:1px solid #353743;border-radius:15px;background:linear-gradient(145deg,#1d1f27,#17191f);box-shadow:0 14px 40px #0002}.stat-label{color:var(--muted);font-size:12px}.stat-value{margin-top:8px;font-size:29px;font-weight:850}.stat-hint{margin-top:5px;color:#777b87;font-size:11px}.section-heading{display:flex;justify-content:space-between;align-items:center;gap:14px;margin-bottom:14px}.section-heading h2{margin:0;font-size:16px}.section-heading p{margin:5px 0 0;color:var(--muted);font-size:12px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:12px}.site-card,.technician-card{padding:16px;border:1px solid #343743;border-radius:13px;background:#22252e}.site-card{display:flex;justify-content:space-between;align-items:center;gap:14px;cursor:pointer;text-align:left;color:var(--text)}.site-card:hover{border-color:var(--yellow);transform:translateY(-1px)}.site-name{font-size:14px;font-weight:800}.site-meta,.muted{display:block;margin-top:5px;color:var(--muted);font-size:11px;line-height:1.5}.site-count{flex:0 0 auto;padding:7px 10px;border-radius:22px;background:#2c261b;color:var(--yellow);font-size:11px;font-weight:800}.tech-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));gap:10px}.technician-card strong{font-size:13px}.technician-card p{margin:6px 0 0;color:var(--muted);font-size:11px}
+    .toolbar{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}.filters{display:flex;gap:9px;flex-wrap:wrap}.control{min-height:39px;min-width:150px;padding:0 10px;border:1px solid #383b47;border-radius:9px;background:#111319;color:var(--text);font-size:12px}.control.search{min-width:min(260px,70vw)}.button{min-height:39px;padding:0 13px;border:1px solid #383b47;background:#20222a;color:#e7e7eb;font-size:12px}.button:hover{border-color:#626573;background:#2b2e38}.button.primary{border-color:#171717;background:var(--yellow);color:#111}.button.primary:hover{background:#ffc443}.table-wrap{overflow:auto;border:1px solid #343743;border-radius:11px}.table{width:100%;min-width:760px;border-collapse:collapse}.table th,.table td{padding:11px 10px;border-bottom:1px solid #30323c;text-align:left;vertical-align:top;font-size:11px}.table th{color:#9295a1;font-size:10px;letter-spacing:.4px}.table td{color:#e7e7eb}.table tr:last-child td{border-bottom:0}.status{display:inline-flex;padding:4px 8px;border-radius:20px;background:#30333d;color:#e7e7eb;font-size:10px;font-weight:800;white-space:nowrap}.status.pending{background:#3b321d;color:#f7d98a}.status.progress{background:#1d3042;color:#a9d7ff}.status.done{background:#153b2d;color:#a7f3d0}.status.deleted{background:#30333d;color:#a3a6b2}.empty{padding:28px 12px;color:var(--muted);text-align:center;font-size:12px}.bar-list{display:grid;gap:11px}.bar-row{display:grid;grid-template-columns:minmax(90px,180px) 1fr 35px;align-items:center;gap:10px;color:var(--muted);font-size:11px}.bar-track{height:9px;overflow:hidden;border-radius:8px;background:#30333d}.bar-fill{height:100%;border-radius:8px;background:var(--yellow)}.alert{margin:0 0 14px;padding:11px 13px;border:1px solid #63363b;border-radius:10px;background:#3a2025;color:#ffb5b9;font-size:12px;line-height:1.5}
+    @media(max-width:850px){.shell{grid-template-columns:1fr;gap:15px}.sidebar{display:flex;gap:5px;overflow:auto;padding:8px}.sidebar-label{display:none}.nav-button{width:auto;flex:0 0 auto;padding:0 12px}}
+    @media(max-width:600px){.topbar{min-height:68px;padding:11px 15px}.brand img{height:36px;max-width:100px}.brand-title{font-size:11px}.brand-subtitle{font-size:9px}.identity{display:none}.shell{padding:16px 12px 32px}.heading{align-items:flex-start;flex-direction:column;margin-bottom:17px}.stats{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.card{padding:14px}.stat-value{font-size:24px}.site-card{align-items:flex-start}.toolbar,.filters{width:100%}.control,.control.search{flex:1 1 100%;width:100%;min-width:0}.toolbar>.button{width:100%}.bar-row{grid-template-columns:100px minmax(0,1fr) 28px;gap:7px}.sidebar{margin:0 -2px}.nav-button{font-size:11px;min-height:40px;padding:0 10px}}
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><img src="IMG/logo-header.png" alt="Smart Fit"><div><p class="brand-title">PANEL DE COORDINADOR</p><p class="brand-subtitle">Eventos e infraestructura de sedes</p></div></div>
+    <div class="top-actions"><div class="identity">Sesión: <strong id="coordinatorName">Usuario</strong></div><button class="logout" id="logoutButton" type="button">Cerrar sesión</button></div>
+  </header>
+  <div class="shell">
+    <nav class="sidebar" aria-label="Menú del coordinador">
+      <div class="sidebar-label">Infraestructura</div>
+      <button class="nav-button active" type="button" data-view="overview">◈ &nbsp; Resumen</button>
+      <button class="nav-button" type="button" data-view="sites">⌖ &nbsp; Sedes</button>
+      <button class="nav-button" type="button" data-view="reports">▤ &nbsp; Eventos e informes</button>
+    </nav>
+    <main class="main">
+      <div class="alert" id="loadError" role="alert" hidden></div>
+      <section class="view" id="overviewView">
+        <header class="heading"><div><div class="eyebrow">Control de infraestructura</div><h1>Resumen</h1><p class="description">Eventos registrados por los técnicos de tus sedes asignadas.</p></div></header>
+        <div class="stats">
+          <article class="card"><div class="stat-label">Sedes asignadas</div><div class="stat-value" id="siteCount">0</div><div class="stat-hint">Alcance del coordinador</div></article>
+          <article class="card"><div class="stat-label">Técnicos asignados</div><div class="stat-value" id="technicianCount">0</div><div class="stat-hint">En las sedes asignadas</div></article>
+          <article class="card"><div class="stat-label">Eventos registrados</div><div class="stat-value" id="inspectionCount">0</div><div class="stat-hint">Informes de los técnicos</div></article>
+          <article class="card"><div class="stat-label">Pendientes o en ejecución</div><div class="stat-value" id="pendingCount">0</div><div class="stat-hint">Requieren seguimiento</div></article>
+        </div>
+        <section class="card"><div class="section-heading"><div><h2>Estado de eventos</h2><p>Distribución de los registros de tus sedes.</p></div></div><div class="bar-list" id="statusChart"></div></section>
+        <section class="card" style="margin-top:14px"><div class="section-heading"><div><h2>Actividad reciente</h2><p>Últimos informes registrados por los técnicos.</p></div><button class="button" type="button" data-open-reports>Ver informes →</button></div><div class="table-wrap"><table class="table"><thead><tr><th>Fecha</th><th>Sede</th><th>Evento / Sector</th><th>Técnico</th><th>Estado</th></tr></thead><tbody id="recentBody"></tbody></table></div><div class="empty" id="recentEmpty" hidden>No hay eventos disponibles para las sedes asignadas.</div><div class="toolbar" id="recentPagination" hidden><span class="muted" id="recentPageLabel"></span><div class="filters"><button class="button" id="recentPrev" type="button">← Anteriores</button><button class="button" id="recentNext" type="button">Siguientes →</button></div></div></section>
+      </section>
+      <section class="view" id="sitesView" hidden>
+        <header class="heading"><div><div class="eyebrow">Sedes a cargo</div><h1>Mis sedes</h1><p class="description">Técnicos y eventos de las sedes asignadas a tu perfil.</p></div></header>
+        <div class="toolbar"><div class="filters"><input class="control search" id="sitesSearch" type="search" placeholder="Buscar por sede o técnico..." aria-label="Buscar por palabra en sedes y técnicos"></div><span class="muted" id="sitesResultCount" aria-live="polite"></span></div>
+        <div class="grid" id="sitesGrid"></div>
+        <div class="empty" id="sitesEmpty" hidden>No tienes sedes asignadas. Solicita al administrador que vincule tu perfil.</div>
+      </section>
+      <section class="view" id="reportsView" hidden>
+        <header class="heading"><div><div class="eyebrow">Seguimiento técnico</div><h1>Eventos e informes</h1><p class="description">Consulta los informes de eventos registrados por los técnicos de tus sedes y expórtalos en PDF.</p></div></header>
+        <div class="alert" id="inspectionAccessNote">La política RLS actual de Supabase todavía no permite al rol Coordinador leer eventos. El panel ya respeta el alcance por sede; para mostrar informes reales habrá que habilitar una política de solo lectura para sedes asignadas. No se modificaron las políticas ni los datos de Supabase.</div>
+        <section class="card">
+          <div class="toolbar"><div class="filters"><select class="control" id="filterSite" aria-label="Filtrar por sede"><option value="*">Todas mis sedes</option></select><select class="control" id="filterTechnician" aria-label="Filtrar por técnico"><option value="*">Todos los técnicos</option></select><select class="control" id="filterStatus" aria-label="Filtrar por estado"><option value="*">Todos los estados</option></select><input class="control search" id="filterSearch" type="search" placeholder="Buscar evento, sector o hallazgo..."></div><button class="button primary" id="exportReport" type="button">Descargar informe PDF</button></div>
+          <div class="toolbar"><span class="muted" id="resultCount">0 informes</span></div>
+          <div class="table-wrap"><table class="table"><thead><tr><th>N.º evento</th><th>Fecha</th><th>Sede</th><th>Evento / Sector</th><th>Técnico</th><th>Hallazgo</th><th>Estado</th></tr></thead><tbody id="reportsBody"></tbody></table></div>
+          <div class="empty" id="reportsEmpty" hidden>No hay informes que coincidan con los filtros seleccionados.</div>
+        </section>
+        <section class="card" style="margin-top:14px"><div id="coordinatorInfrastructureReportsHost"></div></section>
+      </section>
+      <section class="view" id="siteDetailView" hidden>
+        <header class="heading"><div><div class="eyebrow">Infraestructura de la sede</div><h1 id="siteDetailTitle">Sede</h1><p class="description" id="siteDetailDescription"></p></div><button class="button" id="backToSites" type="button">← Volver a sedes</button></header>
+        <div class="stats">
+          <article class="card"><div class="stat-label">Técnicos asignados</div><div class="stat-value" id="siteTechnicianCount">0</div></article>
+          <article class="card"><div class="stat-label">Eventos registrados</div><div class="stat-value" id="siteInspectionCount">0</div></article>
+          <article class="card"><div class="stat-label">Pendientes</div><div class="stat-value" id="sitePendingCount">0</div></article>
+        </div>
+        <section class="card"><div class="section-heading"><div><h2>Técnicos asignados</h2><p>Personal vinculado a esta sede.</p></div></div><div class="tech-list" id="siteTechnicians"></div><div class="empty" id="siteTechniciansEmpty" hidden>No aparecen técnicos asignados a esta sede.</div></section>
+        <section class="card" style="margin-top:14px"><div class="section-heading"><div><h2>Informes de eventos</h2><p>Registros enviados por los técnicos de esta sede.</p></div><button class="button" id="exportSiteReport" type="button">Descargar PDF</button></div><div class="toolbar"><div class="filters"><select class="control" id="siteReportMonth" aria-label="Filtrar informes por mes"><option value="*">Todos los meses</option></select><select class="control" id="siteReportYear" aria-label="Filtrar informes por año"><option value="*">Todos los años</option></select></div><span class="muted" id="siteReportCount" aria-live="polite"></span></div><div class="table-wrap"><table class="table"><thead><tr><th>N.º</th><th>Fecha</th><th>Evento / Sector</th><th>Técnico</th><th>Hallazgo</th><th>Estado</th></tr></thead><tbody id="siteReportsBody"></tbody></table></div><div class="empty" id="siteReportsEmpty" hidden>No hay informes para esta sede.</div><div class="toolbar" id="siteReportsPagination" hidden><span class="muted" id="siteReportsPageLabel"></span><div class="filters"><button class="button" id="siteReportsPrev" type="button">← Anteriores</button><button class="button" id="siteReportsNext" type="button">Siguientes →</button></div></div></section>
+      </section>
+    </main>
+  </div>
+  <script src="admin-store.js?v=20261029-performance-stage-2"></script>
+  <script src="supabase-data.js?v=20261119-infrastructure-visits-1"></script>
+  <script src="record-photo-carousel.js?v=20261119-infrastructure-gallery-1"></script>
+  <script src="infrastructure-reports.js?v=20261119-infrastructure-reports-1"></script>
+  <script>
+    "use strict";
+    const $ = id => document.getElementById(id);
+    const escapeHtml = value => String(value ?? "").replace(/[&<>"']/g, character => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[character]));
+    const normalize = value => String(value ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLocaleLowerCase("es");
+    const formatDate = value => { const date = value ? new Date(value) : null; return date && !Number.isNaN(date.getTime()) ? new Intl.DateTimeFormat("es-CL", { dateStyle:"short" }).format(date) : "—"; };
+    let session = null;
+    try { session = JSON.parse(sessionStorage.getItem("smartfit.site.session") || "null"); } catch (error) { session = null; }
+    const storedUser = session && window.AdminStore?.listUsers().find(entry => String(entry.id) === String(session.id) && entry.active && entry.role === "Coordinador");
+    const user = storedUser || (session?.role === "Coordinador" && session.active && session.authId ? session : null);
+    if (!user) window.location.replace("index.html");
+    let assignedSites = [];
+    let technicians = [];
+    let inspections = [];
+    let infrastructureReportsMounted = false;
+    let activeSite = null;
+    let recentPage = 1;
+    const RECENT_PAGE_SIZE = 3;
+    let siteReportsPage = 1;
+    const SITE_REPORTS_PAGE_SIZE = 3;
+    const statusName = row => String(row?.status || "Pendiente").trim() || "Pendiente";
+    const statusClass = value => { const key = normalize(value); return key === "ejecutado" ? "done" : key === "en ejecucion" ? "progress" : key === "eliminado" ? "deleted" : "pending"; };
+    const eventSectorName = row => row?.event_name || row?.event_type || row?.sector_name || row?.sector || row?.equipment_name || "—";
+    const activeRecords = () => inspections.filter(row => row.deleted_at == null || statusClass(statusName(row)) === "deleted");
+    function userSiteIds() { return new Set((user?.siteIds || []).map(String)); }
+    function technicianSites(candidate) { return new Set((candidate?.siteIds || []).map(String)); }
+    function renderBaseScope() {
+      const allowed = userSiteIds();
+      assignedSites = window.AdminStore.listSites().filter(site => allowed.has(String(site.id)) && site.active !== false);
+      technicians = window.AdminStore.listUsers().filter(candidate => candidate.active && candidate.role === "Técnico" && (candidate.siteIds || []).some(siteId => allowed.has(String(siteId))));
+      const siteIds = new Set(assignedSites.map(site => String(site.id)));
+      inspections = inspections.filter(row => siteIds.has(String(row.site_legacy_id || "")));
+    }
+    function showView(view) {
+      document.querySelectorAll(".view").forEach(section => { section.hidden = section.id !== `${view}View`; });
+      document.querySelectorAll("[data-view]").forEach(button => button.classList.toggle("active", button.dataset.view === view));
+      if (view === "overview") renderOverview();
+      if (view === "sites") renderSites();
+      if (view === "reports") {
+        renderReports();
+        if (!infrastructureReportsMounted) {
+          infrastructureReportsMounted = true;
+          window.SmartFitInfrastructureReports.mount({ host:$('coordinatorInfrastructureReportsHost'), heading:"Visitas e informes de infraestructura" });
+        }
+      }
+    }
+    function openSite(siteId) {
+      activeSite = assignedSites.find(site => String(site.id) === String(siteId)) || null;
+      if (!activeSite) return;
+      $("siteReportMonth").value = "*";
+      $("siteReportYear").value = "*";
+      const siteRecords = activeRecords().filter(row => String(row.site_legacy_id || "") === String(activeSite.id));
+      const siteTechs = technicians.filter(candidate => technicianSites(candidate).has(String(activeSite.id)));
+      $("siteDetailTitle").textContent = activeSite.name;
+      $("siteDetailDescription").textContent = `${activeSite.region || "Sede asignada"} · ${activeSite.internalCode || "Sin código interno"}`;
+      $("siteTechnicianCount").textContent = String(siteTechs.length);
+      $("siteInspectionCount").textContent = String(siteRecords.length);
+      $("sitePendingCount").textContent = String(siteRecords.filter(row => ["pending","progress"].includes(statusClass(statusName(row)))).length);
+      $("siteTechnicians").innerHTML = siteTechs.map(candidate => `<article class="technician-card"><strong>${escapeHtml(candidate.name)}</strong><p>${escapeHtml(candidate.username || "Técnico asignado")} · ${siteRecords.filter(row => normalize(row.technician_name) === normalize(candidate.name)).length} informes</p></article>`).join("");
+      $("siteTechniciansEmpty").hidden = siteTechs.length > 0;
+      siteReportsPage = 1;
+      renderSiteReports();
+      document.querySelectorAll(".view").forEach(section => { section.hidden = section.id !== "siteDetailView"; });
+      document.querySelectorAll("[data-view]").forEach(button => button.classList.toggle("active", button.dataset.view === "sites"));
+    }
+    function siteReportDate(row) {
+      const date = new Date(row.occurred_at || row.created_at || "");
+      return Number.isNaN(date.getTime()) ? null : date;
+    }
+    function siteReportRows() {
+      if (!activeSite) return [];
+      const month = $("siteReportMonth").value;
+      const year = $("siteReportYear").value;
+      return activeRecords().filter(row => {
+        if (String(row.site_legacy_id || "") !== String(activeSite.id)) return false;
+        const date = siteReportDate(row);
+        if (!date) return month === "*" && year === "*";
+        return (month === "*" || String(date.getMonth() + 1) === month) && (year === "*" || String(date.getFullYear()) === year);
+      }).sort((a,b) => String(b.occurred_at || b.created_at || "").localeCompare(String(a.occurred_at || a.created_at || "")));
+    }
+    function populateSiteReportDateFilters() {
+      const records = activeSite ? activeRecords().filter(row => String(row.site_legacy_id || "") === String(activeSite.id)) : [];
+      const dates = records.map(siteReportDate).filter(Boolean);
+      const previousMonth = $("siteReportMonth").value;
+      const previousYear = $("siteReportYear").value;
+      const months = [...new Set(dates.map(date => date.getMonth() + 1))].sort((a,b) => a-b);
+      const years = [...new Set(dates.map(date => date.getFullYear()))].sort((a,b) => b-a);
+      const monthNames = new Intl.DateTimeFormat("es-CL", { month:"long", timeZone:"UTC" });
+      $("siteReportMonth").innerHTML = '<option value="*">Todos los meses</option>' + months.map(month => `<option value="${month}">${escapeHtml(monthNames.format(new Date(Date.UTC(2026, month - 1, 1))))}</option>`).join("");
+      $("siteReportYear").innerHTML = '<option value="*">Todos los años</option>' + years.map(year => `<option value="${year}">${year}</option>`).join("");
+      if ([...$("siteReportMonth").options].some(option => option.value === previousMonth)) $("siteReportMonth").value = previousMonth;
+      if ([...$("siteReportYear").options].some(option => option.value === previousYear)) $("siteReportYear").value = previousYear;
+    }
+    function renderSiteReports() {
+      populateSiteReportDateFilters();
+      const rows = siteReportRows();
+      const totalPages = Math.max(1, Math.ceil(rows.length / SITE_REPORTS_PAGE_SIZE));
+      siteReportsPage = Math.min(Math.max(1, siteReportsPage), totalPages);
+      const start = (siteReportsPage - 1) * SITE_REPORTS_PAGE_SIZE;
+      const pageRows = rows.slice(start, start + SITE_REPORTS_PAGE_SIZE);
+      $("siteReportsBody").innerHTML = pageRows.map(row => reportRow(row, true)).join("");
+      $("siteReportCount").textContent = `${rows.length} ${rows.length === 1 ? "evento" : "eventos"}`;
+      $("siteReportsEmpty").hidden = rows.length > 0;
+      $("siteReportsEmpty").textContent = activeSite && activeRecords().some(row => String(row.site_legacy_id || "") === String(activeSite.id))
+        ? "No hay informes para los filtros de mes y año seleccionados."
+        : "No hay informes para esta sede.";
+      $("siteReportsPagination").hidden = rows.length <= SITE_REPORTS_PAGE_SIZE;
+      $("siteReportsPageLabel").textContent = rows.length ? `Mostrando ${start + 1}–${Math.min(start + SITE_REPORTS_PAGE_SIZE, rows.length)} de ${rows.length} · Página ${siteReportsPage} de ${totalPages}` : "0 informes";
+      $("siteReportsPrev").disabled = siteReportsPage <= 1;
+      $("siteReportsNext").disabled = siteReportsPage >= totalPages;
+    }
+    function reportRow(row, compact = false) {
+      const number = row.inspection_number || row.inspection_counter || row.legacy_id || "—";
+      const eventSector = eventSectorName(row);
+      const cells = compact
+        ? `<td>${escapeHtml(number)}</td><td>${escapeHtml(formatDate(row.occurred_at || row.created_at))}</td><td>${escapeHtml(eventSector)}</td><td>${escapeHtml(row.technician_name || row.registered_by_name || "—")}</td><td>${escapeHtml(row.finding || row.observations || "—")}</td><td><span class="status ${statusClass(statusName(row))}">${escapeHtml(statusName(row))}</span></td>`
+        : `<td>${escapeHtml(number)}</td><td>${escapeHtml(formatDate(row.occurred_at || row.created_at))}</td><td>${escapeHtml(row.site_name || "Sede")}</td><td>${escapeHtml(eventSector)}</td><td>${escapeHtml(row.technician_name || row.registered_by_name || "—")}</td><td>${escapeHtml(row.finding || row.observations || "—")}</td><td><span class="status ${statusClass(statusName(row))}">${escapeHtml(statusName(row))}</span></td>`;
+      return `<tr>${cells}</tr>`;
+    }
+    function renderOverview() {
+      const records = activeRecords();
+      const pending = records.filter(row => ["pending","progress"].includes(statusClass(statusName(row)))).length;
+      $("siteCount").textContent = String(assignedSites.length);
+      $("technicianCount").textContent = String(technicians.length);
+      $("inspectionCount").textContent = String(records.length);
+      $("pendingCount").textContent = String(pending);
+      const statuses = ["Pendiente","En ejecución","Ejecutado","Eliminado"];
+      const counts = statuses.map(status => ({status, count:records.filter(row => normalize(statusName(row)) === normalize(status)).length}));
+      const max = Math.max(1, ...counts.map(item => item.count));
+      $("statusChart").innerHTML = counts.map(item => `<div class="bar-row"><span>${escapeHtml(item.status)}</span><div class="bar-track"><div class="bar-fill" style="width:${Math.round(item.count/max*100)}%"></div></div><strong>${item.count}</strong></div>`).join("");
+      const recent = records.slice().sort((a,b) => String(b.occurred_at || b.created_at || "").localeCompare(String(a.occurred_at || a.created_at || "")));
+      const recentPages = Math.max(1, Math.ceil(recent.length / RECENT_PAGE_SIZE));
+      recentPage = Math.min(Math.max(1, recentPage), recentPages);
+      const recentStart = (recentPage - 1) * RECENT_PAGE_SIZE;
+      const recentVisible = recent.slice(recentStart, recentStart + RECENT_PAGE_SIZE);
+      $("recentBody").innerHTML = recentVisible.map(row => `<tr><td>${escapeHtml(formatDate(row.occurred_at || row.created_at))}</td><td>${escapeHtml(row.site_name || assignedSites.find(site => String(site.id) === String(row.site_legacy_id))?.name || "Sede")}</td><td>${escapeHtml(eventSectorName(row))}</td><td>${escapeHtml(row.technician_name || row.registered_by_name || "—")}</td><td><span class="status ${statusClass(statusName(row))}">${escapeHtml(statusName(row))}</span></td></tr>`).join("");
+      $("recentEmpty").hidden = recent.length > 0;
+      $("recentPagination").hidden = recent.length <= RECENT_PAGE_SIZE;
+      $("recentPageLabel").textContent = recent.length ? `Mostrando ${recentStart + 1}–${Math.min(recentStart + RECENT_PAGE_SIZE, recent.length)} de ${recent.length} · Página ${recentPage} de ${recentPages}` : "0 informes";
+      $("recentPrev").disabled = recentPage <= 1;
+      $("recentNext").disabled = recentPage >= recentPages;
+    }
+    function renderSites() {
+      const query = normalize($("sitesSearch").value);
+      const terms = query.split(/\s+/).filter(Boolean);
+      const visibleSites = assignedSites.filter(site => {
+        if (!terms.length) return true;
+        const siteTechs = technicians.filter(candidate => technicianSites(candidate).has(String(site.id)));
+        const searchable = normalize([
+          site.name, site.region, site.internalCode,
+          ...siteTechs.flatMap(candidate => [candidate.name, candidate.username, candidate.email])
+        ].join(" "));
+        return terms.every(term => searchable.includes(term));
+      });
+      $("sitesGrid").innerHTML = visibleSites.map(site => {
+        const siteTechs = technicians.filter(candidate => technicianSites(candidate).has(String(site.id)));
+        const recordCount = activeRecords().filter(row => String(row.site_legacy_id || "") === String(site.id)).length;
+        return `<button class="site-card" type="button" data-open-site="${escapeHtml(site.id)}"><span><span class="site-name">${escapeHtml(site.name)}</span><span class="site-meta">${escapeHtml(site.region || "Sede asignada")} · ${siteTechs.length} técnicos · ${recordCount} informes</span></span><span class="site-count">Ver →</span></button>`;
+      }).join("");
+      $("sitesResultCount").textContent = query ? `${visibleSites.length} de ${assignedSites.length} sedes` : `${assignedSites.length} ${assignedSites.length === 1 ? "sede asignada" : "sedes asignadas"}`;
+      $("sitesEmpty").hidden = visibleSites.length > 0;
+      $("sitesEmpty").textContent = assignedSites.length
+        ? "No hay sedes ni técnicos asignados que coincidan con esas palabras."
+        : "No tienes sedes asignadas. Solicita al administrador que vincule tu perfil.";
+    }
+    function populateFilters() {
+      const previous = { site:$('filterSite').value, technician:$('filterTechnician').value, status:$('filterStatus').value };
+      $("filterSite").innerHTML = '<option value="*">Todas mis sedes</option>' + assignedSites.map(site => `<option value="${escapeHtml(site.id)}">${escapeHtml(site.name)}</option>`).join("");
+      $("filterTechnician").innerHTML = '<option value="*">Todos los técnicos</option>' + technicians.map(candidate => `<option value="${escapeHtml(candidate.id)}">${escapeHtml(candidate.name)}</option>`).join("");
+      const states = [...new Set(activeRecords().map(row => statusName(row)))].sort((a,b) => a.localeCompare(b,"es"));
+      $("filterStatus").innerHTML = '<option value="*">Todos los estados</option>' + states.map(status => `<option value="${escapeHtml(status)}">${escapeHtml(status)}</option>`).join("");
+      if ([...$('filterSite').options].some(option => option.value === previous.site)) $('filterSite').value = previous.site;
+      if ([...$('filterTechnician').options].some(option => option.value === previous.technician)) $('filterTechnician').value = previous.technician;
+      if ([...$('filterStatus').options].some(option => option.value === previous.status)) $('filterStatus').value = previous.status;
+    }
+    function renderReports() {
+      populateFilters();
+      const site = $("filterSite").value;
+      const tech = $("filterTechnician").value;
+      const state = $("filterStatus").value;
+      const query = normalize($("filterSearch").value);
+      const techName = technicians.find(candidate => String(candidate.id) === String(tech))?.name || "";
+      const rows = activeRecords().filter(row =>
+        (site === "*" || String(row.site_legacy_id || "") === site) &&
+        (tech === "*" || normalize(row.technician_name || row.registered_by_name) === normalize(techName)) &&
+        (state === "*" || statusName(row) === state) &&
+        (!query || [eventSectorName(row),row.finding,row.observations,row.technician_name,row.site_name].some(value => normalize(value).includes(query)))
+      ).sort((a,b) => String(b.occurred_at || b.created_at || "").localeCompare(String(a.occurred_at || a.created_at || "")));
+      $("reportsBody").innerHTML = rows.map(row => reportRow(row)).join("");
+      $("resultCount").textContent = `${rows.length} ${rows.length === 1 ? "evento" : "eventos"}`;
+      $("reportsEmpty").hidden = rows.length > 0;
+      $("exportReport").disabled = rows.length === 0;
+    }
+    function exportPdf(rows, heading) {
+      if (!rows.length) return;
+      const popup = window.open("", "_blank");
+      if (!popup) { window.alert("Permite las ventanas emergentes para generar el informe PDF."); return; }
+      const body = rows.map((row,index) => `<tr><td>${index+1}</td><td>${escapeHtml(formatDate(row.occurred_at || row.created_at))}</td><td>${escapeHtml(row.site_name || assignedSites.find(site => String(site.id) === String(row.site_legacy_id))?.name || "Sede")}</td><td>${escapeHtml(eventSectorName(row))}</td><td>${escapeHtml(row.technician_name || row.registered_by_name || "—")}</td><td>${escapeHtml(row.finding || row.observations || "—")}</td><td>${escapeHtml(statusName(row))}</td></tr>`).join("");
+      popup.document.write(`<!doctype html><html lang="es"><head><meta charset="utf-8"><title>${escapeHtml(heading)}</title><style>@page{size:letter landscape;margin:12mm}*{box-sizing:border-box}body{font:9pt Arial,sans-serif;color:#171923}.head{display:flex;justify-content:space-between;align-items:center;gap:20px;border-bottom:3px solid #ffb51b;padding-bottom:10px;margin-bottom:14px}.head img{width:115px;background:#000;padding:4px 7px;border-radius:4px}.head div{text-align:right}.head h1{font-size:18pt;margin:0 0 5px}.head p{margin:0;color:#555}table{width:100%;border-collapse:collapse;table-layout:fixed}th,td{padding:6px;border:1px solid #d8dae0;text-align:left;vertical-align:top;overflow-wrap:anywhere}th{background:#f0f1f4}footer{margin-top:14px;border-top:1px solid #cfd1d8;padding-top:7px;text-align:center;color:#555;font-size:8pt}@media print{*{-webkit-print-color-adjust:exact;print-color-adjust:exact}}</style></head><body><header class="head"><img src="IMG/logo-header.png" alt="Smart Fit"><div><h1>${escapeHtml(heading)}</h1><p>Coordinador: ${escapeHtml(user.name)} · ${rows.length} informes · ${escapeHtml(new Intl.DateTimeFormat("es-CL",{dateStyle:"medium",timeStyle:"short"}).format(new Date()))}</p></div></header><table><thead><tr><th>N.º</th><th>Fecha</th><th>Sede</th><th>Evento / Sector</th><th>Técnico</th><th>Hallazgo</th><th>Estado</th></tr></thead><tbody>${body}</tbody></table><footer>Informe generado desde Smart Fit · Fotografías omitidas para mantener un PDF liviano.</footer><script>window.addEventListener('load',()=>{window.print()});<\/script></body></html>`);
+      popup.document.close();
+    }
+    if (user) {
+      $("coordinatorName").textContent = user.name || "Coordinador";
+      renderBaseScope();
+      renderOverview(); renderSites(); populateFilters(); renderReports();
+    }
+    document.querySelectorAll("[data-view]").forEach(button => button.addEventListener("click", () => showView(button.dataset.view)));
+    document.querySelectorAll("[data-open-reports]").forEach(button => button.addEventListener("click", () => showView("reports")));
+    $("sitesGrid").addEventListener("click", event => { const card = event.target.closest("[data-open-site]"); if (card) openSite(card.dataset.openSite); });
+    $("backToSites").addEventListener("click", () => showView("sites"));
+    $("recentPrev").addEventListener("click", () => { if (recentPage > 1) { recentPage -= 1; renderOverview(); } });
+    $("recentNext").addEventListener("click", () => { recentPage += 1; renderOverview(); });
+    $("sitesSearch").addEventListener("input", renderSites);
+    ["siteReportMonth", "siteReportYear"].forEach(id => $(id).addEventListener("change", () => { siteReportsPage = 1; renderSiteReports(); }));
+    $("siteReportsPrev").addEventListener("click", () => { if (siteReportsPage > 1) { siteReportsPage -= 1; renderSiteReports(); } });
+    $("siteReportsNext").addEventListener("click", () => { siteReportsPage += 1; renderSiteReports(); });
+    ["filterSite","filterTechnician","filterStatus"].forEach(id => $(id).addEventListener("change", renderReports));
+    $("filterSearch").addEventListener("input", renderReports);
+    $("exportReport").addEventListener("click", () => exportPdf(activeRecords().filter(row => {
+      const site = $("filterSite").value, tech = $("filterTechnician").value, state = $("filterStatus").value, query = normalize($("filterSearch").value);
+      const techName = technicians.find(candidate => String(candidate.id) === String(tech))?.name || "";
+      return (site === "*" || String(row.site_legacy_id || "") === site) && (tech === "*" || normalize(row.technician_name || row.registered_by_name) === normalize(techName)) && (state === "*" || statusName(row) === state) && (!query || [eventSectorName(row),row.finding,row.observations,row.technician_name,row.site_name].some(value => normalize(value).includes(query)));
+    }), "Informe de eventos e infraestructura"));
+    $("exportSiteReport").addEventListener("click", () => exportPdf(siteReportRows(), `Eventos · ${activeSite?.name || "Sede"}`));
+    $("logoutButton").addEventListener("click", () => { sessionStorage.removeItem("smartfit.site.session"); sessionStorage.removeItem("smartfit.supabase.auth"); window.location.href = "index.html"; });
+    async function loadCoordinatorData() {
+      try {
+        const result = await SmartFitSupabaseData.listCoordinatorInfrastructureSummary();
+        assignedSites = result.sites;
+        technicians = result.technicians;
+        inspections = result.inspections;
+        if (result.inspectionReadError) {
+          $("inspectionAccessNote").hidden = false;
+          $("inspectionAccessNote").textContent = `No se pudieron leer informes: ${result.inspectionReadError}. La consulta conserva el filtro por sedes asignadas.`;
+        }
+        renderOverview(); renderSites(); populateFilters(); renderReports();
+      } catch (error) {
+        $("loadError").hidden = false;
+        $("loadError").textContent = `No se pudieron cargar los informes: ${error.message || "revisa la conexión y los permisos de lectura de tu perfil."}`;
+      }
+    }
+    if (user) void loadCoordinatorData();
+  </script>
+</body>
+</html>
