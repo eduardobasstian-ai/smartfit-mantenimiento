@@ -11,12 +11,6 @@
   const styles = `
     .infra-report{width:100%;min-width:0;max-width:100%;overflow:hidden;color:var(--text,#f5f5f7)}
     .infra-report-toolbar{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,150px),1fr));gap:10px;margin:8px 0 14px}
-    .infra-report-list{display:grid;gap:8px;min-width:0}
-    .infra-daily{border:1px solid var(--border,#383b47);border-radius:9px;padding:12px;overflow-wrap:anywhere}
-    .infra-daily label{display:flex;align-items:center;gap:8px;font-weight:700;cursor:pointer}
-    .infra-daily small,.infra-daily summary{display:block;margin-top:6px;color:var(--muted,#aeb2bf)}
-    .infra-daily summary{cursor:pointer;text-decoration:underline}
-    .infra-daily li{margin:.6em 0}
     .infra-report-filter{display:grid;min-width:0;gap:6px;color:var(--muted,#aeb2bf);font-size:11px;font-weight:700}
     .infra-report-filter input,.infra-report-filter select{width:100%;min-width:0;min-height:38px;padding:0 10px;border:1px solid #383b47;border-radius:9px;background:#111319;color:var(--text,#f5f5f7);font:inherit;font-size:12px}
     .infra-report-summary{display:flex;min-width:0;width:100%;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 8px}
@@ -27,10 +21,11 @@
     .infra-report-actions button:disabled{opacity:.48;cursor:not-allowed}
     .infra-report-table-wrap{width:100%;min-width:0;max-width:100%;overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch}
     .infra-report-table-wrap[hidden]{display:none!important}
-    .infra-report-table{width:100%;min-width:1050px;border-collapse:collapse;table-layout:auto}
+    .infra-report-table{width:100%;min-width:720px;border-collapse:collapse;table-layout:auto}
     .infra-report-table th,.infra-report-table td{padding:11px 10px;border-bottom:1px solid #30323c;text-align:left;vertical-align:middle}
     .infra-report-table th{color:#858895;font-size:10px;font-weight:800;letter-spacing:.55px;text-transform:uppercase;white-space:nowrap}
-    .infra-report-table td{color:#e7e7eb;font-size:12px}
+    .infra-report-table td{color:var(--text,#e7e7eb);font-size:13px}
+    .infra-report-table td:first-child{width:34px}
     .infra-report-table .infra-report-group td{padding:9px 10px;background:#20222a;color:var(--muted,#aeb2bf);font-size:11px;font-weight:750}
     .infra-report-group label{display:flex;align-items:center;gap:9px;cursor:pointer}
     .infra-report-sector-code{color:var(--yellow,#ffb51b);font-weight:850}
@@ -91,7 +86,12 @@
         ${isAdmin ? `<label class="infra-report-filter">Fecha<input data-filter="date" type="date"></label>${filter("site","Sede","Todas")}${filter("coordinator","Coordinador","Todos")}${filter("tech","Técnico","Todos")}` : filter("month","Mes","Todos los meses") + filter("year","Año","Todos los años")}
       </div>
       <div class="infra-report-summary"><span class="infra-report-count" data-infra-report-count>Cargando informes…</span><div class="infra-report-actions"><button type="button" data-infra-export="full" disabled>PDF Full</button><button type="button" data-infra-export="lite" disabled>PDF Lite</button><button type="button" data-infra-clear>Limpiar filtros</button></div></div>
-      <div class="infra-report-list" data-infra-rows></div>
+      <div class="infra-report-table-wrap" data-infra-table hidden>
+        <table class="infra-report-table" aria-label="Eventos registrados de infraestructura"><thead><tr>
+          <th scope="col" aria-label="Seleccionar informe diario">✓</th><th scope="col">Fecha</th><th scope="col">Sede</th><th scope="col">Evento / Sector</th>
+          <th scope="col">Estado</th><th scope="col">Técnico</th>${isAdmin ? '<th scope="col">Coordinador</th>' : ''}<th scope="col">Detalle</th>
+        </tr></thead><tbody data-infra-rows></tbody></table>
+      </div>
       <div class="infra-report-empty" data-infra-empty hidden>No hay informes que coincidan con los filtros.</div>
       <div class="infra-report-pagination" data-infra-pagination hidden><span data-infra-page-label></span><div class="infra-report-actions"><button type="button" data-infra-prev>← Anteriores</button><button type="button" data-infra-next>Siguientes →</button></div></div>
       <div class="infra-report-viewer" id="${viewerId}" hidden><div class="infra-report-viewer-frame"><button class="infra-report-close" type="button" aria-label="Cerrar fotografía" title="Cerrar fotografía">×</button><button class="infra-report-download record-photo-download" type="button" aria-label="Descargar fotografía" title="Descargar fotografía" hidden><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v11m0 0 4-4m-4 4-4-4M5 17v3h14v-3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button><img alt="" hidden><div class="record-photo-carousel-viewport" hidden><div class="record-photo-carousel-track"></div></div></div></div>
@@ -142,21 +142,24 @@
       const pages = Math.max(1, Math.ceil(groups.length / pageSizeValue));
       page = Math.min(page, pages);
       const visible = groups.slice((page-1)*pageSizeValue, page*pageSizeValue);
-      const expanded = new Set([...host.querySelectorAll("details[open]")].map(el => el.dataset.report));
       $('[data-infra-report-count]').textContent = `${groups.length} informes · ${selected.size} seleccionados`;
       $('[data-infra-rows]').innerHTML = visible.map(([key,group]) => {
-        const visit = group[0], rows = flatten(group);
-        const names = [...new Set(group.map(v => v.technician_name).filter(Boolean))].join(", ");
-        const detail = rows.map(row => {
+        return flatten(group).map((row, index) => {
+          const visit = row.visit;
+          const day = esc(dateText(visit.visit_date)), site = esc(visit.site?.name || "Sede");
+          const selectionLabel = `Seleccionar informe completo del ${day} · ${site}`;
+          const checkbox = index === 0 ? `<input type="checkbox" class="infra-report-checked" data-infra-report-key="${esc(key)}" aria-label="${selectionLabel}" title="${selectionLabel}" ${selected.has(key) ? "checked" : ""}>` : "";
           const cached = photoCache.get(row.key) || [];
           const photos = cached.map(p => `<button type="button" data-enlarge-image="${esc(p.url)}" data-image-alt="${esc(row.name)}"><img src="${esc(p.url)}" alt="${esc(row.name)}"></button>`).join("");
           const load = row.photos?.length && !cached.length ? `<button type="button" data-infra-load-photos="${esc(row.key)}">Ver fotos (${row.photos.length})</button>` : "";
-          return `<li><strong>${esc(row.visit.sector_name)} · ${esc(row.name)}</strong> · ${esc(row.status)}<br>${esc(row.observations || "Sin observaciones")}<div class="infra-report-photos">${photos}${load}</div></li>`;
+          return `<tr><td>${checkbox}</td><td>${day}</td><td>${site}</td>
+            <td><strong>${esc(row.name)}</strong><span class="infra-report-detail">${esc([visit.sector_number, visit.sector_name].filter(x => x != null && x !== "").join(" · "))}</span></td>
+            <td><span class="infra-report-status" data-status="${esc(row.status)}">${esc(row.status)}</span></td>
+            <td>${esc(visit.technician_name || "—")}</td>${isAdmin ? `<td>${esc(coordinator(visit))}</td>` : ""}
+            <td><span class="infra-report-detail">${esc(row.observations || "Sin observaciones")}</span><div class="infra-report-photos">${photos}${load}</div></td></tr>`;
         }).join("");
-        return `<article class="infra-daily"><label><input type="checkbox" class="infra-report-checked" data-infra-report-key="${esc(key)}" ${selected.has(key)?"checked":""}>${esc(dateText(visit.visit_date))} · ${esc(visit.site?.name || "Sede")}</label>
-          ${isAdmin ? `<small>Coordinador: ${esc(coordinator(visit))} · Técnico: ${esc(names)}</small>` : ""}
-          <details data-report="${esc(key)}" ${expanded.has(key)?"open":""}><summary>Ver detalle (${rows.length} eventos)</summary><ul>${detail}</ul></details></article>`;
       }).join("");
+      $('[data-infra-table]').hidden = groups.length === 0;
       $('[data-infra-empty]').hidden = groups.length > 0;
       $('[data-infra-pagination]').hidden = pages <= 1;
       $('[data-infra-page-label]').textContent = `Página ${page} de ${pages}`;
