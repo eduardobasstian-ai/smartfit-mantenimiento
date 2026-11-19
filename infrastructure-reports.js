@@ -10,17 +10,18 @@
   const monthName = value => new Intl.DateTimeFormat("es-CL", { month:"long" }).format(new Date(2000, Number(value) - 1, 1));
 
   const styles = `
-    .infra-report{color:var(--text,#f5f5f7)}
-    .infra-report-toolbar{display:grid;grid-template-columns:repeat(6,minmax(135px,1fr));gap:10px;margin:8px 0 14px}
-    .infra-report-filter{display:grid;gap:6px;color:var(--muted,#aeb2bf);font-size:11px;font-weight:700}
+    .infra-report{width:100%;min-width:0;max-width:100%;overflow:hidden;color:var(--text,#f5f5f7)}
+    .infra-report-toolbar{display:grid;width:100%;min-width:0;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;margin:8px 0 14px}
+    .infra-report-filter{display:grid;min-width:0;gap:6px;color:var(--muted,#aeb2bf);font-size:11px;font-weight:700}
     .infra-report-filter input,.infra-report-filter select{width:100%;min-width:0;min-height:38px;padding:0 10px;border:1px solid #383b47;border-radius:9px;background:#111319;color:var(--text,#f5f5f7);font:inherit;font-size:12px}
-    .infra-report-summary{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 8px}
-    .infra-report-count{color:var(--muted,#aeb2bf);font-size:12px}
+    .infra-report-summary{display:flex;min-width:0;width:100%;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 8px}
+    .infra-report-count{min-width:0;color:var(--muted,#aeb2bf);font-size:12px}
     .infra-report-actions{display:flex;gap:8px;flex-wrap:wrap}
     .infra-report-actions button{min-height:38px;padding:0 13px;border:1px solid #383b47;border-radius:10px;background:#20222a;color:var(--text,#f5f5f7);font:inherit;font-size:12px;font-weight:750}
     .infra-report-actions [data-infra-export=full]{background:var(--yellow,#ffb51b);border-color:var(--yellow,#ffb51b);color:#17130a}
     .infra-report-actions button:disabled{opacity:.48;cursor:not-allowed}
-    .infra-report-table-wrap{width:100%;overflow:auto}
+    .infra-report-table-wrap{width:100%;min-width:0;max-width:100%;overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch}
+    .infra-report-table-wrap[hidden]{display:none!important}
     .infra-report-table{width:100%;min-width:1050px;border-collapse:collapse;table-layout:auto}
     .infra-report-table th,.infra-report-table td{padding:11px 10px;border-bottom:1px solid #30323c;text-align:left;vertical-align:middle}
     .infra-report-table th{color:#858895;font-size:10px;font-weight:800;letter-spacing:.55px;text-transform:uppercase;white-space:nowrap}
@@ -89,7 +90,7 @@
         <label class="infra-report-filter">Año<select data-infra-year><option value="*">Todos los años</option></select></label>
       </div>
       <div class="infra-report-summary"><span class="infra-report-count" data-infra-report-count>Cargando informes…</span><div class="infra-report-actions"><button type="button" data-infra-export="full" disabled>PDF Full</button><button type="button" data-infra-export="lite" disabled>PDF Lite</button><button type="button" data-infra-clear>Limpiar filtros</button></div></div>
-      <div class="infra-report-table-wrap" data-infra-table-wrap><table class="infra-report-table"><thead><tr><th aria-label="Seleccionar"></th><th>Fecha</th><th>Sede</th><th>Sector</th><th>Evento</th><th>Estado</th><th>Técnico</th><th>Detalle</th><th>Fotografías</th></tr></thead><tbody data-infra-rows></tbody></table></div>
+      <div class="infra-report-table-wrap" data-infra-table-wrap hidden><table class="infra-report-table"><thead><tr><th aria-label="Seleccionar"></th><th>Fecha</th><th>Sede</th><th>Sector</th><th>Evento</th><th>Estado</th><th>Técnico</th><th>Detalle</th><th>Fotografías</th></tr></thead><tbody data-infra-rows></tbody></table></div>
       <div class="infra-report-empty" data-infra-empty hidden>No hay informes que coincidan con los filtros.</div>
       <div class="infra-report-pagination" data-infra-pagination hidden><span data-infra-page-label></span><div class="infra-report-actions"><button type="button" data-infra-prev>← Anteriores</button><button type="button" data-infra-next>Siguientes →</button></div></div>
       <div class="infra-report-viewer" id="${viewerId}" hidden><div class="infra-report-viewer-frame"><button class="infra-report-close" type="button" aria-label="Cerrar fotografía" title="Cerrar fotografía">×</button><button class="infra-report-download record-photo-download" type="button" aria-label="Descargar fotografía" title="Descargar fotografía" hidden><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v11m0 0 4-4m-4 4-4-4M5 17v3h14v-3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button><img alt="" hidden><div class="record-photo-carousel-viewport" hidden><div class="record-photo-carousel-track"></div></div></div></div>
