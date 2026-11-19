@@ -981,7 +981,7 @@
   </div>
   <script src="record-photo-carousel.js?v=20261119-infrastructure-gallery-1"></script>
   <script src="infrastructure-reports.js?v=20261119-infrastructure-reports-2"></script>
-  <script src="infrastructure-technician.js?v=20261119-infrastructure-technician-1"></script>
+  <script src="infrastructure-technician.js?v=20261119-infrastructure-technician-2"></script>
 
   <div class="ticket-modal-backdrop" id="supervisorTicketModal" hidden>
     <section class="ticket-modal" role="dialog" aria-modal="true" aria-labelledby="supervisorTicketModalTitle">
@@ -1006,7 +1006,7 @@
   </div>
   <script src="mobile-back-navigation.js?v=20261118-back-session-1"></script>
   <script src="admin-store.js?v=20261029-performance-stage-2"></script>
-  <script src="supabase-data.js?v=20261119-infrastructure-visits-1"></script>
+  <script src="supabase-data.js?v=20261119-infrastructure-visits-2"></script>
   <script src="pdf-report.js?v=20261107-pdf-export-fix-1"></script>
   <script src="inspection-reports.js?v=20261107-pdf-export-fix-1"></script>
   <script src="EQU/matrix-catalog.js"></script>
@@ -5115,8 +5115,11 @@
           : supervisorTicketBrandId ? "equipment"
             : supervisorTicketSiteId ? "brands"
               : ticketContent?.querySelector("#supervisorTicketSiteSearch") ? "sites" : "chooser";
+        const infrastructureNavigationState = technicianMode
+          ? window.SmartFitInfrastructureTechnician?.captureNavigationState?.() || null : null;
         const hasModuleChoiceFlow = (supervisorMode && maintenanceFromActivityChoice) || (technicianMode && technicianFromActivityChoice);
         const maintenancePhase = !hasModuleChoiceFlow ? ""
+          : infrastructureNavigationState ? "infrastructure"
           : currentMachine ? "machine"
             : $('siteGrid').classList.contains('machine-grid') ? "equipment"
               : $('siteGrid').classList.contains('brand-grid') ? "brands"
@@ -5167,6 +5170,7 @@
           maintenanceFromActivityChoice,
           technicianFromActivityChoice,
           maintenancePhase,
+          infrastructureNavigationState,
           commonFailuresState: commonHost ? window.SmartFitCommonFailuresEmbed?.capture(commonHost) || null : null
         };
       },
@@ -5271,8 +5275,12 @@
           if (currentSite && technicianMode && state.technicianFromActivityChoice) {
             technicianFromActivityChoice = true;
             if (state.maintenancePhase === "choice") {
+              window.SmartFitInfrastructureTechnician?.clearNavigationState?.();
               renderSiteActivityChoice();
+            } else if (state.maintenancePhase === "infrastructure" && state.infrastructureNavigationState) {
+              await window.SmartFitInfrastructureTechnician?.restoreNavigationState?.(state.infrastructureNavigationState);
             } else {
+              window.SmartFitInfrastructureTechnician?.clearNavigationState?.();
               renderSiteBrands(currentSite);
               technicianFromActivityChoice = true;
               const brandId = state.brandId || "";

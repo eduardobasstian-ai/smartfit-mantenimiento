@@ -820,7 +820,7 @@
     if (!auth()?.access_token) throw new Error("Inicia sesión para consultar el catálogo de infraestructura.");
     const [sectors, events] = await Promise.all([
       queryRows("infrastructure_sectors?select=id,sector_number,name,active,created_at,updated_at&active=eq.true&order=sector_number.asc"),
-      queryRows("infrastructure_events?select=id,sector_id,name,sort_order,active,created_at,updated_at&active=eq.true&order=sector_id.asc,sort_order.asc,name.asc")
+      queryRows("infrastructure_events?select=id,sector_id,name,sort_order,active,created_by,created_at,updated_at&active=eq.true&order=sector_id.asc,sort_order.asc,name.asc")
     ]);
     const eventsBySector = new Map();
     events.forEach(event => {
@@ -897,8 +897,10 @@
           const index = nextEvent++;
           const entry = entries[index];
           const eventId = global.crypto.randomUUID();
-          const photos = await Promise.all(entry.photos.map((photo, photoIndex) => uploadInfrastructurePhoto(siteUuid, visitId, eventId, photoIndex, photo)));
-          uploadedPaths.push(...photos.map(photo => photo.path));
+          const photos = await Promise.all(entry.photos.map((photo, photoIndex) => uploadInfrastructurePhoto(siteUuid, visitId, eventId, photoIndex, photo).then(uploaded => {
+            uploadedPaths.push(uploaded.path);
+            return uploaded;
+          })));
           savedEvents[index] = { id:eventId, catalog_event_id:entry.eventId, name:entry.name, status:entry.status, observations:entry.observations || null, photos };
         }
       }));
@@ -980,14 +982,15 @@
       if (seen.has(normalized)) throw new Error("No repitas el mismo evento dentro de un sector.");
       seen.add(normalized);
       const row = {
-        sector_id:sectorId, name, sort_order:index + 1,
-        active:true, updated_at:new Date().toISOString()
+        id:String(entry.id || global.crypto?.randomUUID?.() || ""),
+        sector_id:sectorId, name, sort_order:Number(entry.sortOrder) || index + 1,
+        active:true, created_by:String(entry.createdBy || actor.authId || auth()?.user?.id || ""),
+        updated_at:new Date().toISOString()
       };
-      if (entry.id) row.id = String(entry.id);
-      else row.created_by = actor.authId || auth()?.user?.id;
+      if (!row.id || !row.created_by) throw new Error("No se pudo identificar al administrador para guardar el evento.");
       return row;
     });
-    const saved = await postRows("infrastructure_events", rows, "id", "id,sector_id,name,sort_order,active,created_at,updated_at");
+    const saved = await postRows("infrastructure_events", rows, "id", "id,sector_id,name,sort_order,active,created_by,created_at,updated_at");
     if (saved.length !== rows.length) throw new Error("Supabase no confirmó todos los eventos.");
     announceInfrastructureCatalogChange();
     return saved;

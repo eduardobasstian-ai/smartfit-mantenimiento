@@ -1360,7 +1360,7 @@
   <script src="infrastructure-reports.js?v=20261119-infrastructure-reports-2"></script>
   <script src="mobile-back-navigation.js?v=20261029-mobile-back-1"></script>
   <script src="admin-store.js?v=20261029-performance-stage-2"></script>
-  <script src="supabase-data.js?v=20261119-infrastructure-visits-1"></script>
+  <script src="supabase-data.js?v=20261119-infrastructure-visits-2"></script>
   <script src="pdf-report.js?v=20261107-pdf-export-fix-1"></script>
   <script src="inspection-reports.js?v=20261107-pdf-export-fix-1"></script>
   <script src="EQU/matrix-catalog.js"></script>
@@ -2807,7 +2807,7 @@
 
     function renderInfrastructureEventDrafts(events = []) {
       $("infrastructureEventDraftList").innerHTML = events.map((item, index) => `
-        <div class="infrastructure-event-draft-row" data-event-id="${escapeHtml(item.id || "")}">
+        <div class="infrastructure-event-draft-row" data-event-id="${escapeHtml(item.id || "")}" data-event-created-by="${escapeHtml(item.created_by || item.createdBy || "")}">
           <span class="infrastructure-event-number" aria-label="Evento ${index + 1}">${String(index + 1).padStart(2, "0")}</span>
           <div class="form-field"><label>Evento ${index + 1}</label><input class="form-control" name="eventName" type="text" maxlength="180" value="${escapeHtml(item.name || "")}" placeholder="Ej.: Limpieza de sifones del lavamanos" required></div>
           <button class="infrastructure-remove-event" type="button" data-remove-infrastructure-event aria-label="Eliminar evento ${index + 1}" title="Quitar evento">×</button>
@@ -2855,7 +2855,7 @@
       if (duplicate) { showInfrastructureModalError("Ya existe un sector con ese nombre."); return; }
       const draftRows = [...$("infrastructureEventDraftList").querySelectorAll(".infrastructure-event-draft-row")];
       const eventEntries = draftRows.map(row => ({
-        id:row.dataset.eventId || "", name:row.querySelector('[name="eventName"]').value.trim(), sectorId
+        id:row.dataset.eventId || "", createdBy:row.dataset.eventCreatedBy || "", name:row.querySelector('[name="eventName"]').value.trim(), sectorId
       }));
       const normalizedNames = eventEntries.map(item => normalizeInfrastructureName(item.name));
       if (new Set(normalizedNames).size !== normalizedNames.length) { showInfrastructureModalError("No repitas el mismo evento dentro del sector."); return; }
@@ -2876,7 +2876,7 @@
         const savedByName = new Map(savedEvents.map(saved => [normalizeInfrastructureName(saved.name), saved]));
         draftRows.forEach(row => {
           const saved = savedByName.get(normalizeInfrastructureName(row.querySelector('[name="eventName"]').value));
-          if (saved) row.dataset.eventId = saved.id;
+          if (saved) { row.dataset.eventId = saved.id; row.dataset.eventCreatedBy = saved.created_by || ""; }
         });
         if (removedIds.length) await SmartFitSupabaseData.deleteInfrastructureEvents(removedIds);
         await loadInfrastructureCatalog(true);
@@ -3173,7 +3173,7 @@
     $("infrastructureSectorSearch").addEventListener("input", renderInfrastructureCatalog);
     $("addInfrastructureEventRow").addEventListener("click", () => {
       const rows = [...$("infrastructureEventDraftList").querySelectorAll(".infrastructure-event-draft-row")];
-      const drafts = rows.map(row => ({ id:row.dataset.eventId || "", name:row.querySelector('[name="eventName"]').value }));
+      const drafts = rows.map(row => ({ id:row.dataset.eventId || "", created_by:row.dataset.eventCreatedBy || "", name:row.querySelector('[name="eventName"]').value }));
       drafts.push({ id:"", name:"" });
       renderInfrastructureEventDrafts(drafts);
       const input = $("infrastructureEventDraftList").lastElementChild?.querySelector('[name="eventName"]');
@@ -3185,7 +3185,7 @@
       if (!remove) return;
       const row = remove.closest(".infrastructure-event-draft-row");
       if (row) row.remove();
-      const remaining = [...$("infrastructureEventDraftList").querySelectorAll(".infrastructure-event-draft-row")].map(item => ({ id:item.dataset.eventId || "", name:item.querySelector('[name="eventName"]').value }));
+      const remaining = [...$("infrastructureEventDraftList").querySelectorAll(".infrastructure-event-draft-row")].map(item => ({ id:item.dataset.eventId || "", created_by:item.dataset.eventCreatedBy || "", name:item.querySelector('[name="eventName"]').value }));
       renderInfrastructureEventDrafts(remaining);
     });
     $("closeInfrastructureSectorModal").addEventListener("click", closeInfrastructureSectorModal);
