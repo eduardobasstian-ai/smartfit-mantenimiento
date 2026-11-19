@@ -21,39 +21,14 @@
     .infra-report-actions button:disabled{opacity:.48;cursor:not-allowed}
     .infra-report-table-wrap{width:100%;min-width:0;max-width:100%;overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch}
     .infra-report-table-wrap[hidden]{display:none!important}
-    .infra-report-table{width:100%;min-width:720px;border-collapse:collapse;table-layout:auto}
+    .infra-report-table{width:100%;min-width:0;border-collapse:collapse;table-layout:auto}
     .infra-report-table th,.infra-report-table td{padding:11px 10px;border-bottom:1px solid #30323c;text-align:left;vertical-align:middle}
-    .infra-report-table th{color:#858895;font-size:10px;font-weight:800;letter-spacing:.55px;text-transform:uppercase;white-space:nowrap}
-    .infra-report-table td{color:var(--text,#e7e7eb);font-size:13px}
+    .infra-report-table th{color:#858895;font-size:10px;font-weight:800;letter-spacing:.55px;text-transform:uppercase;overflow-wrap:anywhere}
+    .infra-report-table td{color:var(--text,#e7e7eb);font-size:13px;overflow-wrap:anywhere}
     .infra-report-table td:first-child{width:34px}
-    .infra-report-table .infra-report-group td{padding:9px 10px;background:#20222a;color:var(--muted,#aeb2bf);font-size:11px;font-weight:750}
-    .infra-report-group label{display:flex;align-items:center;gap:9px;cursor:pointer}
-    .infra-report-sector-code{color:var(--yellow,#ffb51b);font-weight:850}
-    .infra-report-event-name{font-weight:750}
-    .infra-report-detail{display:block;max-width:280px;color:var(--muted,#aeb2bf);font-size:11px;line-height:1.45;overflow-wrap:anywhere}
-    .infra-report-status{display:inline-flex;padding:5px 8px;border-radius:20px;background:#30333d;color:var(--text,#f5f5f7);font-size:10px;font-weight:800;white-space:nowrap}
-    .infra-report-status[data-status="Preventivo"]{background:#3b321d;color:#f7d98a}
-    .infra-report-status[data-status="Correctivo"]{background:#3a2025;color:#ffb5b9}
-    .infra-report-status[data-status="Sin observación"]{background:#153b2d;color:#a7f3d0}
     .infra-report-checked{width:17px;height:17px;accent-color:var(--yellow,#ffb51b)}
-    .infra-report-photos{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
-    .infra-report-photos button{border:0;background:none;padding:0;cursor:zoom-in}
-    .infra-report-photos img{display:block;width:44px;height:44px;border-radius:7px;object-fit:cover}
-    .infra-report-load-photos{min-height:30px!important;padding:0 9px!important;font-size:10px!important}
     .infra-report-empty{padding:26px 12px;color:var(--muted,#aeb2bf);text-align:center;font-size:13px}
     .infra-report-pagination{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:12px}
-    .infra-report-viewer{position:fixed;inset:0;z-index:10000;display:grid;place-items:center;background:#000d}
-    .infra-report-viewer[hidden]{display:none}
-    .infra-report-viewer-frame{position:relative;display:block;width:min(94vw,1100px);height:min(92dvh,850px);background:#111;border-radius:12px}
-    .infra-report-viewer .infra-report-close,.infra-report-viewer .infra-report-download{position:fixed;z-index:10002;right:max(10px,env(safe-area-inset-right));width:38px;height:38px;display:grid;place-items:center;padding:0;border:1px solid #d1d3d8;border-radius:50%;background:#fff;color:#17191f;box-shadow:0 2px 12px #0008;cursor:pointer}
-    .infra-report-viewer .infra-report-close{top:max(10px,env(safe-area-inset-top));font-size:23px;line-height:1}
-    .infra-report-viewer .infra-report-download{top:calc(max(10px,env(safe-area-inset-top)) + 46px)}
-    .infra-report-viewer .infra-report-close:hover,.infra-report-viewer .infra-report-download:hover{border-color:var(--yellow,#ffb51b);color:#8a5a00}
-    .infra-report-viewer .record-photo-carousel-viewport{position:absolute;inset:0;width:100%;height:100%;overflow:hidden;touch-action:none}
-    .infra-report-viewer .record-photo-carousel-track{display:flex;width:100%;height:100%}
-    .infra-report-viewer .record-photo-carousel-slide{flex:0 0 100%;display:grid;place-items:center}
-    .infra-report-viewer .record-photo-carousel-slide img{display:block;max-width:none;max-height:none;object-fit:contain}
-    .infra-report-viewer-frame.has-record-photo-carousel{width:auto;height:auto;max-width:96vw;max-height:94dvh}
     @media(max-width:600px){.infra-report-toolbar{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.infra-report-summary{align-items:stretch}.infra-report-actions{width:100%}.infra-report-actions button{flex:1}.infra-report-pagination{flex-wrap:wrap}}
   `;
 
@@ -73,28 +48,25 @@
     if (!host || !global.SmartFitSupabaseData) throw new Error("No está disponible el panel de informes de infraestructura.");
     if (host.parentNode) { const fresh = host.cloneNode(false); host.parentNode.replaceChild(fresh, host); host = fresh; }
     addStyles();
-    const pageSizeValue = pageSize || (technicianOnly ? 2 : 8);
-    const selected = new Set(), photoCache = new Map();
+    const pageSizeValue = technicianOnly ? 3 : (pageSize || 8);
+    const selected = new Set();
     let visits = [], page = 1;
     const isAdmin = Array.isArray(adminSites);
-    const assignments = new Map((adminSites || []).map(site => [String(site.id), site.coordinator || "Sin asignar"]));
+    const assignments = new Map((adminSites || global.AdminStore?.listSites() || []).map(site => [String(site.id), site.coordinator || "Sin asignar"]));
     const coordinator = visit => assignments.get(String(visit.site?.legacy_id)) || "Sin asignar";
     const filter = (key, label, all) => `<label class="infra-report-filter">${label}<select data-filter="${key}"><option value="*">${all}</option></select></label>`;
-    const viewerId = `infraReportViewer-${Math.random().toString(36).slice(2, 8)}`;
     host.innerHTML = `<section class="infra-report" aria-label="${esc(heading)}">
       <div class="infra-report-toolbar" aria-label="Filtros de informes de infraestructura">
         ${isAdmin ? `<label class="infra-report-filter">Fecha<input data-filter="date" type="date"></label>${filter("site","Sede","Todas")}${filter("coordinator","Coordinador","Todos")}${filter("tech","Técnico","Todos")}` : filter("month","Mes","Todos los meses") + filter("year","Año","Todos los años")}
       </div>
       <div class="infra-report-summary"><span class="infra-report-count" data-infra-report-count>Cargando informes…</span><div class="infra-report-actions"><button type="button" data-infra-export="full" disabled>PDF Full</button><button type="button" data-infra-export="lite" disabled>PDF Lite</button><button type="button" data-infra-clear>Limpiar filtros</button></div></div>
       <div class="infra-report-table-wrap" data-infra-table hidden>
-        <table class="infra-report-table" aria-label="Eventos registrados de infraestructura"><thead><tr>
-          <th scope="col" aria-label="Seleccionar informe diario">✓</th><th scope="col">Fecha</th><th scope="col">Sede</th><th scope="col">Evento / Sector</th>
-          <th scope="col">Estado</th><th scope="col">Técnico</th>${isAdmin ? '<th scope="col">Coordinador</th>' : ''}<th scope="col">Detalle</th>
+        <table class="infra-report-table" aria-label="Informes diarios de infraestructura"><thead><tr>
+          <th scope="col" aria-label="Seleccionar informe diario">✓</th><th scope="col">Fecha</th>${technicianOnly ? "" : '<th scope="col">Sede</th><th scope="col">Técnico</th><th scope="col">Coordinador</th>'}
         </tr></thead><tbody data-infra-rows></tbody></table>
       </div>
       <div class="infra-report-empty" data-infra-empty hidden>No hay informes que coincidan con los filtros.</div>
       <div class="infra-report-pagination" data-infra-pagination hidden><span data-infra-page-label></span><div class="infra-report-actions"><button type="button" data-infra-prev>← Anteriores</button><button type="button" data-infra-next>Siguientes →</button></div></div>
-      <div class="infra-report-viewer" id="${viewerId}" hidden><div class="infra-report-viewer-frame"><button class="infra-report-close" type="button" aria-label="Cerrar fotografía" title="Cerrar fotografía">×</button><button class="infra-report-download record-photo-download" type="button" aria-label="Descargar fotografía" title="Descargar fotografía" hidden><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v11m0 0 4-4m-4 4-4-4M5 17v3h14v-3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button><img alt="" hidden><div class="record-photo-carousel-viewport" hidden><div class="record-photo-carousel-track"></div></div></div></div>
     </section>`;
 
     const $ = selector => host.querySelector(selector);
@@ -144,20 +116,11 @@
       const visible = groups.slice((page-1)*pageSizeValue, page*pageSizeValue);
       $('[data-infra-report-count]').textContent = `${groups.length} informes · ${selected.size} seleccionados`;
       $('[data-infra-rows]').innerHTML = visible.map(([key,group]) => {
-        return flatten(group).map((row, index) => {
-          const visit = row.visit;
-          const day = esc(dateText(visit.visit_date)), site = esc(visit.site?.name || "Sede");
-          const selectionLabel = `Seleccionar informe completo del ${day} · ${site}`;
-          const checkbox = index === 0 ? `<input type="checkbox" class="infra-report-checked" data-infra-report-key="${esc(key)}" aria-label="${selectionLabel}" title="${selectionLabel}" ${selected.has(key) ? "checked" : ""}>` : "";
-          const cached = photoCache.get(row.key) || [];
-          const photos = cached.map(p => `<button type="button" data-enlarge-image="${esc(p.url)}" data-image-alt="${esc(row.name)}"><img src="${esc(p.url)}" alt="${esc(row.name)}"></button>`).join("");
-          const load = row.photos?.length && !cached.length ? `<button type="button" data-infra-load-photos="${esc(row.key)}">Ver fotos (${row.photos.length})</button>` : "";
-          return `<tr><td>${checkbox}</td><td>${day}</td><td>${site}</td>
-            <td><strong>${esc(row.name)}</strong><span class="infra-report-detail">${esc([visit.sector_number, visit.sector_name].filter(x => x != null && x !== "").join(" · "))}</span></td>
-            <td><span class="infra-report-status" data-status="${esc(row.status)}">${esc(row.status)}</span></td>
-            <td>${esc(visit.technician_name || "—")}</td>${isAdmin ? `<td>${esc(coordinator(visit))}</td>` : ""}
-            <td><span class="infra-report-detail">${esc(row.observations || "Sin observaciones")}</span><div class="infra-report-photos">${photos}${load}</div></td></tr>`;
-        }).join("");
+        const visit = group[0];
+        const day = esc(dateText(visit.visit_date)), site = esc(visit.site?.name || "Sede");
+        const names = [...new Set(group.map(row => row.technician_name).filter(Boolean))].join(", ");
+        return `<tr><td><input type="checkbox" class="infra-report-checked" data-infra-report-key="${esc(key)}" aria-label="Seleccionar informe completo del ${day} · ${site}" ${selected.has(key) ? "checked" : ""}></td>
+          <td>${day}</td>${technicianOnly ? "" : `<td>${site}</td><td>${esc(names || "—")}</td><td>${esc(coordinator(visit))}</td>`}</tr>`;
       }).join("");
       $('[data-infra-table]').hidden = groups.length === 0;
       $('[data-infra-empty]').hidden = groups.length > 0;
@@ -196,14 +159,14 @@
             const pictures = (row.photos || []).map((p,i) =>
               `<figure>${urls[p.path] ? `<img src="${esc(urls[p.path])}" alt="Fotografía ${i+1}">` : "Fotografía no disponible"}<figcaption>Fotografía ${i+1}</figcaption></figure>`).join("");
             return `<article>${header("INFORME DE INFRAESTRUCTURA",`Registro ${index+1} de ${rows.length}`)}
-              <h2>Datos del evento</h2><section class="fields">${field("Fecha",dateText(v.visit_date))}${field("Estado",row.status)}${field("Sede",v.site?.name)}${field("Técnico",v.technician_name)}${field("Sector",sector(v))}${isAdmin ? field("Coordinador",coordinator(v)) : ""}</section>
+              <h2>Datos del evento</h2><section class="fields">${field("Fecha",dateText(v.visit_date))}${field("Estado",row.status)}${field("Sede",v.site?.name)}${field("Técnico",v.technician_name)}${field("Sector",sector(v))}${field("Coordinador",coordinator(v))}</section>
               <h2>Evento revisado</h2><p>${esc(row.name)}</p><h2>Observaciones</h2><p>${esc(row.observations || "Sin observaciones")}</p>
               <h2>Registro fotográfico</h2>${pictures ? `<section class="pictures">${pictures}</section>` : "<p>Sin fotografías adjuntas.</p>"}${footer}</article>`;
           }).join("");
         } else {
           const cells = rows.map(row => {
             const v = row.visit;
-            return `<tr><td>${esc(dateText(v.visit_date))}</td><td>${esc(v.site?.name)}${isAdmin ? `<br>Coord.: ${esc(coordinator(v))}` : ""}</td><td>${esc(sector(v))}</td><td>${esc(v.technician_name)}</td><td>${esc(row.name)}</td><td>${esc(row.status)}</td><td>${esc(row.observations || "Sin observaciones")}</td></tr>`;
+            return `<tr><td>${esc(dateText(v.visit_date))}</td><td>${esc(v.site?.name)}<br>Coord.: ${esc(coordinator(v))}</td><td>${esc(sector(v))}</td><td>${esc(v.technician_name)}</td><td>${esc(row.name)}</td><td>${esc(row.status)}</td><td>${esc(row.observations || "Sin observaciones")}</td></tr>`;
           }).join("");
           body = header("INFORME LITE DE INFRAESTRUCTURA", `${selected.size} informes · ${rows.length} eventos`) +
             `<table><colgroup>${[10,14,13,13,15,12,23].map(width=>`<col style="width:${width}%">`).join("")}</colgroup><thead><tr><th>Fecha</th><th>Sede</th><th>Sector</th><th>Técnico</th><th>Evento</th><th>Estado</th><th>Observaciones</th></tr></thead><tbody>${cells}</tbody></table>` + footer;
@@ -216,19 +179,6 @@
       } catch (error) { popup?.close(); global.alert(error.message || "No se pudo generar el informe."); }
     }
 
-    let carousel = null;
-    const overlay = $(`#${viewerId}`), frame = overlay.querySelector(".infra-report-viewer-frame");
-    frame.id = `${viewerId}-frame`;
-    overlay.querySelector("img").id = `${viewerId}-image`;
-    overlay.querySelector(".infra-report-close").id = `${viewerId}-close`;
-    overlay.querySelector(".infra-report-download").id = `${viewerId}-download`;
-    overlay.querySelector(".record-photo-carousel-viewport").id = `${viewerId}-viewport`;
-    overlay.querySelector(".record-photo-carousel-track").id = `${viewerId}-track`;
-    try {
-      carousel = global.SmartFitRecordPhotoCarousel?.create({ root:document, overlayId:viewerId, frameId:frame.id, imageId:`${viewerId}-image`, downloadButtonId:`${viewerId}-download`, viewportId:`${viewerId}-viewport`, trackId:`${viewerId}-track` });
-    } catch (error) { console.warn("No se pudo inicializar el visor de fotografías de infraestructura.", error); }
-    overlay.querySelector(".infra-report-close").addEventListener("click", () => { carousel?.close(); overlay.hidden = true; });
-
     host.addEventListener("click", async event => {
       const toggle = event.target.closest("[data-infra-report-key]");
       if (toggle) {
@@ -236,19 +186,6 @@
         else selected.delete(toggle.dataset.infraReportKey);
         render(); return;
       }
-      const loadPhotos = event.target.closest("[data-infra-load-photos]");
-      if (loadPhotos) {
-        const row = allRows().find(item => item.key === loadPhotos.dataset.infraLoadPhotos); if (!row) return;
-        try {
-          const photoPaths = (row.photos || []).map(photo => photo.path).filter(Boolean);
-          const signed = await global.SmartFitSupabaseData.getInfrastructurePhotoUrls(photoPaths);
-          photoCache.set(row.key, (row.photos || []).filter(photo => signed[photo.path]).map(photo => ({ path:photo.path, url:signed[photo.path] })));
-          render();
-        } catch (error) { global.alert(error.message || "No se pudieron abrir las fotografías."); }
-        return;
-      }
-      const photo = event.target.closest("[data-enlarge-image]");
-      if (photo && carousel) { event.stopPropagation(); carousel.openFromTrigger(photo, photo.dataset.enlargeImage, photo.dataset.imageAlt); return; }
       const exportButton = event.target.closest("[data-infra-export]");
       if (exportButton) { await exportPdf(exportButton.dataset.infraExport); return; }
       if (event.target.closest("[data-infra-clear]")) {
@@ -263,6 +200,7 @@
       if (event.target.matches("[data-filter]")) { selected.clear(); page = 1; render(); }
     });
     async function refresh() {
+      if (technicianOnly && !String(siteLegacyId ?? "").trim()) throw new Error("Selecciona una sede para ver sus informes.");
       const rows = await global.SmartFitSupabaseData.listInfrastructureVisits({siteLegacyId, technicianOnly});
       visits = Array.isArray(rows) ? rows : [];
       selected.clear(); page = 1; updateFilters(); render(); return visits;

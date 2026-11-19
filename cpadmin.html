@@ -1042,6 +1042,7 @@
               <tbody id="maintenanceHistoryBody"></tbody>
             </table>
           </div>
+          <div id="historyPager" class="table-tools" hidden><button type="button" class="secondary-button" id="historyPrev">← Anteriores</button><span class="subtext" id="historyPageLabel" aria-live="polite"></span><button type="button" class="secondary-button" id="historyNext">Siguientes →</button></div>
         </section>
         <section id="inspectionHistoryBlank" class="panel-card" aria-labelledby="inspectionHistoryPageTitle" style="padding:24px" hidden>
           <div class="page-heading" style="margin:0;align-items:center"><div><h1 id="inspectionHistoryPageTitle" style="font-size:21px">Historial Revisión</h1><p class="page-description">Inspecciones registradas en todas las sedes.</p></div><button class="secondary-button" id="backToMaintenanceFromInspection" type="button">← Volver</button></div>
@@ -1357,7 +1358,7 @@
     </div>
   </div>
   <script src="record-photo-carousel.js?v=20261119-infrastructure-gallery-1"></script>
-  <script src="infrastructure-reports.js?v=20261119-infrastructure-reports-6"></script>
+  <script src="infrastructure-reports.js?v=20261119-infrastructure-reports-7"></script>
   <script src="mobile-back-navigation.js?v=20261029-mobile-back-1"></script>
   <script src="admin-store.js?v=20261029-performance-stage-2"></script>
   <script src="supabase-data.js?v=20261119-infrastructure-visits-2"></script>
@@ -1420,6 +1421,8 @@
     let infrastructureCatalogLoaded = false;
     let ticketAssignmentSelectedId = "";
     let maintenanceHistoryFilteredEvents = [];
+    let historyPageNumber = 1;
+    const historyPageSize = 5;
     let mileageHistoryFilteredEntries = [];
     let inspectionHistoryRecords = [];
     let adminFilteredInspectionRecords = [];
@@ -1799,7 +1802,14 @@
       );
       maintenanceHistoryFilteredEvents = filtered;
       $("historyResultCount").textContent = `${filtered.length} ${filtered.length === 1 ? "evento" : "eventos"}`;
-      $("maintenanceHistoryBody").innerHTML = filtered.map(event => {
+      const pages = Math.max(1, Math.ceil(filtered.length / historyPageSize));
+      historyPageNumber = Math.min(pages, Math.max(1, historyPageNumber));
+      $("historyPager").hidden = pages === 1;
+      $("historyPageLabel").textContent = "Página " + historyPageNumber + " de " + pages;
+      $("historyPrev").disabled = historyPageNumber === 1;
+      $("historyNext").disabled = historyPageNumber === pages;
+      const start = (historyPageNumber - 1) * historyPageSize;
+      $("maintenanceHistoryBody").innerHTML = filtered.slice(start, start + historyPageSize).map(event => {
         const detail = [event.work, event.replacement && `Repuesto: ${event.replacement}`, event.observations && `Observaciones: ${event.observations}`].filter(Boolean).join(" · ");
         const ticketLabel = event.tickets.length ? `✓ ${event.tickets.length > 1 ? event.tickets.length : event.tickets[0].ticketNumber || "Ticket"}` : "—";
         const activeFixed = event.activeFixed === "" || event.activeFixed === null || event.activeFixed === undefined ? "—" : event.activeFixed;
@@ -3196,6 +3206,7 @@
     $("appearanceDark").addEventListener("click", () => setAdminAppearance("dark"));
     $("appearanceLight").addEventListener("click", () => setAdminAppearance("light"));
     $("openMaintenanceHistory").addEventListener("click", () => {
+      historyPageNumber = 1;
       $("maintenanceHistoryChooser").hidden = true;
       $("mileageHistoryBlank").hidden = true;
       $("inspectionHistoryBlank").hidden = true;
@@ -3209,7 +3220,7 @@
       $("mileageHistoryBlank").hidden = true;
       $("inspectionHistoryBlank").hidden = true;
       $("infrastructureReportsBlank").hidden = false;
-      window.SmartFitInfrastructureReports.mount({ host:$("adminInfrastructureReportsHost"), adminSites:AdminStore.listSites(), heading:"Visitas e informes de infraestructura" });
+      window.SmartFitInfrastructureReports.mount({ host:$("adminInfrastructureReportsHost"), adminSites:AdminStore.listSites(), pageSize:5, heading:"Visitas e informes de infraestructura" });
     });
     $("backToHistoryChooserFromInfrastructure").addEventListener("click", () => {
       $("infrastructureReportsBlank").hidden = true;
@@ -3260,22 +3271,28 @@
       const button = event.target.closest("[data-delete-inspection]");
       if (button && !button.disabled) void deleteInspectionRecord(button.dataset.deleteInspection);
     });
-    ["historyDateFrom", "historyDateTo"].forEach(id => $(id).addEventListener("input", renderMaintenanceHistory));
-    $("historyTechnician").addEventListener("change", renderMaintenanceHistory);
+    function resetHistoryPage() {
+      historyPageNumber = 1;
+      renderMaintenanceHistory();
+    }
+    $("historyPrev").addEventListener("click", () => { historyPageNumber--; renderMaintenanceHistory(); });
+    $("historyNext").addEventListener("click", () => { historyPageNumber++; renderMaintenanceHistory(); });
+    ["historyDateFrom", "historyDateTo"].forEach(id => $(id).addEventListener("input", resetHistoryPage));
+    $("historyTechnician").addEventListener("change", resetHistoryPage);
     $("historySupervisor").addEventListener("change", () => {
       $("historyTechnician").value = "*";
       $("historySite").value = "*";
-      renderMaintenanceHistory();
+      resetHistoryPage();
     });
     $("historySite").addEventListener("change", () => {
       $("historyTechnician").value = "*";
-      renderMaintenanceHistory();
+      resetHistoryPage();
     });
-    $("historyStatus").addEventListener("change", renderMaintenanceHistory);
+    $("historyStatus").addEventListener("change", resetHistoryPage);
     $("clearHistoryFilters").addEventListener("click", () => {
       ["historyDateFrom", "historyDateTo"].forEach(id => { $(id).value = ""; });
       ["historyTechnician", "historySupervisor", "historySite", "historyStatus"].forEach(id => { $(id).value = "*"; });
-      renderMaintenanceHistory();
+      resetHistoryPage();
     });
     $("exportHistoryPdf").addEventListener("click", exportMaintenanceHistoryPdf);
     $("exportHistoryLitePdf").addEventListener("click", exportMaintenanceHistoryLitePdf);
