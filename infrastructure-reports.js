@@ -166,7 +166,7 @@
         } else {
           const cells = rows.map(row => {
             const v = row.visit;
-            return `<tr><td>${esc(dateText(v.visit_date))}</td><td>${esc(v.site?.name)}<br>Coord.: ${esc(coordinator(v))}</td><td>${esc(sector(v))}</td><td>${esc(v.technician_name)}</td><td>${esc(row.name)}</td><td>${esc(row.status)}</td><td>${esc(row.observations || "Sin observaciones")}</td></tr>`;
+            return `<tr><td>${esc(dateText(v.visit_date))}</td><td>${esc(v.site?.name)}</td><td>${esc(sector(v))}</td><td>${esc(v.technician_name)}</td><td>${esc(row.name)}</td><td>${esc(row.status)}</td><td>${esc(row.observations || "Sin observaciones")}</td></tr>`;
           }).join("");
           body = header("INFORME LITE DE INFRAESTRUCTURA", `${selected.size} informes · ${rows.length} eventos`) +
             `<table><colgroup>${[10,14,13,13,15,12,23].map(width=>`<col style="width:${width}%">`).join("")}</colgroup><thead><tr><th>Fecha</th><th>Sede</th><th>Sector</th><th>Técnico</th><th>Evento</th><th>Estado</th><th>Observaciones</th></tr></thead><tbody>${cells}</tbody></table>` + footer;
