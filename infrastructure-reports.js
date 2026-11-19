@@ -6,12 +6,17 @@
     const date = new Date(`${String(value || "").slice(0, 10)}T12:00:00`);
     return Number.isNaN(date.getTime()) ? "—" : new Intl.DateTimeFormat("es-CL", { dateStyle:"short" }).format(date);
   };
-  const normalize = value => String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("es");
   const monthName = value => new Intl.DateTimeFormat("es-CL", { month:"long" }).format(new Date(2000, Number(value) - 1, 1));
 
   const styles = `
     .infra-report{width:100%;min-width:0;max-width:100%;overflow:hidden;color:var(--text,#f5f5f7)}
-    .infra-report-toolbar{display:grid;width:100%;min-width:0;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;margin:8px 0 14px}
+    .infra-report-toolbar{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,150px),1fr));gap:10px;margin:8px 0 14px}
+    .infra-report-list{display:grid;gap:8px;min-width:0}
+    .infra-daily{border:1px solid var(--border,#383b47);border-radius:9px;padding:12px;overflow-wrap:anywhere}
+    .infra-daily label{display:flex;align-items:center;gap:8px;font-weight:700;cursor:pointer}
+    .infra-daily small,.infra-daily summary{display:block;margin-top:6px;color:var(--muted,#aeb2bf)}
+    .infra-daily summary{cursor:pointer;text-decoration:underline}
+    .infra-daily li{margin:.6em 0}
     .infra-report-filter{display:grid;min-width:0;gap:6px;color:var(--muted,#aeb2bf);font-size:11px;font-weight:700}
     .infra-report-filter input,.infra-report-filter select{width:100%;min-width:0;min-height:38px;padding:0 10px;border:1px solid #383b47;border-radius:9px;background:#111319;color:var(--text,#f5f5f7);font:inherit;font-size:12px}
     .infra-report-summary{display:flex;min-width:0;width:100%;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 8px}
@@ -54,7 +59,6 @@
     .infra-report-viewer .record-photo-carousel-slide{flex:0 0 100%;display:grid;place-items:center}
     .infra-report-viewer .record-photo-carousel-slide img{display:block;max-width:none;max-height:none;object-fit:contain}
     .infra-report-viewer-frame.has-record-photo-carousel{width:auto;height:auto;max-width:96vw;max-height:94dvh}
-    @media(max-width:900px){.infra-report-toolbar{grid-template-columns:repeat(3,minmax(0,1fr))}}
     @media(max-width:600px){.infra-report-toolbar{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.infra-report-summary{align-items:stretch}.infra-report-actions{width:100%}.infra-report-actions button{flex:1}.infra-report-pagination{flex-wrap:wrap}}
   `;
 
@@ -70,90 +74,93 @@
     return visits.flatMap(visit => (Array.isArray(visit.events) ? visit.events : []).map((item, index) => ({ ...item, visit, index, key:`${visit.id}:${index}` })));
   }
 
-  function mount({ host, siteLegacyId="", technicianOnly=false, heading="Informes de infraestructura", pageSize=null } = {}) {
+  function mount({ host, siteLegacyId="", technicianOnly=false, adminSites=null, heading="Informes de infraestructura", pageSize=null } = {}) {
     if (!host || !global.SmartFitSupabaseData) throw new Error("No está disponible el panel de informes de infraestructura.");
     if (host.parentNode) { const fresh = host.cloneNode(false); host.parentNode.replaceChild(fresh, host); host = fresh; }
     addStyles();
     const pageSizeValue = pageSize || (technicianOnly ? 2 : 8);
     const selected = new Set(), photoCache = new Map();
     let visits = [], page = 1;
+    const isAdmin = Array.isArray(adminSites);
+    const assignments = new Map((adminSites || []).map(site => [String(site.id), site.coordinator || "Sin asignar"]));
+    const coordinator = visit => assignments.get(String(visit.site?.legacy_id)) || "Sin asignar";
+    const filter = (key, label, all) => `<label class="infra-report-filter">${label}<select data-filter="${key}"><option value="*">${all}</option></select></label>`;
     const viewerId = `infraReportViewer-${Math.random().toString(36).slice(2, 8)}`;
     host.innerHTML = `<section class="infra-report" aria-label="${esc(heading)}">
       <div class="infra-report-toolbar" aria-label="Filtros de informes de infraestructura">
-        <label class="infra-report-filter">Desde<input data-infra-from type="date" aria-label="Desde fecha"></label>
-        <label class="infra-report-filter">Hasta<input data-infra-to type="date" aria-label="Hasta fecha"></label>
-        <label class="infra-report-filter">Técnico<select data-infra-technician><option value="*">Todos</option></select></label>
-        <label class="infra-report-filter">Sede<select data-infra-site><option value="*">Todas</option></select></label>
-        <label class="infra-report-filter">Estado<select data-infra-status><option value="*">Todos</option><option>Preventivo</option><option>Correctivo</option><option>Sin observación</option></select></label>
-        <label class="infra-report-filter">Buscar<input data-infra-search type="search" placeholder="Sector o evento..." aria-label="Buscar sector o evento"></label>
-        <label class="infra-report-filter">Mes<select data-infra-month><option value="*">Todos los meses</option></select></label>
-        <label class="infra-report-filter">Año<select data-infra-year><option value="*">Todos los años</option></select></label>
+        ${isAdmin ? `<label class="infra-report-filter">Fecha<input data-filter="date" type="date"></label>${filter("site","Sede","Todas")}${filter("coordinator","Coordinador","Todos")}${filter("tech","Técnico","Todos")}` : filter("month","Mes","Todos los meses") + filter("year","Año","Todos los años")}
       </div>
       <div class="infra-report-summary"><span class="infra-report-count" data-infra-report-count>Cargando informes…</span><div class="infra-report-actions"><button type="button" data-infra-export="full" disabled>PDF Full</button><button type="button" data-infra-export="lite" disabled>PDF Lite</button><button type="button" data-infra-clear>Limpiar filtros</button></div></div>
-      <div class="infra-report-table-wrap" data-infra-table-wrap hidden><table class="infra-report-table"><thead><tr><th aria-label="Seleccionar"></th><th>Fecha</th><th>Sede</th><th>Sector</th><th>Evento</th><th>Estado</th><th>Técnico</th><th>Detalle</th><th>Fotografías</th></tr></thead><tbody data-infra-rows></tbody></table></div>
+      <div class="infra-report-list" data-infra-rows></div>
       <div class="infra-report-empty" data-infra-empty hidden>No hay informes que coincidan con los filtros.</div>
       <div class="infra-report-pagination" data-infra-pagination hidden><span data-infra-page-label></span><div class="infra-report-actions"><button type="button" data-infra-prev>← Anteriores</button><button type="button" data-infra-next>Siguientes →</button></div></div>
       <div class="infra-report-viewer" id="${viewerId}" hidden><div class="infra-report-viewer-frame"><button class="infra-report-close" type="button" aria-label="Cerrar fotografía" title="Cerrar fotografía">×</button><button class="infra-report-download record-photo-download" type="button" aria-label="Descargar fotografía" title="Descargar fotografía" hidden><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v11m0 0 4-4m-4 4-4-4M5 17v3h14v-3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button><img alt="" hidden><div class="record-photo-carousel-viewport" hidden><div class="record-photo-carousel-track"></div></div></div></div>
     </section>`;
 
     const $ = selector => host.querySelector(selector);
-    const month = $('[data-infra-month]'), year = $('[data-infra-year]'), technician = $('[data-infra-technician]'), site = $('[data-infra-site]'), status = $('[data-infra-status]');
-    const setOptions = (select, values, allLabel, formatter = value => value) => {
-      const current = select.value || "*";
-      select.innerHTML = `<option value="*">${allLabel}</option>${values.map(value => `<option value="${esc(value)}">${esc(formatter(value))}</option>`).join("")}`;
-      select.value = values.includes(current) ? current : "*";
-    };
-    const filteredVisits = () => {
-      const from = $('[data-infra-from]').value, to = $('[data-infra-to]').value;
-      const monthValue = month.value, yearValue = year.value, techValue = technician.value, siteValue = site.value, statusValue = status.value;
-      const query = normalize($('[data-infra-search]').value.trim());
-      return visits.filter(visit => {
-        const date = String(visit.visit_date || "").slice(0, 10);
-        if (from && date < from || to && date > to) return false;
-        if (monthValue !== "*" && date.slice(5, 7) !== monthValue) return false;
-        if (yearValue !== "*" && date.slice(0, 4) !== yearValue) return false;
-        if (techValue !== "*" && String(visit.technician_id) !== techValue) return false;
-        if (siteValue !== "*" && String(visit.site?.legacy_id ?? visit.site_id) !== siteValue) return false;
-        const events = Array.isArray(visit.events) ? visit.events : [];
-        const matchedEvents = events.filter(item => (!statusValue || statusValue === "*" || item.status === statusValue) && (!query || normalize([visit.sector_number, visit.sector_name, visit.technician_name, visit.site?.name, item.name, item.observations].join(" ")).includes(query)));
-        if (!matchedEvents.length) return false;
-        visit._filteredEvents = matchedEvents;
-        return true;
-      });
-    };
+    const value = key => $(`[data-filter="${key}"]`)?.value;
     const allRows = () => flatten(visits);
-    const selectedRows = () => { const byKey = new Map(allRows().map(row => [row.key, row])); return [...selected].map(key => byKey.get(key)).filter(Boolean); };
-
+    const reportKey = visit => JSON.stringify([visit.site_id || visit.site?.legacy_id, visit.visit_date]);
+    const selectedRows = () => allRows().filter(row => selected.has(reportKey(row.visit)));
+    function options(key, entries, label) {
+      const el = $(`[data-filter="${key}"]`);
+      if (!el) return;
+      const previous = el.value;
+      const choices = new Map(entries);
+      el.innerHTML = `<option value="*">${label}</option>` + [...choices].map(([id,name]) =>
+        `<option value="${esc(id)}">${esc(name)}</option>`).join("");
+      el.value = choices.has(previous) ? previous : "*";
+    }
+    function updateFilters() {
+      const dates = visits.map(v => String(v.visit_date));
+      options("month", [...new Set(dates.map(d => d.slice(5,7)).filter(Boolean))].sort().map(m => [m, monthName(m)]), "Todos los meses");
+      options("year", dates.map(d => d.slice(0,4)).sort().reverse().map(y => [y,y]), "Todos los años");
+      options("site", visits.map(v => [String(v.site_id), v.site?.name || "Sede"]), "Todas");
+      options("coordinator", visits.map(v => [coordinator(v), coordinator(v)]), "Todos");
+      options("tech", visits.map(v => [String(v.technician_id), v.technician_name || "Sin nombre"]), "Todos");
+    }
+    function dailyReports() {
+      const groups = new Map();
+      for (const visit of visits) {
+        const day = visit.visit_date || "";
+        if (isAdmin) {
+          if (value("date") && day !== value("date")) continue;
+          if (value("site") !== "*" && String(visit.site_id) !== value("site")) continue;
+          if (value("coordinator") !== "*" && coordinator(visit) !== value("coordinator")) continue;
+        } else if ((value("month") !== "*" && day.slice(5,7) !== value("month")) ||
+                   (value("year") !== "*" && day.slice(0,4) !== value("year"))) continue;
+        if (!visit.events?.length) continue;
+        const key = reportKey(visit);
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key).push(visit);
+      }
+      return [...groups].filter(([,group]) => !isAdmin || value("tech") === "*" ||
+        group.some(v => String(v.technician_id) === value("tech")));
+    }
     function render() {
-      const filtered = filteredVisits();
-      const months = [...new Set(visits.map(row => String(row.visit_date || "").slice(5, 7)).filter(value => /^\d{2}$/.test(value)))].sort((a,b) => Number(b)-Number(a));
-      const years = [...new Set(visits.map(row => String(row.visit_date || "").slice(0, 4)).filter(value => /^\d{4}$/.test(value)))].sort((a,b) => Number(b)-Number(a));
-      const techs = [...new Map(visits.map(row => [String(row.technician_id), { id:String(row.technician_id), name:row.technician_name }])).values()].sort((a,b) => a.name.localeCompare(b.name,"es"));
-      const sites = [...new Map(visits.map(row => [String(row.site?.legacy_id ?? row.site_id), { id:String(row.site?.legacy_id ?? row.site_id), name:row.site?.name || "Sede" }])).values()].sort((a,b) => a.name.localeCompare(b.name,"es"));
-      setOptions(month, months, "Todos los meses", monthName); setOptions(year, years, "Todos los años");
-      setOptions(technician, techs.map(row => row.id), "Todos", value => techs.find(row => row.id === value)?.name || value);
-      setOptions(site, sites.map(row => row.id), "Todas", value => sites.find(row => row.id === value)?.name || value);
-
-      const pageCount = Math.max(1, Math.ceil(filtered.length / pageSizeValue)); page = Math.min(page, pageCount);
-      const visible = filtered.slice((page - 1) * pageSizeValue, page * pageSizeValue);
-      const eventCount = visible.reduce((total, row) => total + row._filteredEvents.length, 0);
-      $('[data-infra-report-count]').textContent = `${filtered.length} ${filtered.length === 1 ? "visita" : "visitas"} · ${eventCount} eventos · ${selected.size} seleccionados`;
-      $('[data-infra-rows]').innerHTML = visible.map(visit => {
-        const events = visit._filteredEvents;
-        const allSelected = events.length > 0 && events.every(item => selected.has(`${visit.id}:${visit.events.indexOf(item)}`));
-        const group = `<tr class="infra-report-group"><td colspan="9"><label><input class="infra-report-checked" type="checkbox" data-infra-select-visit="${esc(visit.id)}" ${allSelected ? "checked" : ""} aria-label="Seleccionar todos los eventos de esta visita"><span><span class="infra-report-sector-code">Sector ${esc(String(visit.sector_number).padStart(2,"0"))}</span> · ${esc(visit.sector_name)} · ${esc(dateText(visit.visit_date))} · ${esc(visit.site?.name || "Sede")} · ${esc(visit.technician_name)}</span></label></td></tr>`;
-        return group + events.map(item => {
-          const eventIndex = visit.events.indexOf(item), key = `${visit.id}:${eventIndex}`, photos = Array.isArray(item.photos) ? item.photos : [], cached = photoCache.get(key) || [];
-          const photoContent = cached.map(photo => `<button type="button" data-enlarge-image="${esc(photo.url)}" data-image-alt="${esc(item.name)}"><img src="${esc(photo.url)}" alt="Fotografía de ${esc(item.name)}" loading="lazy"></button>`).join("");
-          const photoControl = photos.length && !cached.length ? `<button class="infra-report-load-photos" type="button" data-infra-load-photos="${esc(key)}">Ver fotos (${photos.length})</button>` : photoContent;
-          return `<tr><td><input class="infra-report-checked" type="checkbox" data-infra-select-event="${esc(key)}" ${selected.has(key) ? "checked" : ""} aria-label="Seleccionar evento ${esc(item.name)}"></td><td>${esc(dateText(visit.visit_date))}</td><td>${esc(visit.site?.name || "Sede")}</td><td><span class="infra-report-sector-code">${esc(String(visit.sector_number).padStart(2,"0"))}</span> · ${esc(visit.sector_name)}</td><td><span class="infra-report-event-name">${esc(item.name)}</span></td><td><span class="infra-report-status" data-status="${esc(item.status)}">${esc(item.status)}</span></td><td>${esc(visit.technician_name)}</td><td><span class="infra-report-detail">${esc(item.observations || "Sin observaciones")}</span></td><td><div class="infra-report-photos">${photoControl || (photos.length ? "" : "—")}</div></td></tr>`;
+      const groups = dailyReports();
+      const pages = Math.max(1, Math.ceil(groups.length / pageSizeValue));
+      page = Math.min(page, pages);
+      const visible = groups.slice((page-1)*pageSizeValue, page*pageSizeValue);
+      const expanded = new Set([...host.querySelectorAll("details[open]")].map(el => el.dataset.report));
+      $('[data-infra-report-count]').textContent = `${groups.length} informes · ${selected.size} seleccionados`;
+      $('[data-infra-rows]').innerHTML = visible.map(([key,group]) => {
+        const visit = group[0], rows = flatten(group);
+        const names = [...new Set(group.map(v => v.technician_name).filter(Boolean))].join(", ");
+        const detail = rows.map(row => {
+          const cached = photoCache.get(row.key) || [];
+          const photos = cached.map(p => `<button type="button" data-enlarge-image="${esc(p.url)}" data-image-alt="${esc(row.name)}"><img src="${esc(p.url)}" alt="${esc(row.name)}"></button>`).join("");
+          const load = row.photos?.length && !cached.length ? `<button type="button" data-infra-load-photos="${esc(row.key)}">Ver fotos (${row.photos.length})</button>` : "";
+          return `<li><strong>${esc(row.visit.sector_name)} · ${esc(row.name)}</strong> · ${esc(row.status)}<br>${esc(row.observations || "Sin observaciones")}<div class="infra-report-photos">${photos}${load}</div></li>`;
         }).join("");
+        return `<article class="infra-daily"><label><input type="checkbox" class="infra-report-checked" data-infra-report-key="${esc(key)}" ${selected.has(key)?"checked":""}>${esc(dateText(visit.visit_date))} · ${esc(visit.site?.name || "Sede")}</label>
+          ${isAdmin ? `<small>Coordinador: ${esc(coordinator(visit))} · Técnico: ${esc(names)}</small>` : ""}
+          <details data-report="${esc(key)}" ${expanded.has(key)?"open":""}><summary>Ver detalle (${rows.length} eventos)</summary><ul>${detail}</ul></details></article>`;
       }).join("");
-      $('[data-infra-empty]').hidden = eventCount > 0;
-      $('[data-infra-table-wrap]').hidden = eventCount === 0;
-      $('[data-infra-pagination]').hidden = filtered.length <= pageSizeValue;
-      $('[data-infra-page-label]').textContent = `Página ${page} de ${pageCount}`;
-      $('[data-infra-prev]').disabled = page <= 1; $('[data-infra-next]').disabled = page >= pageCount;
+      $('[data-infra-empty]').hidden = groups.length > 0;
+      $('[data-infra-pagination]').hidden = pages <= 1;
+      $('[data-infra-page-label]').textContent = `Página ${page} de ${pages}`;
+      $('[data-infra-prev]').disabled = page <= 1; $('[data-infra-next]').disabled = page >= pages;
       host.querySelectorAll('[data-infra-export]').forEach(button => { button.disabled = selected.size === 0; });
     }
 
@@ -161,25 +168,49 @@
       const popup = global.open("", "_blank");
       if (!popup) throw new Error("Permite las ventanas emergentes para generar el PDF.");
       popup.document.write("<!doctype html><title>Preparando informe</title><p style='font:16px Arial;padding:24px'>Preparando informe de infraestructura…</p>");
-      popup.document.close();
       return popup;
     }
 
     async function exportPdf(kind) {
-      const rows = selectedRows(); if (!rows.length) return;
-      const popup = openPdfPopup();
+      const rows = selectedRows();
+      if (!rows.length) return;
+      let popup;
       try {
-        const paths = kind === "full" ? rows.flatMap(row => (row.photos || []).map(photo => photo.path).filter(Boolean)) : [];
+        popup = openPdfPopup();
+        const full = kind === "full";
+        const paths = full ? [...new Set(rows.flatMap(row => (row.photos || []).map(p => p.path).filter(Boolean)))] : [];
         const urls = paths.length ? await global.SmartFitSupabaseData.getInfrastructurePhotoUrls(paths) : {};
-        const created = new Intl.DateTimeFormat("es-CL", { dateStyle:"medium", timeStyle:"short" }).format(new Date());
-        const body = rows.map((row, index) => {
-          const visit = row.visit, photos = kind === "full" ? (row.photos || []).map(photo => urls[photo.path]).filter(Boolean) : [];
-          return `<tr><td>${index + 1}</td><td>${esc(dateText(visit.visit_date))}</td><td>${esc(visit.site?.name || "Sede")}</td><td>${esc(String(visit.sector_number).padStart(2,"0"))} · ${esc(visit.sector_name)}</td><td>${esc(visit.technician_name)}</td><td><strong>${esc(row.name)}</strong><br>${esc(row.observations || "Sin observaciones")}</td><td>${esc(row.status)}</td><td>${photos.map(src => `<img src="${esc(src)}" alt="Fotografía del evento">`).join("") || "—"}</td></tr>`;
-        }).join("");
+        const issued = new Intl.DateTimeFormat("es-CL", {dateStyle:"long"}).format(new Date());
+        const logo = esc(new URL("IMG/logo-header.png", global.location.href).href);
+        const header = (title, subtitle) => `<header><img src="${logo}" alt="Smart Fit"><div><h1>${title}</h1><small>Fecha de emisión: ${issued} · ${subtitle}</small></div></header>`;
+        const footer = "<footer>Se genera el informe para lo que se estime conveniente.</footer>";
+        const field = (label, text) => `<div><b>${label}:</b> ${esc(text || "—")}</div>`;
+        const sector = v => [v.sector_number, v.sector_name].filter(x => x != null && x !== "").join(" · ");
+        let body;
+        if (full) {
+          body = rows.map((row,index) => {
+            const v = row.visit;
+            const pictures = (row.photos || []).map((p,i) =>
+              `<figure>${urls[p.path] ? `<img src="${esc(urls[p.path])}" alt="Fotografía ${i+1}">` : "Fotografía no disponible"}<figcaption>Fotografía ${i+1}</figcaption></figure>`).join("");
+            return `<article>${header("INFORME DE INFRAESTRUCTURA",`Registro ${index+1} de ${rows.length}`)}
+              <h2>Datos del evento</h2><section class="fields">${field("Fecha",dateText(v.visit_date))}${field("Estado",row.status)}${field("Sede",v.site?.name)}${field("Técnico",v.technician_name)}${field("Sector",sector(v))}${isAdmin ? field("Coordinador",coordinator(v)) : ""}</section>
+              <h2>Evento revisado</h2><p>${esc(row.name)}</p><h2>Observaciones</h2><p>${esc(row.observations || "Sin observaciones")}</p>
+              <h2>Registro fotográfico</h2>${pictures ? `<section class="pictures">${pictures}</section>` : "<p>Sin fotografías adjuntas.</p>"}${footer}</article>`;
+          }).join("");
+        } else {
+          const cells = rows.map(row => {
+            const v = row.visit;
+            return `<tr><td>${esc(dateText(v.visit_date))}</td><td>${esc(v.site?.name)}${isAdmin ? `<br>Coord.: ${esc(coordinator(v))}` : ""}</td><td>${esc(sector(v))}</td><td>${esc(v.technician_name)}</td><td>${esc(row.name)}</td><td>${esc(row.status)}</td><td>${esc(row.observations || "Sin observaciones")}</td></tr>`;
+          }).join("");
+          body = header("INFORME LITE DE INFRAESTRUCTURA", `${selected.size} informes · ${rows.length} eventos`) +
+            `<table><colgroup>${[10,14,13,13,15,12,23].map(width=>`<col style="width:${width}%">`).join("")}</colgroup><thead><tr><th>Fecha</th><th>Sede</th><th>Sector</th><th>Técnico</th><th>Evento</th><th>Estado</th><th>Observaciones</th></tr></thead><tbody>${cells}</tbody></table>` + footer;
+        }
         popup.document.open();
-        popup.document.write(`<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Informe de infraestructura ${kind === "lite" ? "Lite" : "Full"}</title><style>@page{size:letter landscape;margin:6mm}*{box-sizing:border-box}body{font:9pt Arial,sans-serif;color:#171923}.head{border-bottom:2px solid #ffb51b;padding-bottom:5px;margin-bottom:6px}.head h1{margin:0 0 4px;font-size:15pt}.head p{margin:0;color:#555}table{width:100%;border-collapse:collapse;table-layout:fixed}th,td{padding:3px 4px;border:1px solid #d8dae0;text-align:left;vertical-align:top;overflow-wrap:anywhere}th{background:#f0f1f4}td img{width:40px;height:40px;object-fit:cover;margin:2px;border-radius:4px}tr{break-inside:avoid;page-break-inside:avoid}footer{margin-top:6px;border-top:1px solid #ddd;padding-top:4px;text-align:center;color:#666;font-size:8pt}</style></head><body><header class="head"><h1>INFORME DE INFRAESTRUCTURA · ${kind === "lite" ? "LITE" : "FULL"}</h1><p>${rows.length} eventos · ${esc(created)}</p></header><table><thead><tr><th>N.º</th><th>Fecha</th><th>Sede</th><th>Código / sector</th><th>Técnico</th><th>Evento / detalle</th><th>Asignación</th><th>Fotografías</th></tr></thead><tbody>${body}</tbody></table><footer>${kind === "lite" ? "PDF Lite: fotografías omitidas para reducir el peso." : "PDF Full: incluye las fotografías adjuntas."}</footer><script>window.addEventListener('load',()=>{const imgs=[...document.images];Promise.all(imgs.map(img=>img.decode?.().catch(()=>{})||Promise.resolve())).then(()=>window.print())});<\/script></body></html>`);
+        popup.document.write(`<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Infraestructura · ${full?"Full":"Lite"}</title><style>
+          @page{size:letter portrait;margin:8mm}*{box-sizing:border-box}html,body{margin:0;width:100%;font:10pt/1.35 Arial,sans-serif;color:#18202a}header{display:flex;align-items:center;justify-content:space-between;gap:6mm;border-bottom:2px solid #ffb51b;padding-bottom:3mm}header img{width:34mm;background:#000;padding:1.5mm;border-radius:1mm;print-color-adjust:exact;-webkit-print-color-adjust:exact}header div{text-align:right}h1{font-size:16pt;margin:0}small{font-size:8.5pt}h2{font-size:10pt;border-bottom:1px solid #bbb;padding-bottom:1mm;margin:4mm 0 2mm}article{display:flex;flex-direction:column;min-height:262mm}article+article{break-before:page}.fields,.pictures{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:2mm 5mm}p,td{white-space:pre-wrap;overflow-wrap:anywhere}p{margin:0}figure{margin:0;text-align:center;break-inside:avoid}figure img{display:block;width:100%;height:57mm;object-fit:contain;border:1px solid #ddd}figcaption,footer{font-size:8pt}footer{text-align:center;border-top:1px solid #bbb;padding-top:2mm;margin-top:4mm}article footer{margin-top:auto}table{width:100%;border-collapse:collapse;table-layout:fixed;margin-top:3mm;font-size:8.5pt}th,td{padding:1.5mm;border:1px solid #bbb;text-align:left;vertical-align:top}thead{display:table-header-group}tr{break-inside:avoid}
+        </style></head><body>${body}<script>window.addEventListener('load',()=>window.print());<\/script></body></html>`);
         popup.document.close();
-      } catch (error) { popup.close(); global.alert(error.message || "No se pudo generar el informe."); }
+      } catch (error) { popup?.close(); global.alert(error.message || "No se pudo generar el informe."); }
     }
 
     let carousel = null;
@@ -196,14 +227,12 @@
     overlay.querySelector(".infra-report-close").addEventListener("click", () => { carousel?.close(); overlay.hidden = true; });
 
     host.addEventListener("click", async event => {
-      const visitToggle = event.target.closest("[data-infra-select-visit]");
-      if (visitToggle) {
-        const visit = visits.find(row => String(row.id) === visitToggle.dataset.infraSelectVisit);
-        (visit?.events || []).forEach((_, index) => visitToggle.checked ? selected.add(`${visit.id}:${index}`) : selected.delete(`${visit.id}:${index}`));
+      const toggle = event.target.closest("[data-infra-report-key]");
+      if (toggle) {
+        if (toggle.checked) selected.add(toggle.dataset.infraReportKey);
+        else selected.delete(toggle.dataset.infraReportKey);
         render(); return;
       }
-      const eventToggle = event.target.closest("[data-infra-select-event]");
-      if (eventToggle) { eventToggle.checked ? selected.add(eventToggle.dataset.infraSelectEvent) : selected.delete(eventToggle.dataset.infraSelectEvent); render(); return; }
       const loadPhotos = event.target.closest("[data-infra-load-photos]");
       if (loadPhotos) {
         const row = allRows().find(item => item.key === loadPhotos.dataset.infraLoadPhotos); if (!row) return;
@@ -220,22 +249,26 @@
       const exportButton = event.target.closest("[data-infra-export]");
       if (exportButton) { await exportPdf(exportButton.dataset.infraExport); return; }
       if (event.target.closest("[data-infra-clear]")) {
-        host.querySelectorAll("[data-infra-from],[data-infra-to],[data-infra-search]").forEach(input => { input.value = ""; });
-        [month, year, technician, site, status].forEach(select => { select.value = "*"; });
+        host.querySelectorAll("[data-filter]").forEach(el => { el.value = el.type === "date" ? "" : "*"; });
+        selected.clear();
         page = 1; render(); return;
       }
       if (event.target.closest("[data-infra-prev]")) { page = Math.max(1, page - 1); render(); return; }
       if (event.target.closest("[data-infra-next]")) { page += 1; render(); }
     });
     host.addEventListener("change", event => {
-      if (event.target.matches("[data-infra-month],[data-infra-year],[data-infra-from],[data-infra-to],[data-infra-technician],[data-infra-site],[data-infra-status]")) { page = 1; render(); }
+      if (event.target.matches("[data-filter]")) { selected.clear(); page = 1; render(); }
     });
-    host.addEventListener("input", event => { if (event.target.matches("[data-infra-search]")) { page = 1; render(); } });
-
-    const ready = global.SmartFitSupabaseData.listInfrastructureVisits({ siteLegacyId, technicianOnly })
-      .then(rows => { visits = Array.isArray(rows) ? rows : []; render(); return visits; })
-      .catch(error => { $('[data-infra-rows]').innerHTML = `<tr><td colspan="9" class="infra-report-empty">No se pudieron cargar los informes. ${esc(error.message || "")}</td></tr>`; $('[data-infra-report-count]').textContent = "Error de carga"; $('[data-infra-table-wrap]').hidden = false; return []; });
-    return { ready, refresh:async () => { visits = await global.SmartFitSupabaseData.listInfrastructureVisits({ siteLegacyId, technicianOnly }); page = 1; render(); return visits; } };
+    async function refresh() {
+      const rows = await global.SmartFitSupabaseData.listInfrastructureVisits({siteLegacyId, technicianOnly});
+      visits = Array.isArray(rows) ? rows : [];
+      selected.clear(); page = 1; updateFilters(); render(); return visits;
+    }
+    const ready = refresh().catch(error => {
+      $('[data-infra-report-count]').textContent = "No se pudieron cargar los informes. " + (error.message || "");
+      return [];
+    });
+    return { ready, refresh };
   }
 
   global.SmartFitInfrastructureReports = { mount };

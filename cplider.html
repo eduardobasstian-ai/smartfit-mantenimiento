@@ -671,7 +671,8 @@
   </div>
   <script src="mobile-back-navigation.js?v=20261118-back-session-1"></script>
   <script src="admin-store.js?v=20261029-performance-stage-2"></script>
-  <script src="supabase-data.js?v=20261117-photo-ack-1"></script>
+  <script src="supabase-data.js?v=mobile-record-photos-1"></script>
+  <script src="machine-detail-photos.js?v=1"></script>
   <script src="pdf-report.js?v=20261107-pdf-export-fix-1"></script>
   <script src="EQU/other-catalogs.js?v=20261026-ubian-rack"></script>
   <script src="inventory-export.js?v=20261107-pdf-export-fix-1"></script>
@@ -1961,9 +1962,6 @@
           </button>
           <button class="maintenance-image-remove" type="button" data-remove-maintenance-image="${index}" aria-label="Eliminar imagen ${index + 1}">×</button>
         </div>`).join("");
-      const maintenanceLogPhotos = entry => Array.isArray(entry.images) && entry.images.length
-        ? `<div class="machine-log-photos">${entry.images.slice(0, 4).map((image, index) => `<button class="maintenance-image-thumb" type="button" data-enlarge-image="${escapeHtml(image)}" data-image-alt="Imagen adjunta al mantenimiento" aria-label="Ampliar imagen adjunta"><img src="${escapeHtml(image)}" alt="Imagen adjunta ${index + 1}" loading="lazy"></button>`).join("")}</div>`
-        : "";
       const editingMileage = editingMachineRecord?.type === "mileage"
         ? record.mileage.find(entry => entry.id === editingMachineRecord.id)
         : null;
@@ -1986,7 +1984,7 @@
         <article class="machine-log-entry">
           <strong>${escapeHtml(formatMachineDate(entry.date, false))} · ${escapeHtml(entry.type || "Mantenimiento")}</strong>
           <p>${escapeHtml(entry.work || "")}${entry.replacement ? `\nRepuesto/material: ${escapeHtml(entry.replacement)}` : ""}${entry.technician ? `\nResponsable: ${escapeHtml(entry.technician)}` : ""}${entry.observations ? `\nObservaciones: ${escapeHtml(entry.observations)}` : ""}</p>
-          ${maintenanceLogPhotos(entry)}
+          ${SmartFitMachinePhotos.markup(machine.recordKey, entry, escapeHtml)}
           ${canManageMachineRecords ? `<div class="machine-record-actions"><button class="back-button" type="button" data-edit-machine-record="maintenance" data-record-id="${escapeHtml(entry.id)}">Editar</button><button class="back-button" type="button" data-delete-machine-record="maintenance" data-record-id="${escapeHtml(entry.id)}">Eliminar</button></div>` : ""}
         </article>`).join("") || '<div class="empty-state">Aún no hay actualizaciones de mantenimiento para esta máquina.</div>';
       const visibleMileage = sortMileageRecords(record.mileage).filter(entry => !mileageMonthFilter || mileageDateValue(entry).slice(0, 7) === mileageMonthFilter);
@@ -2053,17 +2051,8 @@
       });
     }
 
-    const machineMediaLoads = new Map();
     function loadMachineDetailMedia(machine) {
-      if (!machine?.recordKey || !window.SmartFitSupabaseData?.loadMachineRecordMedia) return;
-      const key = String(machine.recordKey);
-      if (machineMediaLoads.has(key)) return machineMediaLoads.get(key);
-      const load = SmartFitSupabaseData.loadMachineRecordMedia(key).then(result => {
-        if (result.warning) console.warn("No se pudieron cargar las imágenes del equipo.", result.warning);
-        else if (currentMachine && String(currentMachine.recordKey) === key) renderMachineDetail(currentMachine);
-      }).catch(error => console.warn("No se pudieron cargar las imágenes del equipo.", error)).finally(() => machineMediaLoads.delete(key));
-      machineMediaLoads.set(key, load);
-      return load;
+      if (machine?.recordKey) SmartFitMachinePhotos.load($("siteGrid"), String(machine.recordKey), escapeHtml);
     }
 
     function renderLeaderMaintenanceTicket(machine, activeFixed) {

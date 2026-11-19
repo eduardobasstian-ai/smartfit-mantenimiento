@@ -2013,11 +2013,14 @@
       warning: maintenanceResult.error || ticketResult.error || null
     };
   }
-  async function loadMachineRecordMedia(recordKey) {
+  async function loadMachineRecordMedia(recordKey, maintenanceId, onCached) {
     const key = String(recordKey || "");
     if (!key) return { images: {}, warning: null };
-    const localRecord = parseLocal(RECORDS_KEY, {})[key] || { maintenance: [], mileage: [] };
+    const localRecord = maintenanceId == null
+      ? parseLocal(RECORDS_KEY, {})[key] || { maintenance: [], mileage: [] }
+      : { maintenance: [{ id: maintenanceId }], mileage: [] };
     const restored = await restoreRecordMedia(key, localRecord);
+    if (onCached && restored.maintenance[0]?.images?.length) onCached(restored.maintenance[0].images);
     const ids = ["maintenance", "mileage"].flatMap(kind =>
       (Array.isArray(restored[kind]) ? restored[kind] : [])
         .filter(entry => entry?.id)
