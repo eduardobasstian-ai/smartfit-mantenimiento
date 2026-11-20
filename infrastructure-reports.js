@@ -15,6 +15,10 @@
     .infra-report-filter input,.infra-report-filter select{width:100%;min-width:0;min-height:38px;padding:0 10px;border:1px solid #383b47;border-radius:9px;background:#111319;color:var(--text,#f5f5f7);font:inherit;font-size:12px}
     .infra-report-summary{display:flex;min-width:0;width:100%;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 8px}
     .infra-report-count{min-width:0;color:var(--muted,#aeb2bf);font-size:12px}
+    .infra-loading:not([hidden]){display:grid;gap:8px;margin:10px 0;animation:infra-appear .15s .2s backwards}
+    .infra-loading i{height:28px;border-radius:5px;background:var(--border,#343743);opacity:.55}
+    @keyframes infra-appear{from{opacity:0}to{opacity:1}}
+    @media(prefers-reduced-motion:reduce){.infra-loading:not([hidden]){animation:none}}
     .infra-report-actions{display:flex;gap:8px;flex-wrap:wrap}
     .infra-report-actions button{min-height:38px;padding:0 13px;border:1px solid #383b47;border-radius:10px;background:#20222a;color:var(--text,#f5f5f7);font:inherit;font-size:12px;font-weight:750}
     .infra-report-actions [data-infra-export=full]{background:var(--yellow,#ffb51b);border-color:var(--yellow,#ffb51b);color:#17130a}
@@ -60,6 +64,7 @@
         ${isAdmin ? `<label class="infra-report-filter">Fecha<input data-filter="date" type="date"></label>${filter("site","Sede","Todas")}${filter("coordinator","Coordinador","Todos")}${filter("tech","Técnico","Todos")}` : filter("month","Mes","Todos los meses") + filter("year","Año","Todos los años")}
       </div>
       <div class="infra-report-summary"><span class="infra-report-count" data-infra-report-count>Cargando informes…</span><div class="infra-report-actions"><button type="button" data-infra-export="full" disabled>PDF Full</button><button type="button" data-infra-export="lite" disabled>PDF Lite</button><button type="button" data-infra-clear>Limpiar filtros</button></div></div>
+      <div class="infra-loading" aria-hidden="true"><i></i><i></i><i></i></div>
       <div class="infra-report-table-wrap" data-infra-table hidden>
         <table class="infra-report-table" aria-label="Informes diarios de infraestructura"><thead><tr>
           <th scope="col" aria-label="Seleccionar informe diario">✓</th><th scope="col">Fecha</th>${technicianOnly ? "" : '<th scope="col">Sede</th><th scope="col">Técnico</th><th scope="col">Coordinador</th>'}
@@ -71,9 +76,8 @@
 
     const $ = selector => host.querySelector(selector);
     const value = key => $(`[data-filter="${key}"]`)?.value;
-    const allRows = () => flatten(visits);
     const reportKey = visit => JSON.stringify([visit.site_id || visit.site?.legacy_id, visit.visit_date]);
-    const selectedRows = () => allRows().filter(row => selected.has(reportKey(row.visit)));
+    const selectedRows = () => flatten(visits.filter(visit => selected.has(reportKey(visit))));
     function options(key, entries, label) {
       const el = $(`[data-filter="${key}"]`);
       if (!el) return;
@@ -93,28 +97,36 @@
     }
     function dailyReports() {
       const groups = new Map();
+      const date = value("date"), site = value("site"), coord = value("coordinator"), tech = value("tech");
+      const month = value("month"), year = value("year");
       for (const visit of visits) {
         const day = visit.visit_date || "";
         if (isAdmin) {
-          if (value("date") && day !== value("date")) continue;
-          if (value("site") !== "*" && String(visit.site_id) !== value("site")) continue;
-          if (value("coordinator") !== "*" && coordinator(visit) !== value("coordinator")) continue;
-        } else if ((value("month") !== "*" && day.slice(5,7) !== value("month")) ||
-                   (value("year") !== "*" && day.slice(0,4) !== value("year"))) continue;
+          if (date && day !== date) continue;
+          if (site !== "*" && String(visit.site_id) !== site) continue;
+          if (coord !== "*" && coordinator(visit) !== coord) continue;
+        } else if ((month !== "*" && day.slice(5,7) !== month) ||
+                   (year !== "*" && day.slice(0,4) !== year)) continue;
         if (!visit.events?.length) continue;
         const key = reportKey(visit);
         if (!groups.has(key)) groups.set(key, []);
         groups.get(key).push(visit);
       }
-      return [...groups].filter(([,group]) => !isAdmin || value("tech") === "*" ||
-        group.some(v => String(v.technician_id) === value("tech")));
+      return [...groups].filter(([,group]) => !isAdmin || tech === "*" ||
+        group.some(v => String(v.technician_id) === tech));
+    }
+    let groupCount = 0;
+    function updateSelection() {
+      $('[data-infra-report-count]').textContent = `${groupCount} informes · ${selected.size} seleccionados`;
+      host.querySelectorAll('[data-infra-export]').forEach(button => { button.disabled = selected.size === 0; });
     }
     function render() {
       const groups = dailyReports();
+      groupCount = groups.length;
       const pages = Math.max(1, Math.ceil(groups.length / pageSizeValue));
       page = Math.min(page, pages);
       const visible = groups.slice((page-1)*pageSizeValue, page*pageSizeValue);
-      $('[data-infra-report-count]').textContent = `${groups.length} informes · ${selected.size} seleccionados`;
+      updateSelection();
       $('[data-infra-rows]').innerHTML = visible.map(([key,group]) => {
         const visit = group[0];
         const day = esc(dateText(visit.visit_date)), site = esc(visit.site?.name || "Sede");
@@ -127,7 +139,6 @@
       $('[data-infra-pagination]').hidden = pages <= 1;
       $('[data-infra-page-label]').textContent = `Página ${page} de ${pages}`;
       $('[data-infra-prev]').disabled = page <= 1; $('[data-infra-next]').disabled = page >= pages;
-      host.querySelectorAll('[data-infra-export]').forEach(button => { button.disabled = selected.size === 0; });
     }
 
     function openPdfPopup() {
@@ -202,7 +213,7 @@
       if (toggle) {
         if (toggle.checked) selected.add(toggle.dataset.infraReportKey);
         else selected.delete(toggle.dataset.infraReportKey);
-        render(); return;
+        updateSelection(); return;
       }
       const exportButton = event.target.closest("[data-infra-export]");
       if (exportButton) { await exportPdf(exportButton.dataset.infraExport); return; }
@@ -217,11 +228,19 @@
     host.addEventListener("change", event => {
       if (event.target.matches("[data-filter]")) { selected.clear(); page = 1; render(); }
     });
-    async function refresh() {
+    async function loadVisits() {
       if (technicianOnly && !String(siteLegacyId ?? "").trim()) throw new Error("Selecciona una sede para ver sus informes.");
       const rows = await global.SmartFitSupabaseData.listInfrastructureVisits({siteLegacyId, technicianOnly});
       visits = Array.isArray(rows) ? rows : [];
       selected.clear(); page = 1; updateFilters(); render(); return visits;
+    }
+    let pendingRead;
+    function refresh() {
+      if (!pendingRead) pendingRead = loadVisits().finally(() => {
+        pendingRead = null;
+        $(".infra-loading").hidden = true;
+      });
+      return pendingRead;
     }
     const ready = refresh().catch(error => {
       $('[data-infra-report-count]').textContent = "No se pudieron cargar los informes. " + (error.message || "");

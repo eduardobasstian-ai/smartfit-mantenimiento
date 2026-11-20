@@ -842,7 +842,7 @@
       if (!siteUuid) throw new Error("La sede seleccionada no está vinculada a Supabase.");
       filters.push(`site_id=eq.${encodeURIComponent(siteUuid)}`);
     }
-    return queryRows(`infrastructure_visits?select=id,site_id,sector_id,sector_number,sector_name,technician_id,technician_name,visit_date,status,events,created_at,completed_at,site:sites!infrastructure_visits_site_id_fkey(name,legacy_id,internal_code)&${filters.join("&")}&order=visit_date.desc,completed_at.desc`);
+    return queryRows(`infrastructure_visits?select=id,site_id,sector_number,sector_name,technician_id,technician_name,visit_date,events,site:sites!infrastructure_visits_site_id_fkey(name,legacy_id)&${filters.join("&")}&order=visit_date.desc,completed_at.desc,id.asc`);
   }
   async function uploadInfrastructurePhoto(siteUuid, visitId, eventId, index, dataUrl) {
     const blob = inspectionPhotoBlob(dataUrl);
@@ -921,17 +921,20 @@
   async function getInfrastructurePhotoUrls(paths = []) {
     const uniquePaths = [...new Set((Array.isArray(paths) ? paths : []).map(String).filter(Boolean))];
     const urls = {};
-    await Promise.all(uniquePaths.map(async path => {
-      const response = await authorizedFetch(`${URL}/storage/v1/object/sign/${INFRASTRUCTURE_BUCKET}/${encodedStoragePath(path)}`, {
-        method:"POST", headers:{ "Content-Type":"application/json" }, body:JSON.stringify({ expiresIn:3600 })
+    for (let offset = 0; offset < uniquePaths.length; offset += 100) {
+      const batch = uniquePaths.slice(offset, offset + 100);
+      const response = await authorizedFetch(`${URL}/storage/v1/object/sign/${INFRASTRUCTURE_BUCKET}`, {
+        method:"POST", headers:{ "Content-Type":"application/json" }, body:JSON.stringify({ paths:batch, expiresIn:3600 }),
+        signal:global.AbortSignal?.timeout?.(60000)
       });
-      const text = await response.text();
-      let result = {}; try { result = text ? JSON.parse(text) : {}; } catch (error) {}
       if (!response.ok) throw new Error(`No se pudo abrir una fotografía de infraestructura (${response.status}).`);
-      const signed = result.signedURL || result.signedUrl;
-      if (!signed) throw new Error("Supabase no devolvió el enlace temporal de la fotografía.");
-      urls[path] = signed.startsWith("http") ? signed : `${URL}/storage/v1${signed.startsWith("/") ? "" : "/"}${signed}`;
-    }));
+      const results = await response.json();
+      for (const item of results) {
+        const signed = item.signedURL || item.signedUrl;
+        if (item.path && signed) urls[item.path] = signed.startsWith("http") ? signed : `${URL}/storage/v1${signed.startsWith("/") ? "" : "/"}${signed}`;
+      }
+      if (batch.some(path => !urls[path])) throw new Error("Supabase no devolvió todos los enlaces de las fotografías.");
+    }
     return urls;
   }
   async function saveInfrastructureSector({ id, name } = {}) {

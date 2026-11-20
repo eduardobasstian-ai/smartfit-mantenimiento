@@ -1,0 +1,8 @@
+---
+description: Prioridad de rendimiento en cada cambio de SmartFit Mantenimiento
+alwaysApply: true
+---
+
+Prioriza la rapidez percibida al modificar la app Android o cualquier pantalla del sitio web. Verifica las vistas afectadas en móvil y escritorio. Conserva los flujos de trabajo, los permisos, los datos y la sincronización salvo que el usuario pida cambiarlos.
+
+Revisa si el cambio añade esperas, consultas, transferencias de fotos o trabajo repetido al abrir una pantalla. Cuando optimices un flujo, compara el antes y el después y comprueba su comportamiento por el mismo punto de entrada. Distingue las mediciones en dispositivo de las pruebas simuladas.

@@ -1358,10 +1358,10 @@
     </div>
   </div>
   <script src="record-photo-carousel.js?v=20261119-infrastructure-gallery-1"></script>
-  <script src="infrastructure-reports.js?v=20261119-infrastructure-reports-9"></script>
+  <script src="infrastructure-reports.js?v=20261120-reports-1"></script>
   <script src="mobile-back-navigation.js?v=20261029-mobile-back-1"></script>
   <script src="admin-store.js?v=20261029-performance-stage-2"></script>
-  <script src="supabase-data.js?v=20261119-infrastructure-visits-2"></script>
+  <script src="supabase-data.js?v=20261120-reports-1"></script>
   <script src="pdf-report.js?v=20261107-pdf-export-fix-1"></script>
   <script src="inspection-reports.js?v=20261119-pdf-full-page-1"></script>
   <script src="EQU/matrix-catalog.js"></script>
@@ -1428,6 +1428,7 @@
     let adminFilteredInspectionRecords = [];
     let adminInventoryRows = [];
     let adminFilteredInventoryRows = [];
+    let inventorySearchTimer;
     const chartColors = ["#ffb51b", "#f47721", "#ec5b68", "#ba78e5", "#7389ff", "#45b8d1", "#45c99a", "#a7c957", "#ff8fba", "#d4a373", "#7eccc1", "#a6a9b6", "#ffcf5c", "#ee8a4d"];
     const brandCatalogs = Object.assign({
       "brand-matrix": Array.isArray(window.MATRIX_CATALOG) ? window.MATRIX_CATALOG : [],
@@ -2431,7 +2432,13 @@
       renderAdminInventory();
     }
 
+    function scheduleInventorySearch() {
+      clearTimeout(inventorySearchTimer);
+      inventorySearchTimer = setTimeout(renderAdminInventory, 150);
+    }
     function renderAdminInventory() {
+      clearTimeout(inventorySearchTimer);
+      inventorySearchTimer = null;
       const siteFilter = $("adminInventorySiteFilter");
       const siteSearch = $("adminInventorySiteSearch");
       const siteSuggestions = $("adminInventorySiteSuggestions");
@@ -2498,11 +2505,12 @@
         (!query || normalizeHistoryName(`${item.siteName} ${item.brandName} ${item.equipmentName} ${item.model} ${item.activeFixed ?? ""} ${item.category}`).includes(query))
       );
       adminFilteredInventoryRows = filtered;
+      const inactiveEquipment = getAdminOutOfServiceRecordKeys();
       $("adminInventoryCount").textContent = `${filtered.length.toLocaleString("es-CL")} ${filtered.length === 1 ? "equipo" : "equipos"}`;
       body.innerHTML = filtered.map(item => `<tr>
         <td>${escapeHtml(item.siteName)}</td>
         <td>${escapeHtml(item.brandName)}</td>
-        <td><span class="user-name">${escapeHtml(item.equipmentName)}</span>${getAdminOutOfServiceRecordKeys().has(String(item.recordKey)) ? '<span class="admin-out-of-service-dot" title="Fuera de servicio" aria-label="Fuera de servicio"></span>' : ""}</td>
+        <td><span class="user-name">${escapeHtml(item.equipmentName)}</span>${inactiveEquipment.has(String(item.recordKey)) ? '<span class="admin-out-of-service-dot" title="Fuera de servicio" aria-label="Fuera de servicio"></span>' : ""}</td>
         <td>${escapeHtml(item.model)}</td>
         <td>${item.activeFixed === "" || item.activeFixed === null || item.activeFixed === undefined ? "—" : escapeHtml(item.activeFixed)}</td>
         <td>${escapeHtml(item.category)}</td>
@@ -2542,6 +2550,7 @@
     }
 
     function exportAdminInventoryPdf() {
+      if (inventorySearchTimer) renderAdminInventory();
       renderAdminInventory();
       const context = inventoryExportContext();
       const reportWindow = window.open("", "_blank");
@@ -2635,6 +2644,7 @@
     }
 
     function exportAdminInventoryExcel() {
+      if (inventorySearchTimer) renderAdminInventory();
       renderAdminInventory();
       const context = inventoryExportContext();
       const summaryRows = [
@@ -3514,7 +3524,7 @@
       siteSearchTerm = event.target.value.trim().toLocaleLowerCase("es");
       render();
     });
-    $("adminInventorySearch").addEventListener("input", renderAdminInventory);
+    $("adminInventorySearch").addEventListener("input", scheduleInventorySearch);
     $("adminInventorySiteSearch").addEventListener("focus", () => {
       renderAdminInventory();
       $("adminInventorySiteSuggestions").hidden = false;
@@ -3522,7 +3532,8 @@
     });
     $("adminInventorySiteSearch").addEventListener("input", () => {
       $("adminInventorySiteFilter").value = "*";
-      renderAdminInventory();
+      $("adminInventorySiteSuggestions").replaceChildren();
+      scheduleInventorySearch();
       $("adminInventorySiteSuggestions").hidden = false;
       $("adminInventorySiteSearch").setAttribute("aria-expanded", "true");
     });
@@ -3532,6 +3543,7 @@
         $("adminInventorySiteSearch").setAttribute("aria-expanded", "false");
       }
       if (event.key === "Enter" && !$("adminInventorySiteSuggestions").hidden) {
+        if (inventorySearchTimer) renderAdminInventory();
         const firstOption = $("adminInventorySiteSuggestions").querySelector("[data-inventory-site]");
         if (firstOption) {
           event.preventDefault();
