@@ -59,6 +59,11 @@
   const searchStatus = document.getElementById("equipmentSearchStatus");
   const grid = document.getElementById("equipmentGrid");
   const parts = document.getElementById("partsView");
+  const app = document.getElementById("catalogApp");
+  const planLoad = document.getElementById("planLoad");
+  const planLoadMessage = document.getElementById("planLoadMessage");
+  const retryPlanLoad = document.getElementById("retryPlanLoad");
+  const planWorkspace = document.getElementById("planWorkspace");
   const planBack = document.getElementById("planBack");
   const planModel = document.getElementById("planModel");
   const listQuery = new URLSearchParams(window.location.search).get("buscar") || "";
@@ -70,6 +75,8 @@
   const preview = document.getElementById("photoPreviewDialog");
   const previewImage = document.getElementById("photoPreviewImage");
   let activeBrand;
+  let planLoading;
+  let refreshPlan;
   const inventoryPage = window.createCatalogInventory(brands, models);
 
   function renderBrands() {
@@ -144,6 +151,30 @@
     previewImage.removeAttribute("data-equipment");
     preview.setAttribute("aria-label", "Fotografía ampliada");
   });
+  document.getElementById("closePhotoPreview").onclick = () => preview.close();
+  preview.addEventListener("click", event => {
+    if (event.target === preview) preview.close();
+  });
+
+  function loadPlan() {
+    if (refreshPlan) {
+      refreshPlan();
+      return;
+    }
+    if (app.hidden || planLoading) return;
+    planLoad.hidden = false;
+    retryPlanLoad.hidden = true;
+    planLoadMessage.textContent = "Cargando plano…";
+    planLoading = window.openCatalogPlan().then(refresh => {
+      refreshPlan = refresh;
+      planWorkspace.hidden = false;
+      planLoad.hidden = true;
+    }).catch(error => {
+      planLoadMessage.textContent = error.message || "No se pudo cargar el plano.";
+      retryPlanLoad.hidden = false;
+    }).finally(() => { planLoading = null; });
+  }
+  retryPlanLoad.onclick = loadPlan;
 
   function renderRoute(focusHeading = false) {
     const route = window.location.hash;
@@ -175,6 +206,7 @@
       planModel.textContent = `${brandName} · ${activeModel.model}`;
       planBack.href = `catalogo.html${listQuery ? "?" + new URLSearchParams({ buscar: listQuery }) : ""}#equipos/${activeModel.brand}`;
       planBack.textContent = `← Volver a equipos ${brandName}`;
+      loadPlan();
       if (focusHeading) planBack.focus();
       return;
     }
@@ -199,5 +231,8 @@
   }
 
   window.addEventListener("hashchange", () => renderRoute(true));
+  window.addEventListener("catalog-session-ready", () => {
+    if (!parts.hidden && !refreshPlan) loadPlan();
+  });
   renderRoute();
 })();

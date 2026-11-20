@@ -22,15 +22,16 @@ window.createCatalogInventory = (brands, models) => {
   const esc = value => String(value ?? "").replace(/[&<>"']/g, char =>
     ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]);
   const normalize = value => String(value ?? "").normalize("NFD").replace(/\p{M}/gu, "").trim().toLowerCase();
-  const sources = {
-    "t600x-sf": [JSON.parse($("catalogData").textContent), "Matrix-T600X-SF:MTM3839-00", false],
-    "e-es-f": [window.ellipticalCatalog, "Matrix-E-ES-F:MEP1354-00", false],
-    "hs-abc": [window.hammerAbdominalCatalog, "Hammer-HS-ABC", true],
-    "rt-g2": [window.movementRtG2Catalog, "Movement-RT-G2", true],
-    ...Object.fromEntries(window.catalogManuals.map(({ id, data }) => [id, [data, id, true, true]])),
-  };
+  const sources = new Map([
+    ["t600x-sf", ["Matrix-T600X-SF:MTM3839-00", false]],
+    ["e-es-f", ["Matrix-E-ES-F:MEP1354-00", false]],
+    ["hs-abc", ["Hammer-HS-ABC", true]],
+    ["rt-g2", ["Movement-RT-G2", true]],
+    ...window.catalogManuals.map(({ id }) => [id, [id, true, true]]),
+  ]);
   const brandNames = new Map(brands);
-  const catalogModels = models.filter(model => sources[model.id]?.[0]);
+  const catalogModels = models.filter(model => sources.has(model.id));
+  const modelsById = new Map(catalogModels.map(model => [model.id, model]));
   inventoryBrand.innerHTML += brands
     .filter(([id]) => catalogModels.some(model => model.brand === id))
     .sort(([, a], [, b]) => a.localeCompare(b, "es"))
@@ -38,66 +39,88 @@ window.createCatalogInventory = (brands, models) => {
   brandFilter.innerHTML = '<option value="">Selecciona una marca</option>' + brands
     .filter(([id]) => catalogModels.some(model => model.brand === id))
     .map(([id, name]) => `<option value="${esc(id)}">${esc(name)}</option>`).join("");
-  let available = new Map();
+  const indexes = new Map();
+  const pickerErrors = new Set();
   let matrixChanges;
   let loading;
+  let matrixRefreshedAt = 0;
+  let sessionVersion = 0;
   let links = [];
   let selectedModels = [];
   let modelDraft = new Set();
   let assigningModel = "";
   let editing = null;
-
-  function read(storageKey, fallback) {
-    try {
-      return JSON.parse(localStorage.getItem(storageKey)) ?? fallback;
-    } catch {
-      return fallback;
-    }
-  }
+  let stockRaw;
+  let stockCache = [];
 
   function records() {
-    const stored = read(key, []);
-    return Array.isArray(stored) ? stored : [];
+    const raw = storedValue(key);
+    if (raw !== stockRaw) {
+      stockRaw = raw;
+      const stored = parseStored(raw, []);
+      stockCache = Array.isArray(stored) ? stored : [];
+    }
+    return stockCache;
   }
 
-  function buildIndex() {
-    available = new Map();
-    for (const model of catalogModels) {
-      const [data, prefix, scoped, manual] = sources[model.id];
-      const storage = "smartfit-catalog:" + prefix;
-      const remote = model.id === "t600x-sf" && matrixChanges;
-      const names = remote
-        ? Object.fromEntries(remote.filter(row => row.tipo === "nombre").map(row => [row.clave, row.valor]))
-        : read(storage + ":technical-names:v1", {});
-      const markers = remote
-        ? remote.filter(row => row.tipo === "marcador").map(row => row.valor)
-        : read(storage + ":manual-refs:v1", []);
-      const brand = brandNames.get(model.brand);
-      const equipment = model.name + " " + model.model;
-      for (const view of data.views) {
-        const parts = [
-          ...(view.id === "general" ? data.bom || [] : []),
-          ...(view.bom || []),
-          ...Object.values(view.parts || (view.id === "general" ? data.parts : {})),
-          ...markers.filter(row => row?.viewId === view.id).map(row => row.part),
-        ];
-        for (const part of parts) {
-          if (!part || part.viewIds || !(part.item || part.reference || part.sap)) continue;
-          const code = String(part.item || "").trim().toUpperCase();
-          const itemKey = scoped ? view.id + ":" + code : code;
-          const name = names[manual ? itemKey + ":" + (part.reference || "") : itemKey];
-          const id = JSON.stringify([model.id, scoped ? view.id : "", code, part.reference || "", part.sap || ""]);
-          available.set(id, {
-            id, modelId: model.id, brand, equipment, scope: scoped ? view.label : "",
-            item: part.item, reference: part.reference, sap: part.sap, technicalName: name,
-            name: name || part.description || part.reference || part.sap || code,
-          });
-        }
+  function storedValue(storageKey) {
+    try { return localStorage.getItem(storageKey); } catch { return null; }
+  }
+
+  function parseStored(raw, fallback) {
+    try { return JSON.parse(raw) ?? fallback; } catch { return fallback; }
+  }
+
+  async function indexModel(modelId) {
+    const model = modelsById.get(modelId);
+    if (!model) return;
+    const data = await window.catalogLoadModel(modelId);
+    const [prefix, scoped, manual] = sources.get(modelId);
+    const storage = "smartfit-catalog:" + prefix;
+    const remote = modelId === "t600x-sf" ? matrixChanges : undefined;
+    const localNames = remote ? null : storedValue(storage + ":technical-names:v1");
+    const localMarkers = remote ? null : storedValue(storage + ":manual-refs:v1");
+    const cached = indexes.get(modelId);
+    if (cached && cached.remote === remote && cached.localNames === localNames && cached.localMarkers === localMarkers) return;
+    const names = remote
+      ? Object.fromEntries(remote.filter(row => row.tipo === "nombre").map(row => [row.clave, row.valor]))
+      : parseStored(localNames, {});
+    const markers = remote
+      ? remote.filter(row => row.tipo === "marcador").map(row => row.valor)
+      : parseStored(localMarkers, []);
+    const markersByView = new Map();
+    for (const row of Array.isArray(markers) ? markers : []) {
+      if (!row?.viewId) continue;
+      if (!markersByView.has(row.viewId)) markersByView.set(row.viewId, []);
+      markersByView.get(row.viewId).push(row.part);
+    }
+    const partsById = new Map();
+    const brand = brandNames.get(model.brand);
+    const equipment = model.name + " " + model.model;
+    for (const view of data.views) {
+      const parts = [
+        ...(view.id === "general" ? data.bom || [] : []),
+        ...(view.bom || []),
+        ...Object.values(view.parts || (view.id === "general" ? data.parts : {})),
+        ...(markersByView.get(view.id) || []),
+      ];
+      for (const part of parts) {
+        if (!part || part.viewIds || !(part.item || part.reference || part.sap)) continue;
+        const code = String(part.item || "").trim().toUpperCase();
+        const itemKey = scoped ? view.id + ":" + code : code;
+        const name = names?.[manual ? itemKey + ":" + (part.reference || "") : itemKey];
+        const id = JSON.stringify([model.id, scoped ? view.id : "", code, part.reference || "", part.sap || ""]);
+        partsById.set(id, {
+          id, modelId: model.id, brand, equipment, scope: scoped ? view.label : "",
+          item: part.item, reference: part.reference, sap: part.sap, technicalName: name,
+          name: name || part.description || part.reference || part.sap || code,
+        });
       }
     }
+    indexes.set(modelId, { partsById, remote, localNames, localMarkers });
   }
 
-  const currentPart = link => available.get(link.id) || link;
+  const currentPart = link => indexes.get(link.modelId)?.partsById.get(link.id) || link;
   const partCode = part => [
     part.item && "Ítem " + part.item, part.reference && "Ref. " + part.reference, part.sap && "SAP " + part.sap,
   ].filter(Boolean).join(" · ");
@@ -168,17 +191,22 @@ window.createCatalogInventory = (brands, models) => {
         $("inventoryPickerModel").textContent = modelLabel(catalogModels.find(model => model.id === assigningModel));
         search.value = "";
         picker.hidden = false;
-        renderPicker();
+        preparePicker(assigningModel);
         search.focus();
       };
     }
     const selected = new Set(links.map(link => link.id));
     const query = normalize(search.value);
-    const matches = query ? [...available.values()].filter(part =>
-      part.modelId === modelId && !selected.has(part.id) &&
-      [part.technicalName, part.item, part.reference, part.sap]
-        .some(value => normalize(value).includes(query))) : [];
-    $("inventoryMatches").innerHTML = matches.slice(0, 30).map((part, index) => `
+    const index = indexes.get(modelId)?.partsById;
+    const matches = [];
+    if (query && index) {
+      for (const part of index.values()) {
+        if (!selected.has(part.id) && [part.technicalName, part.item, part.reference, part.sap]
+          .some(value => normalize(value).includes(query))) matches.push(part);
+        if (matches.length === 30) break;
+      }
+    }
+    $("inventoryMatches").innerHTML = matches.map((part, index) => `
       <button type="button" data-stock-link="${index}">
         <strong>${esc(part.technicalName || part.name)}</strong>
         <span>${esc(equipmentLabel(part))}</span>
@@ -188,7 +216,12 @@ window.createCatalogInventory = (brands, models) => {
           <span>Referencia <strong>${esc(part.reference || "—")}</strong></span>
           <span>SAP <strong>${esc(part.sap || "—")}</strong></span>
         </span>
-      </button>`).join("") || (query ? "<p>Sin coincidencias disponibles.</p>" : "");
+      </button>`).join("") || (!modelId || picker.hidden ? ""
+        : pickerErrors.has(modelId) ? '<p>No se pudo cargar el catálogo del equipo.</p><button type="button" data-retry-inventory-model>Reintentar</button>'
+        : !index ? '<p role="status">Cargando repuestos…</p>'
+        : query ? "<p>Sin coincidencias disponibles.</p>" : "");
+    const retry = $("inventoryMatches").querySelector("[data-retry-inventory-model]");
+    if (retry) retry.onclick = () => preparePicker(modelId);
     for (const button of $("inventoryMatches").querySelectorAll("[data-stock-link]")) {
       button.onclick = () => {
         links.push(matches[Number(button.dataset.stockLink)]);
@@ -398,7 +431,7 @@ window.createCatalogInventory = (brands, models) => {
   brandFilter.onchange = resetModels;
   modelFilter.onchange = () => {
     search.value = "";
-    renderPicker();
+    preparePicker(modelFilter.value);
     if (!search.disabled) search.focus();
   };
   search.oninput = renderPicker;
@@ -431,22 +464,53 @@ window.createCatalogInventory = (brands, models) => {
     renderInventory();
   };
 
-  function refresh() {
-    buildIndex();
-    renderInventory();
-    if (!window.CatalogSync.active || loading) return;
+  function refreshMatrix() {
+    if (!window.CatalogSync.active || loading || Date.now() - matrixRefreshedAt < 15000) return;
+    const version = sessionVersion;
     loading = window.CatalogSync.read().then(rows => {
+      if (version !== sessionVersion || !window.CatalogSync.active) return;
       matrixChanges = rows;
+      matrixRefreshedAt = Date.now();
       $("inventoryStatus").textContent = "";
-      buildIndex();
+      return indexModel("t600x-sf");
+    }).then(() => {
+      if (version !== sessionVersion) return;
       renderInventory();
       if (dialog.open) renderPicker();
     }).catch(() => {
-      $("inventoryStatus").textContent = "No se pudieron consultar los nombres compartidos de Matrix. Se muestran los datos disponibles en este navegador.";
-    }).finally(() => { loading = null; });
+      if (version === sessionVersion) $("inventoryStatus").textContent = "No se pudieron consultar los nombres compartidos de Matrix. Se muestran los datos disponibles en este navegador.";
+    }).finally(() => { if (version === sessionVersion) loading = null; });
+  }
+
+  function preparePicker(modelId) {
+    pickerErrors.delete(modelId);
+    renderPicker();
+    if (!modelId) return;
+    indexModel(modelId).catch(() => pickerErrors.add(modelId)).finally(() => {
+      if (dialog.open) renderPicker();
+    });
+    if (modelId === "t600x-sf") refreshMatrix();
+  }
+
+  function refresh() {
+    renderInventory();
+    const linkedModels = new Set(records().flatMap(record => record.links.map(link => link.modelId)));
+    if (linkedModels.has("t600x-sf")) refreshMatrix();
+    if (linkedModels.size) {
+      Promise.allSettled([...linkedModels].map(indexModel)).then(() => {
+        if ($("inventoryView").hidden) return;
+        renderInventory();
+        if (dialog.open) renderPicker();
+      });
+    }
   }
 
   window.addEventListener("catalog-session-ready", () => {
+    sessionVersion++;
+    matrixChanges = undefined;
+    matrixRefreshedAt = 0;
+    loading = null;
+    indexes.delete("t600x-sf");
     if (!$("inventoryView").hidden) refresh();
   });
   return refresh;
