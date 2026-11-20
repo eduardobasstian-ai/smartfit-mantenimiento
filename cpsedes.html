@@ -1007,7 +1007,7 @@
   <script src="mobile-back-navigation.js?v=20261118-back-session-1"></script>
   <script src="admin-store.js?v=20261029-performance-stage-2"></script>
   <script src="supabase-data.js?v=20261120-reports-1"></script>
-  <script src="machine-detail-photos.js?v=1"></script>
+  <script src="machine-detail-photos.js?v=2"></script>
   <script src="pdf-report.js?v=20261107-pdf-export-fix-1"></script>
   <script src="inspection-reports.js?v=20261119-pdf-full-page-1"></script>
   <script src="EQU/matrix-catalog.js"></script>
@@ -1604,8 +1604,7 @@
       renderBrandEquipment(brand.id, { resetFilter: false });
       const selectedMachine = currentBrandEquipment.find(entry => String(entry.recordKey) === String(machine.recordKey)) || machine;
       currentMachineTab = "maintenance";
-      renderMachineDetail(selectedMachine);
-      void loadMachineDetailMedia(selectedMachine);
+      renderMachineDetail(selectedMachine, true);
     }
 
     function openBrandEquipmentByQr(activeFixed) {
@@ -3776,7 +3775,7 @@
       reportWindow.document.close();
     }
 
-    function renderMachineDetail(machine) {
+    function renderMachineDetail(machine, refreshPhotos = false) {
       if (!machine) return;
       if (!inspectionRecordsLoaded) void refreshSharedInspectionRecords();
       activateSupervisorPanel("sitesPanel");
@@ -4006,10 +4005,7 @@
           if (currentMachine && String(currentMachine.recordKey) === String(machine.recordKey) && currentMachineTab === "inspections") renderMachineDetail(currentMachine);
         }).catch(error => console.warn("No se pudieron cargar las fotos de inspección.", error));
       }
-    }
-
-    function loadMachineDetailMedia(machine) {
-      if (machine?.recordKey) SmartFitMachinePhotos.load($("siteGrid"), String(machine.recordKey), escapeHtml);
+      if (machine.recordKey) SmartFitMachinePhotos.load($("siteGrid"), String(machine.recordKey), escapeHtml, refreshPhotos);
     }
 
     const siteRecordPhotoCarousel = window.SmartFitRecordPhotoCarousel.create({ overlayId: "equipmentImageLightbox", frameId: "equipmentImageLightboxFrame", imageId: "equipmentLightboxImage", downloadButtonId: "downloadEquipmentImage", viewportId: "equipmentRecordPhotoViewport", trackId: "equipmentRecordPhotoTrack" });
@@ -4094,8 +4090,7 @@
       const machineCard = event.target.closest("[data-open-machine]");
       if (machineCard && !event.target.closest("[data-enlarge-image]")) {
         const machine = currentBrandEquipment[Number(machineCard.dataset.openMachine)];
-        renderMachineDetail(machine);
-        void loadMachineDetailMedia(machine);
+        renderMachineDetail(machine, true);
       }
     });
     $("siteGrid").addEventListener("keydown", event => {
@@ -4110,8 +4105,7 @@
       if (machineCard && event.target === machineCard && (event.key === "Enter" || event.key === " ")) {
         event.preventDefault();
         const machine = currentBrandEquipment[Number(machineCard.dataset.openMachine)];
-        renderMachineDetail(machine);
-        void loadMachineDetailMedia(machine);
+        renderMachineDetail(machine, true);
       }
     });
 
@@ -5278,8 +5272,7 @@
                 const machine = currentBrandEquipment.find(entry => String(entry.recordKey) === String(state.machineKey));
                 if (machine) {
                   currentMachineTab = state.machineTab || "maintenance";
-                  renderMachineDetail(machine);
-                  void loadMachineDetailMedia(machine);
+                  renderMachineDetail(machine, true);
                 }
               }
             }
@@ -5299,8 +5292,7 @@
                 const machine = currentBrandEquipment.find(entry => String(entry.recordKey) === String(state.machineKey));
                 if (machine) {
                   currentMachineTab = state.machineTab || "maintenance";
-                  renderMachineDetail(machine);
-                  void loadMachineDetailMedia(machine);
+                  renderMachineDetail(machine, true);
                 }
               }
             }
@@ -5311,8 +5303,7 @@
             const machine = currentBrandEquipment.find(entry => String(entry.recordKey) === String(state.machineKey));
             if (machine) {
               currentMachineTab = state.machineTab || "maintenance";
-              renderMachineDetail(machine);
-              void loadMachineDetailMedia(machine);
+              renderMachineDetail(machine, true);
             }
           }
         }
