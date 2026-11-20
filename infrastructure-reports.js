@@ -77,7 +77,6 @@
     const $ = selector => host.querySelector(selector);
     const value = key => $(`[data-filter="${key}"]`)?.value;
     const reportKey = visit => JSON.stringify([visit.site_id || visit.site?.legacy_id, visit.visit_date]);
-    const selectedRows = () => flatten(visits.filter(visit => selected.has(reportKey(visit))));
     function options(key, entries, label) {
       const el = $(`[data-filter="${key}"]`);
       if (!el) return;
@@ -107,7 +106,6 @@
           if (coord !== "*" && coordinator(visit) !== coord) continue;
         } else if ((month !== "*" && day.slice(5,7) !== month) ||
                    (year !== "*" && day.slice(0,4) !== year)) continue;
-        if (!visit.events?.length) continue;
         const key = reportKey(visit);
         if (!groups.has(key)) groups.set(key, []);
         groups.get(key).push(visit);
@@ -149,11 +147,22 @@
     }
 
     async function exportPdf(kind) {
-      const rows = selectedRows();
-      if (!rows.length) return;
+      const keys = [...new Set(visits.map(reportKey).filter(key => selected.has(key)))];
+      if (!keys.length) return;
       let popup;
       try {
         popup = openPdfPopup();
+        const details = await global.SmartFitSupabaseData.listInfrastructureVisits({
+          siteLegacyId, technicianOnly, reportDays: keys.map(key => JSON.parse(key))
+        });
+        const byDay = new Map(keys.map(key => [key, []]));
+        for (const visit of details) {
+          if (visit.events?.length) byDay.get(reportKey(visit))?.push(visit);
+        }
+        if (keys.some(key => !byDay.get(key).length)) {
+          throw new Error("Algún informe seleccionado ya no está disponible. Actualiza el listado antes de exportar.");
+        }
+        const rows = flatten(keys.flatMap(key => byDay.get(key)));
         const full = kind === "full";
         const paths = full ? [...new Set(rows.flatMap(row => (row.photos || []).map(p => p.path).filter(Boolean)))] : [];
         const urls = paths.length ? await global.SmartFitSupabaseData.getInfrastructurePhotoUrls(paths) : {};
@@ -185,7 +194,7 @@
             const v = row.visit;
             return `<tr><td>${esc(dateText(v.visit_date))}</td><td>${esc(v.site?.name)}</td><td>${esc(sector(v))}</td><td>${esc(v.technician_name)}</td><td>${esc(row.name)}</td><td>${esc(row.status)}</td><td>${esc(row.observations || "Sin observaciones")}</td></tr>`;
           }).join("");
-          body = header("INFORME LITE DE INFRAESTRUCTURA", `${selected.size} informes · ${rows.length} eventos`) +
+          body = header("INFORME LITE DE INFRAESTRUCTURA", `${keys.length} informes · ${rows.length} eventos`) +
             `<table><colgroup>${[10,14,13,13,15,12,23].map(width=>`<col style="width:${width}%">`).join("")}</colgroup><thead><tr><th>Fecha</th><th>Sede</th><th>Sector</th><th>Técnico</th><th>Evento</th><th>Estado</th><th>Observaciones</th></tr></thead><tbody>${cells}</tbody></table>` + footer;
         }
         popup.document.open();
@@ -230,7 +239,7 @@
     });
     async function loadVisits() {
       if (technicianOnly && !String(siteLegacyId ?? "").trim()) throw new Error("Selecciona una sede para ver sus informes.");
-      const rows = await global.SmartFitSupabaseData.listInfrastructureVisits({siteLegacyId, technicianOnly});
+      const rows = await global.SmartFitSupabaseData.listInfrastructureVisits({siteLegacyId, technicianOnly, summaryOnly:true});
       visits = Array.isArray(rows) ? rows : [];
       selected.clear(); page = 1; updateFilters(); render(); return visits;
     }

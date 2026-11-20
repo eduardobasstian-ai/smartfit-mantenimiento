@@ -830,7 +830,7 @@
     });
     return sectors.map(sector => Object.assign({}, sector, { events:eventsBySector.get(String(sector.id)) || [] }));
   }
-  async function listInfrastructureVisits({ siteLegacyId = "", technicianOnly = false } = {}) {
+  async function listInfrastructureVisits({ siteLegacyId = "", technicianOnly = false, summaryOnly = false, reportDays } = {}) {
     const actor = appSession();
     if (!actor?.authId || !["Administrador", "Coordinador", "Técnico"].includes(actor.role)) {
       throw new Error("Este perfil no tiene acceso a los informes de infraestructura.");
@@ -842,7 +842,22 @@
       if (!siteUuid) throw new Error("La sede seleccionada no está vinculada a Supabase.");
       filters.push(`site_id=eq.${encodeURIComponent(siteUuid)}`);
     }
-    return queryRows(`infrastructure_visits?select=id,site_id,sector_number,sector_name,technician_id,technician_name,visit_date,events,site:sites!infrastructure_visits_site_id_fkey(name,legacy_id)&${filters.join("&")}&order=visit_date.desc,completed_at.desc,id.asc`);
+    const columns = ["site_id", "visit_date", "technician_id", "technician_name", "site:sites!infrastructure_visits_site_id_fkey(name,legacy_id)"];
+    if (!summaryOnly) columns.push("id", "sector_number", "sector_name", "events");
+    filters.push("events=neq.%5B%5D");
+    const path = "infrastructure_visits?select=" + columns.join(",") + "&" + filters.join("&") + "&order=visit_date.desc,completed_at.desc,id.asc";
+    if (reportDays === undefined) return queryRows(path);
+    const rows = [];
+    for (let offset = 0; offset < reportDays.length; offset += 40) {
+      const pairs = reportDays.slice(offset, offset + 40).map(([site, day]) => {
+        if (!/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(site) || !/^\d{4}-\d{2}-\d{2}$/.test(day)) {
+          throw new Error("La sede o la fecha del informe es inválida. Vuelve a cargar el listado.");
+        }
+        return "and(site_id.eq." + site + ",visit_date.eq." + day + ")";
+      });
+      rows.push(...await queryRows(path + "&or=" + encodeURIComponent("(" + pairs.join(",") + ")")));
+    }
+    return rows;
   }
   async function uploadInfrastructurePhoto(siteUuid, visitId, eventId, index, dataUrl) {
     const blob = inspectionPhotoBlob(dataUrl);
