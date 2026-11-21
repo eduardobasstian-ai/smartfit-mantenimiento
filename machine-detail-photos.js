@@ -50,11 +50,21 @@
       roots.set(root, state);
       root.addEventListener("load", event => {
         const image = event.target;
-        if (image.matches?.(".machine-log-photos[data-media-machine] img")) rememberPreview(image);
+        if (image.matches?.(".machine-log-photos[data-media-machine] img")) {
+          if (state.firstRead != null && image.closest("[data-media-machine]").dataset.mediaMachine === state.key) {
+            global.dispatchEvent(new CustomEvent("smartfit:first-maintenance-thumbnail", { detail: state.firstRead }));
+            state.firstRead = null;
+          }
+          rememberPreview(image);
+        }
       }, true);
     }
     state.observer?.disconnect();
-    if (state.key !== key || refresh) state.checked.clear();
+    if (state.key !== key || refresh) {
+      state.checked.clear();
+      state.firstRead = null;
+      state.startedTiming = false;
+    }
     state.key = key;
     const galleries = new Map();
     for (const gallery of root.querySelectorAll("[data-media-machine]")) {
@@ -62,6 +72,10 @@
     }
 
     function read(id) {
+      if (!state.startedTiming) {
+        state.startedTiming = true;
+        state.firstRead = performance.now();
+      }
       const legacyId = `${key}::maintenance::${id}`;
       const show = images => {
         const target = galleries.get(id);
