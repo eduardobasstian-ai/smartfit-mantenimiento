@@ -655,27 +655,19 @@
     uniquePaths.forEach(path => commonKnowledgePhotoUrls.delete(path));
   }
   async function getCommonKnowledgeImageUrls(paths = []) {
-    const uniquePaths = [...new Set((Array.isArray(paths) ? paths : []).map(String).filter(Boolean))];
+    const token = auth()?.access_token;
     const urls = {};
-    await Promise.all(uniquePaths.map(async path => {
+    const missing = [];
+    for (const path of new Set((Array.isArray(paths) ? paths : []).map(String).filter(Boolean))) {
       const cached = commonKnowledgePhotoUrls.get(path);
-      if (cached && cached.expiresAt > Date.now() + 60000) { urls[path] = cached.url; return; }
-      const response = await authorizedFetch(`${URL}/storage/v1/object/sign/${COMMON_KNOWLEDGE_BUCKET}/${encodedStoragePath(path)}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ expiresIn: 3600 })
-      });
-      const text = await response.text();
-      let result = {};
-      try { result = text ? JSON.parse(text) : {}; } catch (error) {}
-      if (!response.ok) throw new Error(`No se pudo abrir una fotografía (${response.status}): ${result.message || text}`);
-      const signed = result.signedURL || result.signedUrl;
-      if (!signed) throw new Error("Supabase no devolvió el enlace temporal de la fotografía.");
-      const url = signed.startsWith("http") ? signed : `${URL}/storage/v1${signed.startsWith("/") ? "" : "/"}${signed}`;
-      commonKnowledgePhotoUrls.set(path, { url, expiresAt: Date.now() + 3500000 });
-      urls[path] = url;
-    }));
-    return urls;
+      if (token && cached?.token === token && cached.expiresAt > Date.now() + 60000) urls[path] = cached.url;
+      else missing.push(path);
+    }
+    const fresh = await signPhotoPaths(COMMON_KNOWLEDGE_BUCKET, missing);
+    for (const [path, url] of Object.entries(fresh)) {
+      commonKnowledgePhotoUrls.set(path, { token, url, expiresAt: Date.now() + 3500000 });
+    }
+    return Object.assign(urls, fresh);
   }
   function inspectionPhotoBlob(value) {
     if (value instanceof Blob) return value;
@@ -933,16 +925,19 @@
       throw error;
     }
   }
-  async function getInfrastructurePhotoUrls(paths = []) {
+  function getInfrastructurePhotoUrls(paths = []) {
+    return signPhotoPaths(INFRASTRUCTURE_BUCKET, paths);
+  }
+  async function signPhotoPaths(bucket, paths) {
     const uniquePaths = [...new Set((Array.isArray(paths) ? paths : []).map(String).filter(Boolean))];
     const urls = {};
     for (let offset = 0; offset < uniquePaths.length; offset += 100) {
       const batch = uniquePaths.slice(offset, offset + 100);
-      const response = await authorizedFetch(`${URL}/storage/v1/object/sign/${INFRASTRUCTURE_BUCKET}`, {
+      const response = await authorizedFetch(`${URL}/storage/v1/object/sign/${bucket}`, {
         method:"POST", headers:{ "Content-Type":"application/json" }, body:JSON.stringify({ paths:batch, expiresIn:3600 }),
         signal:global.AbortSignal?.timeout?.(60000)
       });
-      if (!response.ok) throw new Error(`No se pudo abrir una fotografía de infraestructura (${response.status}).`);
+      if (!response.ok) throw new Error(`No se pudo abrir una fotografía (${response.status}).`);
       const results = await response.json();
       for (const item of results) {
         const signed = item.signedURL || item.signedUrl;
@@ -1044,21 +1039,8 @@
     });
     return counts;
   }
-  async function getInspectionPhotoUrls(paths = []) {
-    const uniquePaths = [...new Set((Array.isArray(paths) ? paths : []).map(String).filter(Boolean))];
-    const urls = {};
-    await Promise.all(uniquePaths.map(async path => {
-      const response = await authorizedFetch(`${URL}/storage/v1/object/sign/${INSPECTION_BUCKET}/${encodedStoragePath(path)}`, {
-        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ expiresIn: 3600 })
-      });
-      const text = await response.text();
-      let result = {}; try { result = text ? JSON.parse(text) : {}; } catch (error) {}
-      if (!response.ok) throw new Error(`No se pudo abrir una foto de inspección (${response.status}).`);
-      const signed = result.signedURL || result.signedUrl;
-      if (!signed) throw new Error("Supabase no devolvió el enlace temporal de la fotografía.");
-      urls[path] = signed.startsWith("http") ? signed : `${URL}/storage/v1${signed.startsWith("/") ? "" : "/"}${signed}`;
-    }));
-    return urls;
+  function getInspectionPhotoUrls(paths = []) {
+    return signPhotoPaths(INSPECTION_BUCKET, paths);
   }
   async function updateInspectionStatus(recordId, status, correction = "") {
     if (!["Pendiente", "En ejecución", "Ejecutado", "Eliminado"].includes(status)) throw new Error("Estado de inspección no válido.");

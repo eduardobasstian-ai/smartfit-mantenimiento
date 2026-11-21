@@ -703,7 +703,7 @@
 <body>
   <header class="topbar">
     <div class="brand">
-      <img class="brand-mark" src="IMG/logo-header.png" alt="Smart Fit">
+      <img class="brand-mark" src="IMG/logo-header.webp" alt="Smart Fit">
       <div>
         <p class="brand-title" id="brandTitle">MANTENIMIENTO</p>
         <p class="brand-subtitle" id="brandSubtitle">Gestión de equipos y sedes</p>
@@ -1006,7 +1006,7 @@
   </div>
   <script src="mobile-back-navigation.js?v=20261118-back-session-1"></script>
   <script src="admin-store.js?v=20261029-performance-stage-2"></script>
-  <script src="supabase-data.js?v=20261120-reports-2"></script>
+  <script src="supabase-data.js?v=20261121-photo-batches"></script>
   <script src="machine-detail-photos.js?v=2"></script>
   <script src="pdf-report.js?v=20261107-pdf-export-fix-1"></script>
   <script src="inspection-reports.js?v=20261119-pdf-full-page-1"></script>
@@ -1015,7 +1015,23 @@
   <script src="EQU/other-catalogs.js?v=20261026-ubian-rack"></script>
   <script src="common-failures-embed.js?v=20261102-inline-content-1"></script>
   <script src="inventory-export.js?v=20261107-pdf-export-fix-1"></script>
-  <script src="qr-scanner.js?v=20261118-qr-activefixed-extract-1"></script>
+  <script>
+    window.SmartFitQrScanner = {
+      open(options) {
+        if (this.loading) return;
+        this.loading = true;
+        const script = document.createElement("script");
+        script.src = "qr-scanner.js?v=20261121";
+        script.onload = () => window.SmartFitQrScanner.open(options);
+        script.onerror = () => {
+          this.loading = false;
+          script.remove();
+          window.alert("No se pudo cargar el lector QR. Comprueba tu conexión e inténtalo de nuevo.");
+        };
+        document.head.append(script);
+      }
+    };
+  </script>
   <script>
     "use strict";
     const $ = id => document.getElementById(id);
@@ -2422,6 +2438,13 @@
 
     function canCurrentUserSeeInspection(record) {
       return user?.role !== "Técnico" || Boolean(user.authId && String(record.technician_id || "") === String(user.authId));
+    }
+
+    function inspectionPhotoButtons(inspection) {
+      return (Array.isArray(inspection.photos) ? inspection.photos : []).map((photo, index) => {
+          const src = inspectionPhotoUrlCache.get(photo.path);
+          return src ? `<button class="maintenance-image-thumb" type="button" data-enlarge-image="${escapeHtml(src)}" data-image-alt="Foto ${index + 1} de inspección" aria-label="Ampliar foto ${index + 1} de inspección"><img src="${escapeHtml(src)}" alt="Foto ${index + 1} de inspección" loading="lazy" decoding="async"></button>` : "";
+        }).join("");
     }
 
     async function ensureInspectionPhotoUrls(records) {
@@ -3904,14 +3927,11 @@
       const mileagePagination = filteredMileage.length > mileagePageSize ? `<nav class="mileage-pagination" aria-label="Páginas del historial de kilometraje"><span>Mostrando ${mileagePageStart + 1}–${Math.min(mileagePageStart + mileagePageSize, filteredMileage.length)} de ${filteredMileage.length} · Página ${mileagePage + 1} de ${mileagePageCount}</span><div><button class="back-button" type="button" data-mileage-page="prev"${mileagePage === 0 ? " disabled" : ""} aria-label="Mostrar los dos registros más recientes">← Más recientes</button><button class="back-button" type="button" data-mileage-page="next"${mileagePage >= mileagePageCount - 1 ? " disabled" : ""} aria-label="Mostrar los dos registros más antiguos">Más antiguos →</button></div></nav>` : filteredMileage.length ? `<p class="mileage-pagination-summary">${filteredMileage.length} ${filteredMileage.length === 1 ? "registro" : "registros"}</p>` : "";
       const inspectionRows = machineInspections.map(inspection => {
         const state = inspectionState(inspection);
-        const photos = (Array.isArray(inspection.photos) ? inspection.photos : []).map((photo, index) => {
-          const src = inspectionPhotoUrlCache.get(photo.path);
-          return src ? `<button class="maintenance-image-thumb" type="button" data-enlarge-image="${escapeHtml(src)}" data-image-alt="Foto ${index + 1} de inspección" aria-label="Ampliar foto ${index + 1} de inspección"><img src="${escapeHtml(src)}" alt="Foto ${index + 1} de inspección" loading="lazy"></button>` : "";
-        }).join("");
+        const photos = inspectionPhotoButtons(inspection);
         const details = [
           inspection.observations ? `<span><strong>Observaciones:</strong> ${escapeHtml(inspection.observations)}</span>` : "",
           state === "Ejecutado" ? `<span><strong>Corrección:</strong> ${escapeHtml(inspection.correction || "Registrada")}${inspection.corrected_by_name ? ` · ${escapeHtml(inspection.corrected_by_name)}` : ""}</span>` : "",
-          photos ? `<span class="machine-log-photos">${photos}</span>` : (inspection.photos || []).length ? '<span class="site-count">Cargando fotografías…</span>' : ""
+          (inspection.photos || []).some(p => p?.path && !inspectionPhotoUrlCache.has(p.path)) ? `<span class="machine-log-photos" data-inspection-photo-pending="${escapeHtml(inspection.id)}">${photos || "Cargando fotografías…"}</span>` : photos ? `<span class="machine-log-photos">${photos}</span>` : ""
         ].filter(Boolean).join("");
         return `<tr><td><strong>${escapeHtml(inspection.inspection_number || "—")}</strong></td><td>${escapeHtml(formatMachineDate(inspection.occurred_at || inspection.created_at, false))}</td><td><strong>Hallazgo:</strong> ${escapeHtml(inspection.finding || "—")}${details ? `<div class="inspection-table-details">${details}</div>` : ""}</td><td>${inspectionStatusAndViewMarkup(inspection)}</td></tr>`;
       }).join("") || '<tr><td colspan="4" class="empty-state">No hay inspecciones vinculadas a este equipo.</td></tr>';
@@ -4002,7 +4022,15 @@
       $("machineMileagePdfButton")?.addEventListener("click", exportMachineMileagePdf);
       if (showMachineInspectionTab && currentMachineTab === "inspections" && machineInspections.some(row => (row.photos || []).some(photo => photo?.path && !inspectionPhotoUrlCache.has(photo.path)))) {
         void ensureInspectionPhotoUrls(machineInspections).then(() => {
-          if (currentMachine && String(currentMachine.recordKey) === String(machine.recordKey) && currentMachineTab === "inspections") renderMachineDetail(currentMachine);
+          if (!currentMachine || String(currentMachine.recordKey) !== String(machine.recordKey) || currentMachineTab !== "inspections") return;
+          const records = new Map(machineInspections.map(row => [String(row.id), row]));
+          for (const slot of $("siteGrid").querySelectorAll("[data-inspection-photo-pending]")) {
+            const row = records.get(slot.dataset.inspectionPhotoPending);
+            if (!row) continue;
+            slot.className = "machine-log-photos";
+            slot.innerHTML = inspectionPhotoButtons(row);
+            delete slot.dataset.inspectionPhotoPending;
+          }
         }).catch(error => console.warn("No se pudieron cargar las fotos de inspección.", error));
       }
       if (machine.recordKey) SmartFitMachinePhotos.load($("siteGrid"), String(machine.recordKey), escapeHtml, refreshPhotos);
