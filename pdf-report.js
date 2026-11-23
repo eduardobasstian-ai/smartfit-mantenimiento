@@ -62,7 +62,13 @@
         reportWindow.print();
       } catch (error) {
         finishPrint();
-        reportWindow.alert("No se pudo abrir la impresión. Intenta nuevamente desde este informe.");
+        const message = "No se pudo abrir la impresión. Intenta nuevamente desde este informe.";
+        try {
+          if (reportWindow.opener && !reportWindow.opener.closed) reportWindow.opener.alert(message);
+          else reportWindow.alert(message);
+        } catch (alertError) {
+          reportWindow.alert(message);
+        }
       }
     });
 
