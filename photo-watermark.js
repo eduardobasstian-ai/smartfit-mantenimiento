@@ -38,8 +38,23 @@
     ctx.shadowOffsetY = 1;
   }
 
-  function drawSmartFit(ctx, x, y, scale) {
-    const font = Math.max(16, Math.min(31, scale * 34));
+  function wrapText(ctx, text, maxWidth) {
+    const words = String(text).split(/\s+/).filter(Boolean);
+    const lines = [];
+    let line = "";
+    words.forEach(word => {
+      const candidate = line ? `${line} ${word}` : word;
+      if (line && ctx.measureText(candidate).width > maxWidth) {
+        lines.push(line);
+        line = word;
+      } else line = candidate;
+    });
+    if (line) lines.push(line);
+    return lines;
+  }
+
+  function drawSmartFit(ctx, x, y, scale, imageWidth) {
+    const font = Math.min(Math.max(16, Math.min(31, scale * 34)) * 5, imageWidth * 0.08);
     ctx.save();
     shadow(ctx);
     ctx.textAlign = "left";
@@ -74,15 +89,15 @@
     const shortest = Math.min(width, height);
     const scale = shortest / 900;
     const margin = Math.max(12, Math.round(shortest * 0.018));
-    const detailFont = Math.max(11, Math.min(20, shortest * 0.017));
+    const detailFont = Math.max(11, Math.min(20, shortest * 0.017)) * 5;
     const lineHeight = detailFont * 1.35;
     const emitted = new Intl.DateTimeFormat("es-CL", { dateStyle: "medium", timeStyle: "short" }).format(new Date());
     const details = [person, site ? `Sede: ${site}${region ? ` · ${region}` : ""}` : region, gps ? `GPS aprox.: ${gps}` : "", emitted].filter(Boolean);
-    const logoY = height - margin - Math.max(4, scale * 8);
-
+    const logoFont = Math.min(Math.max(16, Math.min(31, scale * 34)) * 5, width * 0.08);
+    const logoY = height - margin - logoFont * 0.68;
     ctx.save();
     // Texto y marca sin placas: solo una sombra fina para conservar la lectura.
-    drawSmartFit(ctx, margin, logoY, scale);
+    drawSmartFit(ctx, margin, logoY, scale, width);
 
     ctx.textBaseline = "alphabetic";
     ctx.textAlign = "right";
@@ -90,8 +105,9 @@
     ctx.font = `500 ${detailFont}px system-ui, Arial, sans-serif`;
     ctx.fillStyle = "rgba(255,255,255,.92)";
     const detailMaxWidth = Math.max(80, width * 0.62);
-    details.forEach((line, index) => {
-      ctx.fillText(line, width - margin, height - margin - (details.length - index - 1) * lineHeight, detailMaxWidth);
+    const detailLines = details.flatMap(line => wrapText(ctx, line, detailMaxWidth));
+    detailLines.forEach((line, index) => {
+      ctx.fillText(line, width - margin, height - margin - (detailLines.length - index - 1) * lineHeight, detailMaxWidth);
     });
     ctx.restore();
   }
