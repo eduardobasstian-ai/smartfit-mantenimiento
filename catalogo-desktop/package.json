@@ -1,6 +1,6 @@
 {
   "name": "smartfit-catalogo-desktop",
-  "version": "0.1.1-beta.2",
+  "version": "0.1.2-beta.3",
   "description": "Beta de escritorio del catálogo de repuestos SmartFit",
   "author": "SmartFit",
   "private": true,
@@ -12,7 +12,7 @@
   "build": {
     "appId": "cl.smartfit.catalogo.beta",
     "productName": "Catálogo SmartFit Beta",
-    "artifactName": "Catalogo-SmartFit-Beta-0.1.1-Setup.exe",
+    "artifactName": "Catalogo-SmartFit-Beta-0.1.2-Setup.exe",
     "directories": {
       "output": "dist"
     },
@@ -24,7 +24,11 @@
       {
         "from": "contenido",
         "to": "catalogo",
-        "filter": ["catalogo/**/*", "telemetry.js", "vendor/**/*"]
+        "filter": [
+          "catalogo/**/*",
+          "telemetry.js",
+          "vendor/**/*"
+        ]
       }
     ],
     "win": {

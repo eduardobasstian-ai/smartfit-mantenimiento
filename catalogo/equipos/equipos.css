@@ -432,3 +432,74 @@ a.equipment-card:hover {
 #inventoryFormStatus:empty {
   display: none;
 }
+
+.plan-context-menu {
+  position: fixed;
+  z-index: 100;
+  display: grid;
+  width: min(290px, calc(100vw - 16px));
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface2);
+  box-shadow: 0 8px 30px #0008;
+}
+.plan-context-menu button {
+  padding: 12px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  text-align: left;
+}
+.plan-context-menu button:hover,
+.plan-context-menu button:focus-visible { background: #35343a; color: var(--yellow); }
+.plan-context-menu button:disabled { opacity: .4; }
+.plan-edit-dialog {
+  width: min(1000px, calc(100vw - 24px));
+  max-height: 90dvh;
+  padding: 20px;
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+}
+.plan-edit-dialog::backdrop { background: #000a; }
+.plan-edit-dialog header,
+.plan-edit-dialog footer,
+.marker-edit-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.plan-edit-dialog header { justify-content: space-between; }
+.plan-edit-dialog h2 { margin: 0; font-size: 20px; }
+.plan-edit-dialog header button { border: 0; background: transparent; font-size: 26px; }
+.plan-edit-filter { display: grid; gap: 6px; margin: 16px 0; }
+.plan-edit-rows { max-height: 58dvh; overflow: auto; }
+.plan-edit-rows fieldset {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0 0 12px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+}
+.plan-edit-rows legend { padding-inline: 6px; color: var(--yellow); }
+.plan-edit-rows label { display: grid; gap: 5px; min-width: 0; font-size: 12px; }
+.plan-edit-dialog input {
+  width: 100%;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--bg);
+  color: var(--text);
+}
+.plan-edit-dialog footer { justify-content: flex-end; }
+.plan-edit-status { color: var(--yellow); font-size: 13px; }
+.marker-edit-toolbar { padding: 10px; border-block: 1px solid var(--line); }
+.marker-edit-toolbar span { flex: 1 1 200px; font-size: 12px; }
+.hotspot.is-batch-selected { outline: 2px solid var(--blue); outline-offset: 3px; }
+.hotspot.is-repositioning { cursor: grab; touch-action: none; }
+.hotspot.is-repositioning:active { cursor: grabbing; }
+@media (max-width: 600px) {
+  .plan-edit-rows fieldset { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .plan-edit-dialog { padding: 12px; }
+}

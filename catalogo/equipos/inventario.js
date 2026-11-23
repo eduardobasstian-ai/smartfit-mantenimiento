@@ -146,26 +146,21 @@ window.createCatalogInventory = (brands, models) => {
   async function indexModel(modelId) {
     const model = modelsById.get(modelId);
     if (!model) return;
-    const data = await window.catalogLoadModel(modelId);
+    const base = await window.catalogLoadModel(modelId);
     const [prefix, scoped, manual] = sources.get(modelId);
     const storage = "smartfit-catalog:" + prefix;
-    const remote = modelId === "t600x-sf" ? matrixChanges : undefined;
+    const remote = window.CatalogSync.active
+      ? await window.CatalogSync.forModel(modelId).read()
+      : modelId === "t600x-sf" ? matrixChanges : undefined;
     const localNames = remote ? null : storedValue(storage + ":technical-names:v1");
     const localMarkers = remote ? null : storedValue(storage + ":manual-refs:v1");
     const cached = indexes.get(modelId);
     if (cached && cached.remote === remote && cached.localNames === localNames && cached.localMarkers === localMarkers) return;
+    const data = window.catalogApplyChanges(structuredClone(base), remote ||
+      parseStored(localMarkers, []).map(valor => ({ tipo: "marcador", valor })));
     const names = remote
       ? Object.fromEntries(remote.filter(row => row.tipo === "nombre").map(row => [row.clave, row.valor]))
       : parseStored(localNames, {});
-    const markers = remote
-      ? remote.filter(row => row.tipo === "marcador").map(row => row.valor)
-      : parseStored(localMarkers, []);
-    const markersByView = new Map();
-    for (const row of Array.isArray(markers) ? markers : []) {
-      if (!row?.viewId) continue;
-      if (!markersByView.has(row.viewId)) markersByView.set(row.viewId, []);
-      markersByView.get(row.viewId).push(row.part);
-    }
     const partsById = new Map();
     const brand = brandNames.get(model.brand);
     const equipment = model.name + " " + model.model;
@@ -174,14 +169,15 @@ window.createCatalogInventory = (brands, models) => {
         ...(view.id === "general" ? data.bom || [] : []),
         ...(view.bom || []),
         ...Object.values(view.parts || (view.id === "general" ? data.parts : {})),
-        ...(markersByView.get(view.id) || []),
       ];
       for (const part of parts) {
         if (!part || part.viewIds || !(part.item || part.reference || part.sap)) continue;
         const code = String(part.item || "").trim().toUpperCase();
         const itemKey = scoped ? view.id + ":" + code : code;
-        const name = names?.[manual ? itemKey + ":" + (part.reference || "") : itemKey];
-        const id = JSON.stringify([model.id, scoped ? view.id : "", code, part.reference || "", part.sap || ""]);
+        const nameKey = part._catalogIdentityKey || (manual ? itemKey + ":" + (part.reference || "") : itemKey);
+        const name = names?.[nameKey];
+        const original = window.catalogReferenceOriginal(part);
+        const id = JSON.stringify([model.id, scoped ? view.id : "", original.item.trim().toUpperCase(), original.reference, original.sap]);
         partsById.set(id, {
           id, modelId: model.id, brand, equipment, scope: scoped ? view.label : "",
           item: part.item, reference: part.reference, sap: part.sap, technicalName: name,
