@@ -23,6 +23,20 @@
       .smartfit-pdf-toolbar button.primary{background:#ffb51b;border-color:#ffb51b;color:#17191f}
       .smartfit-pdf-toolbar button:disabled{opacity:.65;cursor:wait}
       @media print{.smartfit-pdf-toolbar{display:none!important}}
+      @media print{
+        @page{margin:5mm!important}
+        html,body{height:auto!important;min-height:0!important}
+        body{margin:0!important;padding:0!important}
+        table{margin:0!important}
+        thead{display:table-header-group}
+        tr{break-inside:auto!important;page-break-inside:auto!important}
+        th,td{padding:3px 4px!important}
+        footer{margin-top:5mm!important}
+        .report-page,.page,.sheet{height:auto!important;min-height:0!important;margin-top:0!important;margin-bottom:3mm!important;padding-top:0!important;padding-bottom:2mm!important}
+        .sheet{display:block!important}
+        .sheet+.sheet{break-before:auto!important;page-break-before:auto!important}
+        .sheet article{flex:none!important;padding:2mm 0!important}
+      }
       @media(max-width:560px){.smartfit-pdf-toolbar{align-items:flex-start;flex-direction:column}.smartfit-pdf-toolbar-actions{width:100%}.smartfit-pdf-toolbar button{flex:1}}
     `;
     document.head.appendChild(style);

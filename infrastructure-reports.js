@@ -183,12 +183,7 @@
               <h3>Observaciones</h3><p>${esc(row.observations || "Sin observaciones")}</p>
               <h3>Registro fotográfico</h3>${pictures ? `<section class="pictures">${pictures}</section>` : "<p>Sin fotografías adjuntas.</p>"}</article>`;
           });
-          const sheets = [];
-          for (let i = 0; i < records.length; i += 2) {
-            const title = header("INFORME DE INFRAESTRUCTURA", `Hoja ${sheets.length + 1} de ${Math.ceil(records.length / 2)}`);
-            sheets.push(`<section class="sheet">${title}${records.slice(i, i + 2).join("")}${footer}</section>`);
-          }
-          body = sheets.join("");
+          body = header("INFORME DE INFRAESTRUCTURA", `${keys.length} informes · ${rows.length} eventos`) + records.join("") + footer;
         } else {
           const cells = rows.map(row => {
             const v = row.visit;
@@ -200,19 +195,15 @@
         popup.document.open();
         popup.document.write(`<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Infraestructura · ${full?"Full":"Lite"}</title><style>
           @page{size:letter portrait;margin:8mm}*{box-sizing:border-box}html,body{margin:0;width:100%;font:10pt/1.35 Arial,sans-serif;color:#18202a}header{display:flex;align-items:center;justify-content:space-between;gap:6mm;border-bottom:2px solid #ffb51b;padding-bottom:3mm}header img{width:34mm;background:#000;padding:1.5mm;border-radius:1mm;print-color-adjust:exact;-webkit-print-color-adjust:exact}header div{text-align:right}h1{font-size:16pt;margin:0}small{font-size:8.5pt}h2{font-size:10pt;border-bottom:1px solid #bbb;padding-bottom:1mm;margin:4mm 0 2mm}.fields,.pictures{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:2mm 5mm}p,td{white-space:pre-wrap;overflow-wrap:anywhere}p{margin:0}figure{margin:0;text-align:center;break-inside:avoid}figure img{display:block;width:100%;height:39mm;object-fit:contain;border:1px solid #ddd}figcaption,footer{font-size:8pt}footer{text-align:center;border-top:1px solid #bbb;padding-top:2mm;margin-top:4mm}
-          .sheet{min-height:262mm;display:flex;flex-direction:column;font:9pt/1.24 Arial,sans-serif}
-          .sheet+.sheet{break-before:page}
-          .sheet header img{width:30mm}
-          .sheet article{flex:1;padding:3mm 0;break-inside:avoid;overflow-wrap:anywhere}
-          .sheet article+article{border-top:1px solid #99a1aa}
+          article{padding:2mm 0;overflow-wrap:anywhere}
+          article+article{border-top:1px solid #99a1aa}
           .record-title{display:flex;align-items:baseline;justify-content:space-between;gap:4mm;margin-bottom:2mm}
           .record-title h2{border:0;padding:0;margin:0;font-size:12pt}
           .record-title b{white-space:nowrap;font-size:8pt}
-          .sheet .fields{gap:1mm 4mm}
-          .sheet h3{font-size:9pt;margin:2mm 0 1mm;border-bottom:1px solid #ccd0d4}
-          .sheet footer{margin-top:0}
+          article .fields{gap:1mm 4mm}
+          article h3{font-size:9pt;margin:2mm 0 1mm;border-bottom:1px solid #ccd0d4}
           table{width:100%;border-collapse:collapse;table-layout:fixed;margin-top:3mm;font-size:8.5pt}th,td{padding:1.5mm;border:1px solid #bbb;text-align:left;vertical-align:top}thead{display:table-header-group}tr{break-inside:avoid}
-        </style></head><body>${body}<script>window.addEventListener('load',()=>window.print());<\/script></body></html>`);
+        </style></head><body>${body}<script>window.addEventListener('load',()=>{window.opener?.SmartFitPdfReport?.attach(window);window.print()});<\/script></body></html>`);
         popup.document.close();
       } catch (error) { popup?.close(); global.alert(error.message || "No se pudo generar el informe."); }
     }

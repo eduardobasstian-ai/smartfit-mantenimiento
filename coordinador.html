@@ -77,8 +77,9 @@
   </div>
   <script src="admin-store.js?v=20261029-performance-stage-2"></script>
   <script src="supabase-data.js?v=20261120-reports-2"></script>
+  <script src="pdf-report.js?v=20261123-page-fit-1"></script>
   <script src="record-photo-carousel.js?v=20261119-infrastructure-gallery-1"></script>
-  <script src="infrastructure-reports.js?v=20261120-reports-2"></script>
+  <script src="infrastructure-reports.js?v=20261123-page-fit-1"></script>
   <script>
     "use strict";
     const $ = id => document.getElementById(id);
@@ -276,6 +277,7 @@
       if (!rows.length) return;
       const popup = window.open("", "_blank");
       if (!popup) { window.alert("Permite las ventanas emergentes para generar el informe PDF."); return; }
+      popup.addEventListener("beforeprint", () => window.SmartFitPdfReport?.attach(popup), { once: true });
       const body = rows.map((row,index) => `<tr><td>${index+1}</td><td>${escapeHtml(formatDate(row.occurred_at || row.created_at))}</td><td>${escapeHtml(row.site_name || assignedSites.find(site => String(site.id) === String(row.site_legacy_id))?.name || "Sede")}</td><td>${escapeHtml(eventSectorName(row))}</td><td>${escapeHtml(row.technician_name || row.registered_by_name || "—")}</td><td>${escapeHtml(row.finding || row.observations || "—")}</td><td>${escapeHtml(statusName(row))}</td></tr>`).join("");
       popup.document.write(`<!doctype html><html lang="es"><head><meta charset="utf-8"><title>${escapeHtml(heading)}</title><style>@page{size:letter landscape;margin:12mm}*{box-sizing:border-box}body{font:9pt Arial,sans-serif;color:#171923}.head{display:flex;justify-content:space-between;align-items:center;gap:20px;border-bottom:3px solid #ffb51b;padding-bottom:10px;margin-bottom:14px}.head img{width:115px;background:#000;padding:4px 7px;border-radius:4px}.head div{text-align:right}.head h1{font-size:18pt;margin:0 0 5px}.head p{margin:0;color:#555}table{width:100%;border-collapse:collapse;table-layout:fixed}th,td{padding:6px;border:1px solid #d8dae0;text-align:left;vertical-align:top;overflow-wrap:anywhere}th{background:#f0f1f4}footer{margin-top:14px;border-top:1px solid #cfd1d8;padding-top:7px;text-align:center;color:#555;font-size:8pt}@media print{*{-webkit-print-color-adjust:exact;print-color-adjust:exact}}</style></head><body><header class="head"><img src="IMG/logo-header.png" alt="Smart Fit"><div><h1>${escapeHtml(heading)}</h1><p>Coordinador: ${escapeHtml(user.name)} · ${rows.length} informes · ${escapeHtml(new Intl.DateTimeFormat("es-CL",{dateStyle:"medium",timeStyle:"short"}).format(new Date()))}</p></div></header><table><thead><tr><th>N.º</th><th>Fecha</th><th>Sede</th><th>Evento / Sector</th><th>Técnico</th><th>Hallazgo</th><th>Estado</th></tr></thead><tbody>${body}</tbody></table><footer>Informe generado desde Smart Fit · Fotografías omitidas para mantener un PDF liviano.</footer><script>window.addEventListener('load',()=>{window.print()});<\/script></body></html>`);
       popup.document.close();
