@@ -53,8 +53,13 @@
     return lines;
   }
 
-  function drawSmartFit(ctx, x, y, scale, imageWidth) {
-    const font = Math.min(Math.max(16, Math.min(31, scale * 34)) * 5, imageWidth * 0.08);
+  function drawSmartFit(ctx, x, y, imageWidth, margin) {
+    const targetWidth = Math.max(1, Math.min(imageWidth * 0.12, imageWidth - margin * 2));
+    ctx.font = "800 100px system-ui, Arial, sans-serif";
+    const smartWidthAt100 = ctx.measureText("smart").width;
+    ctx.font = "800 104px system-ui, Arial, sans-serif";
+    const fitWidthAt100 = ctx.measureText("fit").width;
+    const font = 100 * targetWidth / (smartWidthAt100 + fitWidthAt100 + 8);
     ctx.save();
     shadow(ctx);
     ctx.textAlign = "left";
@@ -87,17 +92,16 @@
     const gps = await getLocation();
     const width = canvas.width, height = canvas.height;
     const shortest = Math.min(width, height);
-    const scale = shortest / 900;
     const margin = Math.max(12, Math.round(shortest * 0.018));
-    const detailFont = Math.max(11, Math.min(20, shortest * 0.017)) * 5;
+    const detailFont = Math.max(10, width * 0.012);
     const lineHeight = detailFont * 1.35;
     const emitted = new Intl.DateTimeFormat("es-CL", { dateStyle: "medium", timeStyle: "short" }).format(new Date());
     const details = [person, site ? `Sede: ${site}${region ? ` · ${region}` : ""}` : region, gps ? `GPS aprox.: ${gps}` : "", emitted].filter(Boolean);
-    const logoFont = Math.min(Math.max(16, Math.min(31, scale * 34)) * 5, width * 0.08);
+    const logoFont = Math.min(width * 0.12, width - margin * 2) / 4.5;
     const logoY = height - margin - logoFont * 0.68;
     ctx.save();
     // Texto y marca sin placas: solo una sombra fina para conservar la lectura.
-    drawSmartFit(ctx, margin, logoY, scale, width);
+    drawSmartFit(ctx, margin, logoY, width, margin);
 
     ctx.textBaseline = "alphabetic";
     ctx.textAlign = "right";
