@@ -673,7 +673,7 @@
   </div>
   <script src="mobile-back-navigation.js?v=20261118-back-session-1"></script>
   <script src="admin-store.js?v=20261029-performance-stage-2"></script>
-  <script src="photo-watermark.js?v=20261123-photo-watermark-1"></script>
+  <script src="photo-watermark.js?v=20261123-photo-watermark-2"></script>
   <script src="supabase-data.js?v=20261121-photo-batches"></script>
   <script src="machine-detail-photos.js?v=2"></script>
   <script src="pdf-report.js?v=20261123-page-fit-1"></script>
@@ -1811,7 +1811,7 @@
           context.fillRect(0, 0, canvas.width, canvas.height);
           context.drawImage(image, 0, 0, canvas.width, canvas.height);
           try {
-            await window.SmartFitPhotoWatermark?.draw(context, canvas, { person: user?.name, site: currentSite?.name || currentMachine?.siteName });
+            await window.SmartFitPhotoWatermark?.draw(context, canvas, { person: user?.name, site: currentSite?.name || currentMachine?.siteName, region: currentSite?.region || currentSite?.commune });
             const toBlob = (type, quality) => new Promise(done => canvas.toBlob(done, type, quality));
             let blob = await toBlob("image/webp", 0.9);
             if (!blob || blob.type !== "image/webp") blob = await toBlob("image/jpeg", 0.78);

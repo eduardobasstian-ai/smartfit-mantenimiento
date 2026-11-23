@@ -1,7 +1,6 @@
 (function (global) {
   "use strict";
 
-  let logoPromise;
   let locationPromise;
 
   function sessionContext() {
@@ -12,19 +11,6 @@
       } catch (_) {}
     }
     return { person: "", site: "" };
-  }
-
-  function getLogo() {
-    if (!logoPromise) {
-      logoPromise = new Promise(resolve => {
-        const logo = new Image();
-        const timer = setTimeout(() => resolve(null), 300);
-        logo.onload = () => { clearTimeout(timer); resolve(logo); };
-        logo.onerror = () => { clearTimeout(timer); resolve(null); };
-        logo.src = new URL("IMG/logo-header.png", global.location.href).href;
-      });
-    }
-    return logoPromise;
   }
 
   function getLocation() {
@@ -38,65 +24,75 @@
         navigator.geolocation.getCurrentPosition(position => {
           clearTimeout(timer);
           const { latitude, longitude, accuracy } = position.coords;
-          finish(`GPS aprox. ${latitude.toFixed(5)}, ${longitude.toFixed(5)} · ±${Math.round(accuracy)} m`);
+          finish(`${latitude.toFixed(5)}, ${longitude.toFixed(5)} · ±${Math.round(accuracy)} m`);
         }, () => { clearTimeout(timer); finish(""); }, { enableHighAccuracy: false, maximumAge: 600000, timeout: 1800 });
       } catch (_) { clearTimeout(timer); finish(""); }
     });
     return locationPromise;
   }
 
-  function roundedRect(ctx, x, y, width, height, radius) {
+  function shadow(ctx) {
+    ctx.shadowColor = "rgba(0,0,0,.5)";
+    ctx.shadowBlur = 2;
+    ctx.shadowOffsetX = 1;
+    ctx.shadowOffsetY = 1;
+  }
+
+  function drawSmartFit(ctx, x, y, scale) {
+    const font = Math.max(16, Math.min(31, scale * 34));
+    ctx.save();
+    shadow(ctx);
+    ctx.textAlign = "left";
+    ctx.textBaseline = "alphabetic";
+    ctx.font = `800 ${font}px system-ui, Arial, sans-serif`;
+    ctx.fillStyle = "rgba(255,255,255,.92)";
+    ctx.fillText("smart", x, y);
+    const smartWidth = ctx.measureText("smart").width;
+    ctx.font = `800 ${font * 1.04}px system-ui, Arial, sans-serif`;
+    ctx.fillStyle = "rgba(255,181,27,.96)";
+    const fitX = x + smartWidth + font * 0.08;
+    ctx.fillText("fit", fitX, y);
+    const fitWidth = ctx.measureText("fit").width;
+    ctx.shadowColor = "transparent";
     ctx.beginPath();
-    ctx.roundRect ? ctx.roundRect(x, y, width, height, radius) : ctx.rect(x, y, width, height);
-    ctx.fill();
+    ctx.moveTo(fitX + font * 0.05, y + font * 0.17);
+    ctx.quadraticCurveTo(fitX + fitWidth * 0.48, y + font * 0.63, fitX + fitWidth * 0.96, y + font * 0.17);
+    ctx.strokeStyle = "rgba(255,181,27,.96)";
+    ctx.lineWidth = Math.max(1.5, font * 0.085);
+    ctx.lineCap = "round";
+    ctx.stroke();
+    ctx.restore();
   }
 
   async function draw(ctx, canvas, supplied = {}) {
     const fallback = sessionContext();
     const person = String(supplied.person || fallback.person || "Personal SmartFit").trim();
     const site = String(supplied.site || fallback.site || "").trim();
-    const [logo, gps] = await Promise.all([getLogo(), getLocation()]);
-    const w = canvas.width, h = canvas.height;
-    const scale = Math.max(1, Math.min(w, h) / 900);
-    const pad = Math.round(14 * scale);
-    const font = Math.max(12, Math.round(Math.min(w, h) * 0.022));
-    const line = Math.round(font * 1.45);
-    const rightText = [site ? `Sede: ${site}` : "", gps, new Intl.DateTimeFormat("es-CL", { dateStyle: "short", timeStyle: "short" }).format(new Date())].filter(Boolean);
-    const logoW = Math.min(Math.round(w * 0.28), Math.round(190 * scale));
-    const logoH = logo ? logoW * (logo.naturalHeight / logo.naturalWidth) : line * 1.4;
-    const leftW = logoW + pad * 2;
+    const region = String(supplied.region || "").trim();
+    const gps = await getLocation();
+    const width = canvas.width, height = canvas.height;
+    const shortest = Math.min(width, height);
+    const scale = shortest / 900;
+    const margin = Math.max(12, Math.round(shortest * 0.018));
+    const detailFont = Math.max(11, Math.min(20, shortest * 0.017));
+    const lineHeight = detailFont * 1.35;
+    const emitted = new Intl.DateTimeFormat("es-CL", { dateStyle: "medium", timeStyle: "short" }).format(new Date());
+    const details = [person, site ? `Sede: ${site}${region ? ` · ${region}` : ""}` : region, gps ? `GPS aprox.: ${gps}` : "", emitted].filter(Boolean);
+    const logoY = height - margin - Math.max(4, scale * 8);
+
     ctx.save();
-    const metaFont = Math.max(11, Math.round(font * 0.82));
-    ctx.font = `500 ${metaFont}px system-ui, Arial, sans-serif`;
-    const rightW = Math.min(Math.round(w * 0.66), Math.max(...rightText.map(text => ctx.measureText(text).width)) + pad * 2);
-    const badgeH = Math.max(logoH + pad * 2, line * rightText.length + pad * 2);
-    const y = h - badgeH - pad;
-    ctx.fillStyle = "rgba(8, 10, 15, 0.78)";
-    roundedRect(ctx, pad, y, leftW, badgeH, Math.round(10 * scale));
-    roundedRect(ctx, w - rightW - pad, y, rightW, badgeH, Math.round(10 * scale));
-    if (logo) {
-      const ratio = Math.min((leftW - pad * 2) / logo.naturalWidth, (badgeH - pad * 2) / logo.naturalHeight);
-      const dw = logo.naturalWidth * ratio, dh = logo.naturalHeight * ratio;
-      ctx.drawImage(logo, pad + (leftW - dw) / 2, y + (badgeH - dh) / 2, dw, dh);
-    } else {
-      ctx.textAlign = "center";
-      ctx.font = `800 ${Math.round(font * 1.35)}px system-ui, Arial, sans-serif`;
-      ctx.fillStyle = "#fff";
-      ctx.fillText("smart", pad + leftW * 0.44, y + badgeH * 0.48);
-      ctx.fillStyle = "#ffb51b";
-      ctx.fillText("fit", pad + leftW * 0.69, y + badgeH * 0.48);
-    }
+    // Texto y marca sin placas: solo una sombra fina para conservar la lectura.
+    drawSmartFit(ctx, margin, logoY, scale);
+
+    ctx.textBaseline = "alphabetic";
     ctx.textAlign = "right";
-    ctx.font = `700 ${font}px system-ui, Arial, sans-serif`;
-    ctx.fillStyle = "#ffffff";
-    const nameWidth = Math.min(Math.round(w * 0.68), ctx.measureText(person).width + pad * 2);
-    ctx.fillStyle = "rgba(8, 10, 15, 0.78)";
-    roundedRect(ctx, w - nameWidth - pad, pad, nameWidth, line + pad, Math.round(8 * scale));
-    ctx.fillStyle = "#ffffff";
-    ctx.fillText(person, w - pad * 2, pad + line * 0.78, nameWidth - pad * 2);
-    ctx.font = `500 ${metaFont}px system-ui, Arial, sans-serif`;
-    ctx.fillStyle = "#f4f4f5";
-    rightText.forEach((text, index) => ctx.fillText(text, w - pad * 2, y + pad + font + line * index, rightW - pad * 2));
+    shadow(ctx);
+    ctx.font = `500 ${detailFont}px system-ui, Arial, sans-serif`;
+    ctx.fillStyle = "rgba(255,255,255,.92)";
+    const detailMaxWidth = Math.max(80, width * 0.62);
+    details.forEach((line, index) => {
+      ctx.fillText(line, width - margin, height - margin - (details.length - index - 1) * lineHeight, detailMaxWidth);
+    });
     ctx.restore();
   }
 
