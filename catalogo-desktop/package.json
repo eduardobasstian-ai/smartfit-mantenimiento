@@ -1,0 +1,50 @@
+{
+  "name": "smartfit-catalogo-desktop",
+  "version": "0.1.1-beta.2",
+  "description": "Beta de escritorio del catálogo de repuestos SmartFit",
+  "author": "SmartFit",
+  "private": true,
+  "main": "main.cjs",
+  "scripts": {
+    "start": "electron .",
+    "build": "node preparar.cjs && electron-builder --win nsis --x64"
+  },
+  "build": {
+    "appId": "cl.smartfit.catalogo.beta",
+    "productName": "Catálogo SmartFit Beta",
+    "artifactName": "Catalogo-SmartFit-Beta-0.1.1-Setup.exe",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.cjs",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "contenido",
+        "to": "catalogo",
+        "filter": ["catalogo/**/*", "telemetry.js", "vendor/**/*"]
+      }
+    ],
+    "win": {
+      "icon": "../IMG/pwa-512.png",
+      "target": [
+        "nsis"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Catálogo SmartFit Beta",
+      "deleteAppDataOnUninstall": false
+    }
+  },
+  "devDependencies": {
+    "electron": "45.4.1",
+    "electron-builder": "26.18.0"
+  }
+}

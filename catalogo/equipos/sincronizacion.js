@@ -15,7 +15,10 @@ window.CatalogSync = (() => {
 
   async function checked(response) {
     if (response.ok) return response;
-    throw new Error(`Supabase devolvió un error (${response.status}).`);
+    const detail = await response.json().catch(() => null);
+    throw Object.assign(new Error(detail?.message || `Supabase devolvió un error (${response.status}).`), {
+      code: detail?.code, status: response.status,
+    });
   }
 
   const photoPath = item => `/storage/v1/object/${bucket}/mtm3839/${encodeURIComponent(item)}`;
@@ -25,6 +28,37 @@ window.CatalogSync = (() => {
     disconnect() { session = null; },
     get active() { return Boolean(session); },
     get canWrite() { return session?.role === "administrador"; },
+    async readInventory() {
+      const records = [];
+      for (let offset = 0; ; offset += 500) {
+        const response = await checked(await request(
+          `/rest/v1/rpc/catalogo_inventario?order=id&limit=500&offset=${offset}`
+        ));
+        const page = await response.json();
+        records.push(...page);
+        if (page.length < 500) return records;
+      }
+    },
+    async saveInventory(record, version = 0, createOnly = false) {
+      const response = await checked(await request("/rest/v1/rpc/catalogo_inventario_guardar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ registro: record, version_esperada: version, solo_crear: createOnly }),
+      }));
+      const result = await response.json();
+      const saved = Array.isArray(result) ? result[0] : result;
+      if (!saved?.id || !Array.isArray(saved.links) || !Number.isInteger(saved.version)) {
+        throw new Error("No se pudo confirmar el guardado del inventario.");
+      }
+      return saved;
+    },
+    async removeInventory(id, version) {
+      await checked(await request("/rest/v1/rpc/catalogo_inventario_eliminar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ registro_id: id, version_esperada: version }),
+      }));
+    },
     async read() {
       const entries = [];
       for (let offset = 0; ; offset += 500) {

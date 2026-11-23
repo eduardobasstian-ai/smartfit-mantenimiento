@@ -1,5 +1,5 @@
 // Fotos por marca y modelo tomadas de EQU/other-catalogs.js de Mantencion.
-// MJ4 de Hammer usa la foto del mismo modelo en Life Fitness cuando su archivo de Mantencion no esta disponible.
+// MJ4 de ambas marcas usa la foto oficial de Life Fitness.
 window.catalogMaintenancePhotos = {
   "hammer-strength-hs-adc": "https://www.lifefitness.cl/cdn/shop/products/hammer-strength-assist-dip-chin.jpg?v=1706553459&width=1200",
   "hammer-strength-hs-be": "https://www.lifefitness.cl/cdn/shop/products/hammer-strength-back-extension.jpg?v=1706553483&width=1200",
@@ -15,7 +15,7 @@ window.catalogMaintenancePhotos = {
   "hammer-strength-hs-lc": "https://www.lifefitness.cl/cdn/shop/products/hammer-strength-leg-curl.jpg?v=1706553497&width=1200",
   "hammer-strength-hs-le": "https://www.lifefitness.cl/cdn/shop/products/hammer-strength-leg-extension.jpg?v=1706553486&width=1200",
   "hammer-strength-hsllp": "https://www.lifefitness.cl/cdn/shop/files/plate-loaded-linear-leg-press-charcoalframe-blackuph_1000x1000_5c4d5373-804c-4c7c-9f66-9abcfbde43b8.webp?v=1747256183&width=1200",
-  "hammer-strength-mj4": "https://gym-experts.com/cdn/shop/products/LFSSMJ4-2T_2000x.jpg?v=1486325774",
+  "hammer-strength-mj4": "https://www.lifefitness.com/Kentico13CoreBase/media/LFMedia/LifeFitnessImages/MediaSync/320-12-signature-series-mj4.png",
   "hammer-strength-hs-fly": "https://www.lifefitness.cl/cdn/shop/products/hammer-strength-pectoral-fly.jpg?v=1706553466&width=1200",
   "hammer-strength-hs-slc": "https://www.lifefitness.cl/cdn/shop/products/hammer-strength-seated-leg-curl.jpg?v=1706553492&width=1200",
   "hammer-strength-hs-slp": "https://www.lifefitness.cl/cdn/shop/products/hammer-strength-seated-leg-press.jpg?v=1706553489&width=1200",
@@ -50,7 +50,7 @@ window.catalogMaintenancePhotos = {
   "lifefitness-ss-le": "https://www.lifefitness.cl/cdn/shop/products/leg-extension.jpg?v=1706553558&width=1200",
   "lifefitness-ss-pd": "https://www.lifefitness.cl/cdn/shop/products/pulldown-insignia.jpg?v=1706553524&width=1200",
   "lifefitness-hs-pd": "https://www.lifefitness.cl/cdn/shop/products/hammer-strength-lat-pilldown.jpg?v=1706553456&width=1200",
-  "lifefitness-mj4": "https://gym-experts.com/cdn/shop/products/LFSSMJ4-2T_2000x.jpg?v=1486325774",
+  "lifefitness-mj4": "https://www.lifefitness.com/Kentico13CoreBase/media/LFMedia/LifeFitnessImages/MediaSync/320-12-signature-series-mj4.png",
   "lifefitness-splcalf": "https://www.lifefitness.cl/cdn/shop/products/calf-raise-signature.jpg?v=1706553441&width=1200",
   "lifefitness-ss-ce": "https://www.lifefitness.cl/cdn/shop/products/calf-extension-insignia.jpg?v=1706553544&width=1200",
   "lifefitness-ss-fly": "https://www.lifefitness.cl/cdn/shop/products/pectoral-fly-rear-deltoid-insignia.jpg?v=1706553526&width=1200",

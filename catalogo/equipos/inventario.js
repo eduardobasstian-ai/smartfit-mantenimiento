@@ -1,6 +1,8 @@
 window.createCatalogInventory = (brands, models) => {
   const $ = id => document.getElementById(id);
   const key = "smartfit.catalog.inventory.v1";
+  const sharedKey = "smartfit.catalog.inventory.shared.v1";
+  const importedKey = "smartfit.catalog.inventory.imported.v1";
   const dialog = $("inventoryDialog");
   const form = $("inventoryForm");
   const search = $("inventorySearch");
@@ -52,8 +54,16 @@ window.createCatalogInventory = (brands, models) => {
   let editing = null;
   let stockRaw;
   let stockCache = [];
+  let sharedRecords = parseStored(storedValue(sharedKey), null);
+  if (!Array.isArray(sharedRecords)) sharedRecords = null;
+  let inventoryLoading;
+  let inventoryReady = false;
+  let inventoryWriting = false;
+  let lastInventoryRead = 0;
+  let editingVersion = 0;
 
   function records() {
+    if (sharedRecords) return sharedRecords;
     const raw = storedValue(key);
     if (raw !== stockRaw) {
       stockRaw = raw;
@@ -61,6 +71,68 @@ window.createCatalogInventory = (brands, models) => {
       stockCache = Array.isArray(stored) ? stored : [];
     }
     return stockCache;
+  }
+
+  function cacheInventory(rows) {
+    sharedRecords = rows;
+    try { localStorage.setItem(sharedKey, JSON.stringify(rows)); } catch { /* Se conserva la copia en memoria. */ }
+  }
+
+  function inventoryError(error) {
+    if (error.code === "40001" || error.code === "23505") {
+      inventoryReady = false;
+      lastInventoryRead = 0;
+    }
+    return error.message || "No se pudo conectar el inventario compartido.";
+  }
+
+  async function syncInventory(force = false) {
+    if (!window.CatalogSync.active || inventoryWriting) return;
+    if (inventoryLoading) return inventoryLoading;
+    if (!force && Date.now() - lastInventoryRead < 15000) return;
+    const version = sessionVersion;
+    inventoryLoading = (async () => {
+      $("inventoryStatus").textContent = "Sincronizando inventario…";
+      let rows = await window.CatalogSync.readInventory();
+      if (version !== sessionVersion) return;
+      let failedImport = false;
+      if (window.CatalogSync.canWrite) {
+        const legacy = parseStored(storedValue(key), []);
+        const savedImports = parseStored(storedValue(importedKey), []);
+        const migrated = new Set(Array.isArray(savedImports) ? savedImports : []);
+        let imported = false;
+        for (const record of Array.isArray(legacy) ? legacy : []) {
+          if (!record?.id || !record.links?.length || migrated.has(record.id)) continue;
+          if (version !== sessionVersion) return;
+          try {
+            await window.CatalogSync.saveInventory(record, 0, true);
+            migrated.add(record.id);
+            imported = true;
+          } catch {
+            failedImport = true;
+          }
+        }
+        if (version !== sessionVersion) return;
+        try { localStorage.setItem(importedKey, JSON.stringify([...migrated])); } catch {}
+        if (imported) rows = await window.CatalogSync.readInventory();
+      }
+      if (version !== sessionVersion) return;
+      cacheInventory(rows);
+      inventoryReady = true;
+      lastInventoryRead = Date.now();
+      $("inventoryStatus").textContent = failedImport
+        ? "Algunos registros locales siguen pendientes de compartir. Conservamos sus datos en este dispositivo."
+        : "Inventario compartido actualizado.";
+      if (!$("inventoryView").hidden) {
+        renderInventory();
+        if (dialog.open) renderPicker();
+      }
+    })().catch(error => {
+      if (version === sessionVersion) $("inventoryStatus").textContent = inventoryError(error);
+    }).finally(() => {
+      if (version === sessionVersion) inventoryLoading = null;
+    });
+    return inventoryLoading;
   }
 
   function storedValue(storageKey) {
@@ -130,6 +202,7 @@ window.createCatalogInventory = (brands, models) => {
   function renderInventory() {
     const canWrite = window.CatalogSync.canWrite;
     $("inventoryAdd").hidden = !canWrite;
+    $("inventoryAdd").disabled = !inventoryReady || inventoryWriting;
     const query = normalize(inventorySearch.value);
     const brand = inventoryBrand.value;
     const stock = records();
@@ -173,7 +246,7 @@ window.createCatalogInventory = (brands, models) => {
     const readyToSave = links.length > 0 && picker.hidden && (!shared.checked || !pendingModels);
     $("inventoryStock").hidden = !readyToSave;
     updateStockMode();
-    $("inventorySave").disabled = !readyToSave;
+    $("inventorySave").disabled = !readyToSave || !inventoryReady || inventoryWriting;
     const modelId = shared.checked ? assigningModel : modelFilter.value;
     search.disabled = !modelId;
     addLink.textContent = selectedModels.length ? "Cambiar selección de equipos" : "Seleccionar equipos";
@@ -346,8 +419,9 @@ window.createCatalogInventory = (brands, models) => {
   }
 
   function open(record) {
-    if (!window.CatalogSync.canWrite) return;
+    if (!window.CatalogSync.canWrite || !inventoryReady || inventoryWriting) return;
     editing = record?.id ?? null;
+    editingVersion = record?.version ?? 0;
     links = [...(record?.links || [])];
     assigningModel = "";
     form.reset();
@@ -375,8 +449,8 @@ window.createCatalogInventory = (brands, models) => {
   inventorySearch.oninput = renderInventory;
   inventoryBrand.onchange = renderInventory;
   $("inventoryCancel").onclick = () => dialog.close();
-  $("inventoryList").onclick = event => {
-    if (!window.CatalogSync.canWrite) return;
+  $("inventoryList").onclick = async event => {
+    if (!window.CatalogSync.canWrite || !inventoryReady || inventoryWriting) return;
     const remove = event.target.closest("[data-delete-stock]");
     if (remove) {
       const id = remove.dataset.deleteStock;
@@ -387,11 +461,20 @@ window.createCatalogInventory = (brands, models) => {
         ? `¿Eliminar «${name}» del inventario? Se quitará de todos sus equipos vinculados.`
         : `¿Eliminar «${name}» del inventario?`;
       if (!window.confirm(message)) return;
+      inventoryWriting = true;
+      remove.disabled = true;
       try {
-        localStorage.setItem(key, JSON.stringify(records().filter(entry => entry.id !== id)));
-      } catch {
-        $("inventoryStatus").textContent = "No se pudo eliminar el repuesto del inventario.";
+        await inventoryLoading;
+        await window.CatalogSync.removeInventory(id, record.version);
+        cacheInventory(records().filter(entry => entry.id !== id));
+        lastInventoryRead = 0;
+      } catch (error) {
+        $("inventoryStatus").textContent = inventoryError(error);
         return;
+      } finally {
+        inventoryWriting = false;
+        remove.disabled = false;
+        if (!inventoryReady) syncInventory(true);
       }
       renderInventory();
       $("inventoryStatus").textContent = "Repuesto eliminado del inventario.";
@@ -435,7 +518,7 @@ window.createCatalogInventory = (brands, models) => {
     if (!search.disabled) search.focus();
   };
   search.oninput = renderPicker;
-  form.onsubmit = event => {
+  form.onsubmit = async event => {
     event.preventDefault();
     if (!window.CatalogSync.canWrite) return;
     if ($("inventorySave").disabled) return;
@@ -451,17 +534,29 @@ window.createCatalogInventory = (brands, models) => {
       return;
     }
     const id = editing || crypto.randomUUID();
+    inventoryWriting = true;
+    $("inventorySave").disabled = true;
     try {
-      localStorage.setItem(key, JSON.stringify([
-        ...stock.filter(record => record.id !== id),
-        { id, quantity: count, shared: shared.checked, links: links.map(currentPart) },
-      ]));
-    } catch {
-      formStatus.textContent = "No se pudo guardar el inventario en este navegador.";
+      await inventoryLoading;
+      const record = await window.CatalogSync.saveInventory(
+        { id, quantity: count, shared: shared.checked, links: links.map(currentPart) }, editingVersion
+      );
+      cacheInventory([
+        ...records().filter(record => record.id !== id),
+        record,
+      ]);
+      lastInventoryRead = 0;
+    } catch (error) {
+      formStatus.textContent = inventoryError(error);
       return;
+    } finally {
+      inventoryWriting = false;
+      renderPicker();
+      if (!inventoryReady) syncInventory(true);
     }
     dialog.close();
     renderInventory();
+    $("inventoryStatus").textContent = "Registro guardado en el inventario compartido.";
   };
 
   function refreshMatrix() {
@@ -471,7 +566,6 @@ window.createCatalogInventory = (brands, models) => {
       if (version !== sessionVersion || !window.CatalogSync.active) return;
       matrixChanges = rows;
       matrixRefreshedAt = Date.now();
-      $("inventoryStatus").textContent = "";
       return indexModel("t600x-sf");
     }).then(() => {
       if (version !== sessionVersion) return;
@@ -494,6 +588,7 @@ window.createCatalogInventory = (brands, models) => {
 
   function refresh() {
     renderInventory();
+    syncInventory();
     const linkedModels = new Set(records().flatMap(record => record.links.map(link => link.modelId)));
     if (linkedModels.has("t600x-sf")) refreshMatrix();
     if (linkedModels.size) {
@@ -510,8 +605,22 @@ window.createCatalogInventory = (brands, models) => {
     matrixChanges = undefined;
     matrixRefreshedAt = 0;
     loading = null;
+    inventoryLoading = null;
+    inventoryReady = false;
+    lastInventoryRead = 0;
     indexes.delete("t600x-sf");
+    syncInventory(true);
     if (!$("inventoryView").hidden) refresh();
   });
+  window.addEventListener("focus", () => {
+    if (!$("inventoryView").hidden) syncInventory(true);
+  });
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden && !$("inventoryView").hidden) syncInventory(true);
+  });
+  window.addEventListener("online", () => syncInventory(true));
+  setInterval(() => {
+    if (!document.hidden && !$("inventoryView").hidden) syncInventory();
+  }, 15000);
   return refresh;
 };

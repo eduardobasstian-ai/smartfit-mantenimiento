@@ -50,6 +50,29 @@
       id, brand, name, model, image: window.catalogMaintenancePhotos[id],
     })),
   ];
+  const modelsById = new Map(models.map(model => [model.id, model]));
+  const localThumbnails = new Set([
+    "rt-g2", "t600x-sf", "e-es-f", "hammer-strength-ssm", "lifefitness-cmdap", "lifefitness-ssm", "mj4",
+  ]);
+  const thumbnailHosts = new Set(["www.lifefitness.cl", "shop.lifefitness.com"]);
+
+  function photoSources(model) {
+    const widths = [240, 384];
+    const thumbnailName = model.model === "MJ4" ? "mj4" : model.id;
+    const url = new URL(model.image, window.location.href);
+    let images;
+    if (localThumbnails.has(thumbnailName)) {
+      images = widths.map(width => `catalogo-assets/miniaturas/${thumbnailName}-${width}.jpg`);
+    } else if (thumbnailHosts.has(url.hostname) && url.pathname.startsWith("/cdn/shop/")) {
+      images = widths.map(width => {
+        url.searchParams.set("width", width);
+        return url.href.replaceAll("&", "&amp;");
+      });
+    } else {
+      return `src="${model.image.replaceAll("&", "&amp;")}"`;
+    }
+    return `src="${images[0]}" srcset="${images[0]} 240w, ${images[1]} 384w" sizes="auto, 126px"`;
+  }
 
   const directory = document.getElementById("equipmentDirectory");
   const title = document.getElementById("equipmentTitle");
@@ -112,8 +135,8 @@
       const query = params.toString();
       return `
       <article class="equipment-card equipment-model-card">
-        <button class="equipment-thumbnail" type="button" aria-label="Ampliar imagen de ${label.es} ${model.model}">
-          <img src="${model.image}" alt="${label.es} ${model.model}" width="544" height="544" loading="lazy">
+        <button class="equipment-thumbnail" data-equipment-photo="${model.id}" type="button" aria-label="Ampliar imagen de ${label.es} ${model.model}">
+          <img ${photoSources(model)} alt="${label.es} ${model.model}" width="240" height="240" loading="lazy" decoding="async">
           <span>Ampliar imagen</span>
         </button>
         <div class="equipment-model-info">
@@ -138,16 +161,18 @@
   search.addEventListener("input", () => renderModels(activeBrand));
 
   grid.addEventListener("click", event => {
-    const thumbnail = event.target.closest(".equipment-thumbnail");
-    if (!thumbnail) return;
+    const thumbnail = event.target.closest("[data-equipment-photo]");
+    const model = modelsById.get(thumbnail?.dataset.equipmentPhoto);
+    if (!model) return;
     const image = thumbnail.querySelector("img");
-    previewImage.src = image.src;
+    previewImage.src = model.image;
     previewImage.alt = image.alt;
     previewImage.setAttribute("data-equipment", "");
     preview.setAttribute("aria-label", image.alt);
     preview.showModal();
   });
   preview.addEventListener("close", () => {
+    if (previewImage.hasAttribute("data-equipment")) previewImage.removeAttribute("src");
     previewImage.removeAttribute("data-equipment");
     preview.setAttribute("aria-label", "Fotografía ampliada");
   });
@@ -178,7 +203,7 @@
 
   function renderRoute(focusHeading = false) {
     const route = window.location.hash;
-    const activeModel = models.find(model => model.id === window.catalogModelId);
+    const activeModel = modelsById.get(window.catalogModelId);
     const showingParts = route === `#equipos/${activeModel?.brand}/${activeModel?.id}` ||
       (window.catalogModelId === "t600x-sf" && route === "#repuestos/matrix/t600x-sf");
     const showingSavedParts = route === partsNav.hash;
