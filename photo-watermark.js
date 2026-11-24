@@ -54,7 +54,7 @@
   }
 
   function drawSmartFit(ctx, x, y, imageWidth, margin) {
-    const targetWidth = Math.max(1, Math.min(imageWidth * 0.12, imageWidth - margin * 2));
+    const targetWidth = Math.max(1, Math.min(imageWidth * 0.22, imageWidth - margin * 2));
     ctx.font = "800 100px system-ui, Arial, sans-serif";
     const smartWidthAt100 = ctx.measureText("smart").width;
     ctx.font = "800 104px system-ui, Arial, sans-serif";
@@ -93,11 +93,11 @@
     const width = canvas.width, height = canvas.height;
     const shortest = Math.min(width, height);
     const margin = Math.max(12, Math.round(shortest * 0.018));
-    const detailFont = Math.max(10, width * 0.012);
+    const detailFont = Math.max(12, width * 0.025);
     const lineHeight = detailFont * 1.35;
     const emitted = new Intl.DateTimeFormat("es-CL", { dateStyle: "medium", timeStyle: "short" }).format(new Date());
     const details = [person, site ? `Sede: ${site}${region ? ` · ${region}` : ""}` : region, gps ? `GPS aprox.: ${gps}` : "", emitted].filter(Boolean);
-    const logoFont = Math.min(width * 0.12, width - margin * 2) / 4.5;
+    const logoFont = Math.min(width * 0.22, width - margin * 2) / 4.5;
     const logoY = height - margin - logoFont * 0.68;
     ctx.save();
     // Texto y marca sin placas: solo una sombra fina para conservar la lectura.
@@ -108,7 +108,7 @@
     shadow(ctx);
     ctx.font = `500 ${detailFont}px system-ui, Arial, sans-serif`;
     ctx.fillStyle = "rgba(255,255,255,.92)";
-    const detailMaxWidth = Math.max(80, width * 0.62);
+    const detailMaxWidth = Math.max(100, width * 0.68);
     const detailLines = details.flatMap(line => wrapText(ctx, line, detailMaxWidth));
     detailLines.forEach((line, index) => {
       ctx.fillText(line, width - margin, height - margin - (detailLines.length - index - 1) * lineHeight, detailMaxWidth);
