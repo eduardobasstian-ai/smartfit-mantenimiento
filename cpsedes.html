@@ -16,7 +16,7 @@
   <link rel="icon" type="image/x-icon" href="IMG/favicon.ico">
   <link rel="icon" type="image/png" href="IMG/favicon.png">
   <link rel="stylesheet" href="common-failures.css?v=20261102-inline-content-1">
-  <script src="./online-only.js?v=20261028-6"></script>
+  <script src="./online-only.js?v=20261124-refresh-persist-1"></script>
   <script src="./form-drafts.js?v=20261105-offline-queue-1"></script>
   <style>
     :root {
@@ -4473,31 +4473,45 @@
       $("supervisorMenuToggle").setAttribute("aria-expanded", "false");
       $("supervisorMenuToggle").setAttribute("aria-label", "Abrir menú");
     });
-    $("refreshViewButton").addEventListener("click", async event => {
-      const button = event.currentTarget;
-      const previousLabel = button.textContent;
+    window.SmartFitRefreshCurrentView = async ({ silent = false, dispatchUpdate = null } = {}) => {
       const machineKey = currentMachine?.recordKey || "";
       const selectedTab = currentMachineTab;
       const scrollTop = window.scrollY;
+      const infrastructureState = technicianMode
+        ? window.SmartFitInfrastructureTechnician?.captureNavigationState?.() || null
+        : null;
+      if (machineKey) captureMaintenanceDraft();
+      const result = await window.SmartFitOnlineGuard?.reconnectAndRefresh?.({
+        silent,
+        dispatchUpdate: dispatchUpdate ?? (!machineKey && !infrastructureState)
+      });
+      if (!result?.ok) return result || { ok: false };
+      if (machineKey && currentMachine?.recordKey === machineKey) {
+        currentMachineTab = selectedTab;
+        renderMachineDetail(currentMachine);
+      } else if (infrastructureState) {
+        await window.SmartFitInfrastructureTechnician?.restoreNavigationState?.(infrastructureState);
+      }
+      window.requestAnimationFrame(() => window.scrollTo(0, scrollTop));
+      return result;
+    };
+    $("refreshViewButton").addEventListener("click", async event => {
+      const button = event.currentTarget;
+      const previousLabel = button.textContent;
       button.disabled = true;
       button.textContent = "Conectando…";
       try {
-        const result = await window.SmartFitOnlineGuard?.reconnectAndRefresh?.();
+        const result = await window.SmartFitRefreshCurrentView({ silent: false });
         if (!result?.ok) {
           button.textContent = "↻ Sin conexión";
           button.title = "No se pudo conectar. Tus registros locales se conservan; vuelve a intentar.";
           return;
-        }
-        if (machineKey && currentMachine?.recordKey === machineKey) {
-          currentMachineTab = selectedTab;
-          renderMachineDetail(currentMachine);
         }
         button.textContent = "✓ Actualizado";
         button.title = result.refreshed ? "Datos actualizados desde el servidor." : "Conexión recuperada; no había una sesión activa para actualizar datos.";
         window.setTimeout(() => {
           if (button.isConnected && !button.disabled) button.textContent = previousLabel;
         }, 1800);
-        window.requestAnimationFrame(() => window.scrollTo(0, scrollTop));
       } catch (error) {
         console.warn("No se pudo completar la actualización manual.", error);
         button.textContent = "↻ Reintentar";

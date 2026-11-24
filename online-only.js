@@ -1,4 +1,4 @@
-(function () {
+(function (global) {
   "use strict";
 
   var overlay;
@@ -8,12 +8,24 @@
   var checkTimer;
   var failedChecks = 0;
   var appLocked = false;
+  var inertState = new Map();
   var connectionCheckUrl = "https://acmcksmiqrfrxopceies.supabase.co/auth/v1/health";
   var publishableKey = "sb_publishable_uWaLgff_Xc03iC68QpUUuQ_QkmCLLGy";
 
   function setAppLocked(locked) {
     appLocked = locked;
-    if (document.body) document.body.inert = locked;
+    if (document.body) {
+      Array.from(document.body.children).forEach(function (child) {
+        if (child === overlay) return;
+        if (locked) {
+          if (!inertState.has(child)) inertState.set(child, child.inert);
+          child.inert = true;
+        } else if (inertState.has(child)) {
+          child.inert = inertState.get(child);
+          inertState.delete(child);
+        }
+      });
+    }
     document.documentElement.toggleAttribute("data-smartfit-offline", locked);
   }
 
@@ -46,7 +58,7 @@
       retryButton.disabled = true;
       retryButton.textContent = "Conectando…";
       try {
-        var result = await reconnectAndRefresh();
+        var result = await (global.SmartFitRefreshCurrentView || reconnectAndRefresh)();
         if (!result.ok) {
           message.innerHTML = "<strong>Sin conexión con el servidor.</strong> Tus registros siguen guardados en este dispositivo.";
           overlay.hidden = false;
@@ -71,24 +83,19 @@
 
   function hide() {
     buildOverlay();
-    var connectionWasBlocked = appLocked;
     overlay.hidden = true;
     setAppLocked(false);
-    if (connectionWasBlocked && global.SmartFitSupabaseData?.retryPending) {
-      global.SmartFitSupabaseData.retryPending().catch(function (error) {
-        console.warn("Quedaron registros locales pendientes de sincronizar.", error);
-      });
-    }
   }
 
-  async function checkConnection(forceMessage) {
+  async function checkConnection(forceMessage, options) {
+    var silent = options?.silent === true;
     if (checking) return false;
     checking = true;
     buildOverlay();
 
     if (!navigator.onLine) {
       failedChecks = Math.max(failedChecks, 2);
-      show();
+      if (!silent) show();
       checking = false;
       return false;
     }
@@ -105,12 +112,15 @@
       });
       if (!response.ok) throw new Error("Network check failed");
       failedChecks = 0;
-      hide();
+      if (options?.deferRecovery !== true && appLocked) {
+        window.setTimeout(function () {
+          if (appLocked && !retryButton.disabled) retryButton.click();
+        }, 0);
+      }
       return true;
     } catch (_error) {
       failedChecks += 1;
-      // Una respuesta fallida aislada puede ser temporal; confirma antes de bloquear.
-      if (forceMessage || failedChecks >= 2) show();
+      if (!silent && (forceMessage || failedChecks >= 1)) show();
       return false;
     } finally {
       window.clearTimeout(timeout);
@@ -118,21 +128,35 @@
     }
   }
 
-  async function reconnectAndRefresh() {
+  async function reconnectAndRefresh(options) {
+    options = options || {};
     while (checking) await new Promise(function (resolve) { window.setTimeout(resolve, 120); });
-    if (!await checkConnection(true)) return { ok: false };
+    if (!await checkConnection(true, { silent: options.silent === true, deferRecovery: true })) return { ok: false };
     var data = global.SmartFitSupabaseData;
-    if (!data) return { ok: true, refreshed: false };
-    try { await data.retryPending?.(); }
-    catch (error) { console.warn("Quedaron datos locales pendientes; se reintentará su envío.", error); }
-    var result = await data.hydrate?.();
-    if (result && !result.skipped) {
-      data.startRealtimeSync?.();
-      global.dispatchEvent(new CustomEvent("smartfit:supabase-data-hydrated", {
-        detail: { tables: ["sites", "brands", "equipment", "tickets", "maintenance_events", "mileage_records", "maintenance_event_tickets", "inspection_records", "profiles", "site_assignments", "admin_user_access", "audit_log"] }
-      }));
+    if (!data) {
+      hide();
+      return { ok: true, refreshed: false };
     }
-    return { ok: true, refreshed: Boolean(result && !result.skipped) };
+    try {
+      try { await data.retryPending?.(); }
+      catch (error) { console.warn("Quedaron datos locales pendientes; se reintentará su envío.", error); }
+      var result = await data.hydrate?.();
+      if (result && !result.skipped) {
+        data.startRealtimeSync?.();
+        if (options.dispatchUpdate !== false) {
+          global.dispatchEvent(new CustomEvent("smartfit:supabase-data-hydrated", {
+            detail: { tables: ["sites", "brands", "equipment", "tickets", "maintenance_events", "mileage_records", "maintenance_event_tickets", "inspection_records", "profiles", "site_assignments", "admin_user_access", "audit_log"] }
+          }));
+        }
+      }
+      hide();
+      return { ok: true, refreshed: Boolean(result && !result.skipped) };
+    } catch (error) {
+      console.warn("La conexión respondió, pero no se pudieron actualizar los datos.", error);
+      failedChecks = Math.max(failedChecks, 1);
+      show();
+      return { ok: false, error: error };
+    }
   }
 
   buildOverlay();
@@ -160,4 +184,4 @@
     window.clearInterval(checkTimer);
   }, { once: true });
   global.SmartFitOnlineGuard = { checkConnection: checkConnection, reconnectAndRefresh: reconnectAndRefresh };
-})();
+})(window);
