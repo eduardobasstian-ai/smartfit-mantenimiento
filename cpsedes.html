@@ -2672,12 +2672,15 @@
         await inspectionDraftDb.put(inspectionDraft);
         delete inspectionDraft.storageError;
         const storageStatus = $("inspectionStorageStatus");
-        if (storageStatus) storageStatus.textContent = "Borrador guardado en este dispositivo.";
+        if (storageStatus) storageStatus.hidden = true;
       } catch (error) {
         inspectionDraft.storageError = error.message || "almacenamiento local no disponible";
         console.warn("No se pudo conservar la inspección en este dispositivo.", error);
         const storageStatus = $("inspectionStorageStatus");
-        if (storageStatus) storageStatus.textContent = "No se pudo guardar localmente. Mantén esta página abierta y revisa el espacio disponible del navegador.";
+        if (storageStatus) {
+          storageStatus.hidden = false;
+          storageStatus.textContent = "No se pudo guardar localmente. Mantén esta página abierta y revisa el espacio disponible del navegador.";
+        }
       }
     }
 
@@ -2869,7 +2872,7 @@
       setInspectionTools("equipment-form");
       $("siteGrid").className = "inspection-form-host";
       const photos = (inspectionEntryDraft.photos || []).map((photo, index) => `<div class="inspection-photo-thumb-wrap"><img src="${escapeHtml(photo)}" alt="Foto de inspección ${index + 1}" data-enlarge-image="${escapeHtml(photo)}" data-image-alt="Fotografía ${index + 1} de inspección"><button class="inspection-photo-remove" type="button" data-inspection-photo-remove="${index}" aria-label="Quitar foto ${index + 1}">×</button></div>`).join("");
-      $("siteGrid").innerHTML = `<form class="inspection-form" id="siteInspectionForm"><h3>Registro del equipo</h3><div class="inspection-form-grid"><label>Fecha<input type="date" id="inspectionDate" value="${escapeHtml(inspectionEntryDraft.date || currentLocalDate())}" required></label><label>Activo fijo<input type="text" value="${escapeHtml(machine.activeFixed || "Sin activo fijo")}" readonly></label><label class="full">Hallazgo / revisión realizada<textarea id="inspectionFinding" required placeholder="Describe lo revisado o el hallazgo detectado...">${escapeHtml(inspectionEntryDraft.finding || "")}</textarea></label><label class="full">Observaciones<textarea id="inspectionObservations" placeholder="Detalle adicional (opcional)">${escapeHtml(inspectionEntryDraft.observations || "")}</textarea></label></div><div class="inspection-form-actions"><button class="machine-save-button" type="submit">Agregar a la inspección</button><div class="inspection-photo-picker"><button class="back-button" type="button" data-toggle-inspection-photo-menu aria-expanded="false">Agregar fotos (${(inspectionEntryDraft.photos || []).length}/4)</button><div class="maintenance-image-menu" data-inspection-photo-menu hidden><button class="back-button" type="button" data-select-inspection-photo="gallery">Desde almacenamiento</button><button class="back-button" type="button" data-select-inspection-photo="camera">Usar cámara</button></div><input id="inspectionGalleryInput" class="maintenance-image-input" type="file" accept="image/*" multiple><input id="inspectionCameraInput" class="maintenance-image-input" type="file" accept="image/*" capture="environment"></div></div><div class="inspection-photo-list">${photos}</div><span class="site-count" id="inspectionStorageStatus">${inspectionDraft?.storageError ? "No se pudo guardar localmente. Mantén esta página abierta y revisa el espacio disponible del navegador." : "Borrador guardado en este dispositivo."}</span><span class="site-count">Hasta 4 fotografías. Las imágenes se preparan conservando sus dimensiones y reduciendo su peso.</span></form>`;
+      $("siteGrid").innerHTML = `<form class="inspection-form" id="siteInspectionForm"><h3>Registro del equipo</h3><div class="inspection-form-grid"><label>Fecha<input type="date" id="inspectionDate" value="${escapeHtml(inspectionEntryDraft.date || currentLocalDate())}" required></label><label>Activo fijo<input type="text" value="${escapeHtml(machine.activeFixed || "Sin activo fijo")}" readonly></label><label class="full">Hallazgo / revisión realizada<textarea id="inspectionFinding" required placeholder="Describe lo revisado o el hallazgo detectado...">${escapeHtml(inspectionEntryDraft.finding || "")}</textarea></label><label class="full">Observaciones<textarea id="inspectionObservations" placeholder="Detalle adicional (opcional)">${escapeHtml(inspectionEntryDraft.observations || "")}</textarea></label></div><div class="inspection-form-actions"><button class="machine-save-button" type="submit">Agregar a la inspección</button><div class="inspection-photo-picker"><button class="back-button" type="button" data-toggle-inspection-photo-menu aria-expanded="false">Agregar fotos (${(inspectionEntryDraft.photos || []).length}/4)</button><div class="maintenance-image-menu" data-inspection-photo-menu hidden><button class="back-button" type="button" data-select-inspection-photo="gallery">Desde almacenamiento</button><button class="back-button" type="button" data-select-inspection-photo="camera">Usar cámara</button></div><input id="inspectionGalleryInput" class="maintenance-image-input" type="file" accept="image/*" multiple><input id="inspectionCameraInput" class="maintenance-image-input" type="file" accept="image/*" capture="environment"></div></div><div class="inspection-photo-list">${photos}</div><span class="site-count" id="inspectionStorageStatus" ${inspectionDraft?.storageError ? "" : "hidden"}>${inspectionDraft?.storageError ? "No se pudo guardar localmente. Mantén esta página abierta y revisa el espacio disponible del navegador." : ""}</span></form>`;
     }
 
     async function saveCurrentInspectionEntry() {
@@ -3980,7 +3983,6 @@
                 <input class="maintenance-image-input" id="maintenanceGalleryInput" type="file" accept="image/*" multiple>
                 <input class="maintenance-image-input" id="maintenanceCameraInput" type="file" accept="image/*" capture="environment">
                 <div class="maintenance-image-list">${maintenanceImageMarkup}</div>
-                <p class="maintenance-image-caption">Puedes adjuntar hasta 4 fotografías desde tu dispositivo o tomar fotos con la cámara.</p>
               </div>
             </form>
           </article>
