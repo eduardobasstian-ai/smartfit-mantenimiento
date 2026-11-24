@@ -347,6 +347,8 @@
     .parts-request-frame { display: block; width: 100%; height: min(76vh, 820px); min-height: 520px; border: 1px solid #343743; border-radius: 12px; background: #fff; }
     .parts-request-note { margin: 0; color: var(--muted); font-size: 11px; line-height: 1.5; }
     .parts-request-note a { color: var(--yellow); }
+    .view-refresh-button { min-height: 40px; padding: 0 12px; border: 1px solid #343743; border-radius: 9px; background: #22252e; color: var(--text); font-size: 11px; font-weight: 800; white-space: nowrap; }
+    .view-refresh-button:disabled { cursor: progress; opacity: .65; }
     .machine-log-list { display: grid; gap: 8px; margin-top: 14px; }
     .machine-log-entry { padding: 12px; border: 1px solid #30323c; border-radius: 9px; background: #22252e; }
     .machine-log-entry strong { color: var(--text); font-size: 12px; }
@@ -940,6 +942,7 @@
         </div>
         <div class="panel-tools">
           <input class="site-search" id="siteFilter" type="search" placeholder="Buscar sede..." aria-label="Buscar sede por nombre">
+          <button class="view-refresh-button" id="refreshViewButton" type="button" aria-label="Reconectar y actualizar datos" title="Reconectar y actualizar datos">↻ Actualizar</button>
           <button class="back-button" id="requestPartsFromBrands" type="button" hidden>Pedir repuesto</button>
           <button class="back-button" id="viewInspectionsButton" type="button" hidden>Ver Inspecciones</button>
           <button class="qr-search-button" id="searchQrButton" type="button" hidden>Buscar QR</button>
@@ -4470,6 +4473,39 @@
       $("supervisorMenuToggle").setAttribute("aria-expanded", "false");
       $("supervisorMenuToggle").setAttribute("aria-label", "Abrir menú");
     });
+    $("refreshViewButton").addEventListener("click", async event => {
+      const button = event.currentTarget;
+      const previousLabel = button.textContent;
+      const machineKey = currentMachine?.recordKey || "";
+      const selectedTab = currentMachineTab;
+      const scrollTop = window.scrollY;
+      button.disabled = true;
+      button.textContent = "Conectando…";
+      try {
+        const result = await window.SmartFitOnlineGuard?.reconnectAndRefresh?.();
+        if (!result?.ok) {
+          button.textContent = "↻ Sin conexión";
+          button.title = "No se pudo conectar. Tus registros locales se conservan; vuelve a intentar.";
+          return;
+        }
+        if (machineKey && currentMachine?.recordKey === machineKey) {
+          currentMachineTab = selectedTab;
+          renderMachineDetail(currentMachine);
+        }
+        button.textContent = "✓ Actualizado";
+        button.title = result.refreshed ? "Datos actualizados desde el servidor." : "Conexión recuperada; no había una sesión activa para actualizar datos.";
+        window.setTimeout(() => {
+          if (button.isConnected && !button.disabled) button.textContent = previousLabel;
+        }, 1800);
+        window.requestAnimationFrame(() => window.scrollTo(0, scrollTop));
+      } catch (error) {
+        console.warn("No se pudo completar la actualización manual.", error);
+        button.textContent = "↻ Reintentar";
+        button.title = "No se completó la actualización. Los registros locales se mantienen.";
+      } finally {
+        button.disabled = false;
+      }
+    });
     $("backToSites").addEventListener("click", () => {
       if (technicianMode && window.SmartFitInfrastructureTechnician?.handleBack()) return;
       if (requestReturnTo) {
@@ -4579,9 +4615,20 @@
       }
       const tab = event.target.closest("[data-machine-tab]");
       if (tab) {
-        currentMachineTab = tab.dataset.machineTab;
+        const nextTab = tab.dataset.machineTab;
+        const nextPanel = Array.from($("siteGrid").querySelectorAll("[data-machine-panel]"))
+          .find(panel => panel.dataset.machinePanel === nextTab);
+        if (!nextPanel || !currentMachine) return;
+        currentMachineTab = nextTab;
         editingMachineRecord = null;
-        renderMachineDetail(currentMachine);
+        $("siteGrid").querySelectorAll("[data-machine-tab]").forEach(button => {
+          const active = button.dataset.machineTab === nextTab;
+          button.classList.toggle("active", active);
+          button.setAttribute("aria-selected", String(active));
+        });
+        $("siteGrid").querySelectorAll("[data-machine-panel]").forEach(panel => {
+          panel.hidden = panel !== nextPanel;
+        });
         return;
       }
       if (event.target.closest("[data-request-mileage-edit]")) {

@@ -27,6 +27,8 @@
       "#smartfit-online-guard .smartfit-offline-icon{width:18px;height:18px;flex:0 0 18px;color:#ffb51b}",
       "#smartfit-online-guard strong{color:#ffbd32}",
       "#smartfit-online-guard span{min-width:0}",
+      "#smartfit-online-retry{flex:0 0 auto;min-height:36px;padding:0 12px;border:1px solid #80621f;border-radius:9px;background:#ffb51b;color:#171717;font-weight:700}",
+      "#smartfit-online-retry:disabled{opacity:.6}",
       "html[data-smartfit-offline] body{user-select:none}",
       "@media(max-width:480px){#smartfit-online-guard{top:10px;width:calc(100% - 20px);padding:11px 13px;font-size:13px}}"
     ].join("");
@@ -36,9 +38,28 @@
     overlay.id = "smartfit-online-guard";
     overlay.setAttribute("role", "status");
     overlay.setAttribute("aria-live", "polite");
-    overlay.innerHTML = '<svg class="smartfit-offline-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.5 18.2h10.2a4.3 4.3 0 0 0 .5-8.6A6.2 6.2 0 0 0 5.7 8.4a4.9 4.9 0 0 0 .8 9.8Z"/><path d="m4 4 16 16"/></svg><span id="smartfit-online-message"><strong>No tienes conexión</strong></span>';
+    overlay.innerHTML = '<svg class="smartfit-offline-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.5 18.2h10.2a4.3 4.3 0 0 0 .5-8.6A6.2 6.2 0 0 0 5.7 8.4a4.9 4.9 0 0 0 .8 9.8Z"/><path d="m4 4 16 16"/></svg><span id="smartfit-online-message"><strong>No tienes conexión</strong></span><button id="smartfit-online-retry" type="button">↻ Reintentar</button>';
     document.documentElement.appendChild(overlay);
     message = overlay.querySelector("#smartfit-online-message");
+    retryButton = overlay.querySelector("#smartfit-online-retry");
+    retryButton.addEventListener("click", async function () {
+      retryButton.disabled = true;
+      retryButton.textContent = "Conectando…";
+      try {
+        var result = await reconnectAndRefresh();
+        if (!result.ok) {
+          message.innerHTML = "<strong>Sin conexión con el servidor.</strong> Tus registros siguen guardados en este dispositivo.";
+          overlay.hidden = false;
+        }
+      } catch (error) {
+        console.warn("No se pudieron actualizar los datos al reconectar.", error);
+        message.innerHTML = "<strong>Conexión limitada.</strong> Tus registros siguen guardados en este dispositivo; vuelve a intentar.";
+        overlay.hidden = false;
+      } finally {
+        retryButton.disabled = false;
+        retryButton.textContent = "↻ Reintentar";
+      }
+    });
   }
 
   function show() {
@@ -60,8 +81,8 @@
     }
   }
 
-  async function checkConnection() {
-    if (checking) return;
+  async function checkConnection(forceMessage) {
+    if (checking) return false;
     checking = true;
     buildOverlay();
 
@@ -69,7 +90,7 @@
       failedChecks = Math.max(failedChecks, 2);
       show();
       checking = false;
-      return;
+      return false;
     }
 
     var controller = new AbortController();
@@ -85,14 +106,33 @@
       if (!response.ok) throw new Error("Network check failed");
       failedChecks = 0;
       hide();
+      return true;
     } catch (_error) {
       failedChecks += 1;
       // Una respuesta fallida aislada puede ser temporal; confirma antes de bloquear.
-      if (failedChecks >= 2) show();
+      if (forceMessage || failedChecks >= 2) show();
+      return false;
     } finally {
       window.clearTimeout(timeout);
       checking = false;
     }
+  }
+
+  async function reconnectAndRefresh() {
+    while (checking) await new Promise(function (resolve) { window.setTimeout(resolve, 120); });
+    if (!await checkConnection(true)) return { ok: false };
+    var data = global.SmartFitSupabaseData;
+    if (!data) return { ok: true, refreshed: false };
+    try { await data.retryPending?.(); }
+    catch (error) { console.warn("Quedaron datos locales pendientes; se reintentará su envío.", error); }
+    var result = await data.hydrate?.();
+    if (result && !result.skipped) {
+      data.startRealtimeSync?.();
+      global.dispatchEvent(new CustomEvent("smartfit:supabase-data-hydrated", {
+        detail: { tables: ["sites", "brands", "equipment", "tickets", "maintenance_events", "mileage_records", "maintenance_event_tickets", "inspection_records", "profiles", "site_assignments", "admin_user_access", "audit_log"] }
+      }));
+    }
+    return { ok: true, refreshed: Boolean(result && !result.skipped) };
   }
 
   buildOverlay();
@@ -119,4 +159,5 @@
   window.addEventListener("pagehide", function () {
     window.clearInterval(checkTimer);
   }, { once: true });
+  global.SmartFitOnlineGuard = { checkConnection: checkConnection, reconnectAndRefresh: reconnectAndRefresh };
 })();
