@@ -1,6 +1,7 @@
 window.CatalogSync = (() => {
   let session;
   const scopes = new Map();
+  const brandNames = new Map();
   const bucket = "catalogo-fotos-compartidas";
 
   async function request(path, options = {}) {
@@ -24,7 +25,45 @@ window.CatalogSync = (() => {
 
   const photoPath = (item, model = "") => `/storage/v1/object/${bucket}/mtm3839/${model ? model + "/" : ""}${encodeURIComponent(item)}`;
   const canWrite = () => ["administrador", "supervisor"].includes(session?.role);
-  const changed = modelId => window.dispatchEvent(new CustomEvent("catalog-data-changed", { detail: { modelId } }));
+  const changed = modelId => {
+    brandNames.clear();
+    window.dispatchEvent(new CustomEvent("catalog-data-changed", { detail: { modelId } }));
+  };
+  const scopedChange = (row, prefix) => {
+    const { global: shared, ...change } = row;
+    if (shared && (row.tipo !== "nombre" || !row.clave.startsWith("pieza:"))) throw new Error("Nombre compartido inválido.");
+    return { ...change, clave: shared ? row.clave : prefix + row.clave };
+  };
+  async function readBrandNames(brand, force = false) {
+    if (!/^[a-z0-9-]+$/.test(brand)) throw new Error("Marca inválida.");
+    const cached = brandNames.get(brand);
+    if (cached?.pending) return cached.pending;
+    if (!force && cached?.rows && Date.now() - cached.time < 5000) return cached.rows;
+    const current = session;
+    const entry = {};
+    const patterns = [`clave.like.pieza:${brand}:*`, `clave.like.modelo:${brand}-*`];
+    if (brand === "hammer-strength") patterns.push("clave.like.modelo:hs-abc:*");
+    if (brand === "matrix") patterns.push("clave.like.modelo:e-es-f:*");
+    if (brand === "movement") patterns.push("clave.like.modelo:rt-g2:*");
+    entry.pending = (async () => {
+      const rows = [];
+      for (let offset = 0; ; offset += 500) {
+        const response = await checked(await request(`/rest/v1/rpc/catalogo_cambios?tipo=eq.nombre&or=${encodeURIComponent("(" + patterns.join(",") + ")")}&order=clave&limit=500&offset=${offset}`));
+        const page = await response.json();
+        rows.push(...page);
+        if (page.length < 500) break;
+      }
+      if (current !== session) throw new Error("La sesión cambió.");
+      entry.rows = rows;
+      entry.time = Date.now();
+      return rows;
+    })().finally(() => {
+      entry.pending = null;
+      if (!entry.rows && brandNames.get(brand) === entry) brandNames.delete(brand);
+    });
+    brandNames.set(brand, entry);
+    return entry.pending;
+  }
 
   function modelScope(id) {
     const model = id === "t600x-sf" ? "" : id;
@@ -67,7 +106,7 @@ window.CatalogSync = (() => {
         if (!canWrite()) throw new Error("Tu perfil no permite editar el catálogo.");
         await checked(await request("/rest/v1/rpc/catalogo_guardar_cambios", {
           method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ cambios: changes.map(row => ({ ...row, clave: prefix + row.clave })) }),
+          body: JSON.stringify({ cambios: changes.map(row => scopedChange(row, prefix)) }),
         }));
         generation++;
         loadedAt = 0;
@@ -77,7 +116,7 @@ window.CatalogSync = (() => {
         if (!canWrite()) throw new Error("Tu perfil no permite editar el catálogo.");
         await checked(await request("/rest/v1/rpc/catalogo_editar", {
           method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ cambios: changes.map(row => ({ ...row, clave: prefix + row.clave })) }),
+          body: JSON.stringify({ cambios: changes.map(row => scopedChange(row, prefix)) }),
         }));
         generation++;
         loadedAt = 0;
@@ -127,8 +166,9 @@ window.CatalogSync = (() => {
   }
 
   return {
-    connect(settings) { session = settings; scopes.clear(); },
-    disconnect() { session = null; scopes.clear(); },
+    connect(settings) { session = settings; scopes.clear(); brandNames.clear(); },
+    disconnect() { session = null; scopes.clear(); brandNames.clear(); },
+    readBrandNames,
     forModel: modelScope,
     get active() { return Boolean(session); },
     get canWrite() { return canWrite(); },

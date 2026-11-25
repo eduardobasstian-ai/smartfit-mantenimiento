@@ -155,8 +155,10 @@ window.createCatalogInventory = (brands, models) => {
       : modelId === "t600x-sf" ? matrixChanges : undefined;
     const localNames = remote ? null : storedValue(storage + ":technical-names:v1");
     const localMarkers = remote ? null : storedValue(storage + ":manual-refs:v1");
+    const brandRows = window.CatalogSync.active ? await window.CatalogSync.readBrandNames(model.brand,force) : [];
+    const sharedNames = window.catalogNameIndex(model.brand,brandRows);
     const cached = indexes.get(modelId);
-    if (cached && cached.remote === remote && cached.localNames === localNames && cached.localMarkers === localMarkers) return;
+    if (cached && cached.remote === remote && cached.brandRows === brandRows && cached.localNames === localNames && cached.localMarkers === localMarkers) return;
     const data = window.catalogApplyChanges(structuredClone(base), remote ||
       parseStored(localMarkers, []).map(valor => ({ tipo: "marcador", valor })));
     const names = remote
@@ -177,7 +179,7 @@ window.createCatalogInventory = (brands, models) => {
         const code = String(part.item || "").trim().toUpperCase();
         const itemKey = scoped ? view.id + ":" + code : code;
         const nameKey = part._catalogIdentityKey || (manual ? itemKey + ":" + (part.reference || "") : itemKey);
-        const name = names?.[nameKey];
+        const name = window.catalogTechnicalName(model.brand,part,names,nameKey,sharedNames);
         const original = window.catalogReferenceOriginal(part);
         const id = JSON.stringify([model.id, scoped ? view.id : "", original.item.trim().toUpperCase(), original.reference, original.sap]);
         partsById.set(id, {
@@ -189,7 +191,7 @@ window.createCatalogInventory = (brands, models) => {
         });
       }
     }
-    indexes.set(modelId, { partsById, remote, localNames, localMarkers });
+    indexes.set(modelId, { partsById, remote, brandRows, localNames, localMarkers });
   }
 
   const currentPart = link => indexes.get(link.modelId)?.partsById.get(link.id) || link;

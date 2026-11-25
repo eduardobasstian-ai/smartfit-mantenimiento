@@ -156,8 +156,8 @@ window.createCatalogPlanEditor = options => {
       original: structuredClone(original(part)),
       part: structuredClone(part),
       before: JSON.stringify(part),
-      name: getNames()[pieceKey(part.item, getView(), part)] || "",
-      previousName: getNames()[pieceKey(part.item, getView(), part)] || "",
+      name: options.getName ? options.getName(part) : getNames()[pieceKey(part.item, getView(), part)] || "",
+      previousName: options.getName ? options.getName(part) : getNames()[pieceKey(part.item, getView(), part)] || "",
       identityKey: pieceKey(part.item, getView(), part),
     }));
     if (!drafts.length) return;
@@ -205,11 +205,22 @@ window.createCatalogPlanEditor = options => {
           });
         }
         if (draft.name !== draft.previousName) {
-          changes.push({ tipo: "nombre", clave: identityKey, valor: draft.name.trim(),
-            expected: expected(editingRows, "nombre", identityKey) });
+          const sharedKey = options.nameKey?.(draft.part);
+          const key = sharedKey || identityKey;
+          changes.push({ tipo: "nombre", clave: key, valor: draft.name.trim(), global: Boolean(sharedKey),
+            expected: expected(editingRows, "nombre", key) });
         }
       }
-      if (changes.length) await sync.edit(changes);
+      if (changes.length) {
+        const unique = new Map();
+        for (const change of changes) {
+          const id = change.tipo + ":" + change.clave;
+          const previous = unique.get(id);
+          if (previous && JSON.stringify(previous.valor) !== JSON.stringify(change.valor)) throw new Error("La misma referencia tiene dos nombres distintos en el lote. Asigna un único nombre al repuesto.");
+          unique.set(id,change);
+        }
+        await sync.edit([...unique.values()]);
+      }
       dialog.close();
       await refresh();
     } catch (error) {

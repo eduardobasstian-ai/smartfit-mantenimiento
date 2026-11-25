@@ -90,7 +90,7 @@
   </style>
   <link rel="icon" type="image/x-icon" href="IMG/favicon.ico">
   <link rel="icon" type="image/png" href="IMG/favicon.png">
-  <link rel="stylesheet" href="equipos/equipos.css?v=sync-global-1">
+  <link rel="stylesheet" href="equipos/equipos.css?v=nombres-referencia-1">
 </head>
 <body>
   <header class="topbar"><div class="brand"><img class="brand-mark" src="IMG/logo-header.png" alt="Smart Fit"><div class="brand-copy"><div class="brand-heading"><p class="brand-title">CATÁLOGO DE REPUESTOS</p></div><p class="brand-subtitle">Gestión de equipos y sedes</p></div></div><div id="catalogSession" class="catalog-session" hidden><span>Sesión: <strong id="catalogUserName"></strong></span><button id="catalogLogout" class="btn" type="button">Cerrar sesión</button></div></header>
@@ -210,10 +210,11 @@
   <script src="equipos/catalogo-datos.js"></script>
   <script src="equipos/nombres.js"></script>
   <script src="equipos/fotos.js?v=sin-perdida-1"></script>
-  <script src="equipos/sincronizacion.js?v=sync-global-1"></script>
-  <script src="equipos/catalogo-locales.js?v=sync-global-1"></script>
-  <script src="equipos/catalogo-cambios.js?v=sync-global-1"></script>
-  <script src="equipos/catalogo-edicion.js?v=sync-global-1"></script>
+  <script src="equipos/sincronizacion.js?v=nombres-referencia-1"></script>
+  <script src="equipos/catalogo-nombres.js?v=nombres-referencia-1"></script>
+  <script src="equipos/catalogo-locales.js?v=nombres-referencia-1"></script>
+  <script src="equipos/catalogo-cambios.js?v=nombres-referencia-1"></script>
+  <script src="equipos/catalogo-edicion.js?v=nombres-referencia-1"></script>
   <script>
   window.openCatalogPlan = async () => {
     const requestedModel = window.catalogModelId;
@@ -231,6 +232,9 @@
     const sync = window.CatalogSync.forModel(requestedModel);
     let editor;
     let sharedRows = [];
+    let sharedNames = new Map();
+    const brandId = manualModel?.brand || (isMovement ? "movement" : usesAssemblyBom ? "hammer-strength" : "matrix");
+    const technicalNameFor = (item, sourceView = view, part = partFor(item, sourceView)) => window.catalogTechnicalName(brandId, part, technicalNames, pieceKey(item, sourceView, part), sharedNames);
     let manualEntries=[];try{const stored=JSON.parse(localStorage.getItem(manualStorageKey)||'[]');if(Array.isArray(stored))manualEntries=stored;}catch{}
     window.catalogApplyChanges(data, manualEntries.map(valor => ({ tipo: "marcador", valor })));
     const tabs=document.getElementById('tabs'),canvasShell=document.getElementById('canvasShell'),canvas=document.getElementById('canvas'),img=document.getElementById('planImage'),marks=document.getElementById('hotspots'),partsEl=document.getElementById('parts'),detail=document.getElementById('detail'),markerSearch=document.getElementById('markerSearch');
@@ -250,7 +254,7 @@
     document.getElementById('addReference').addEventListener('click',openReferenceDialog);
     document.getElementById('closeReferenceDialog').addEventListener('click',()=>refDialog.close());refDialog.addEventListener('click',event=>{if(event.target===refDialog)refDialog.close();});
     function availableBomParts(){const placed=new Set(view.callouts.map(c=>String(c.item).toUpperCase()));return Object.values(view.parts||data.parts).filter(p=>p?.item&&!placed.has(String(p.item).toUpperCase())).sort((a,b)=>String(a.item).localeCompare(String(b.item),undefined,{numeric:true,sensitivity:'base'}));}
-    function renderBomResults(){const terms=normalizeTechnicalName(bomSearch.value).match(/[\p{L}\p{N}]+/gu)||[];const options=availableBomParts().filter(p=>{const technicalName=technicalNames[pieceKey(p.item,view,p)];const fields=[p.item,p.reference,p.sap,p.description,technicalName].map(normalizeTechnicalName);return terms.every(term=>fields.some(field=>field.includes(term)));});if(!options.length){bomResults.innerHTML='<div class="empty">'+(availableBomParts().length?'No hay coincidencias.':'Todas las referencias del BOM ya tienen marcador en esta vista.')+'</div>';selectedBomItem='';bomCreate.disabled=true;document.getElementById('bomSelectedSummary').textContent='Selecciona una referencia de la lista.';return;}bomResults.innerHTML=options.map(p=>{const technicalName=technicalNames[pieceKey(p.item,view,p)];return `<button class="bom-option ${selectedBomItem===p.item?'selected':''}" type="button" role="option" aria-selected="${selectedBomItem===p.item}" data-item="${esc(p.item)}"><strong>${esc(p.item)}</strong><span>${technicalName?`<b>${esc(technicalName)}</b><small>${esc(p.description||p.sap||'')}</small>`:esc(p.description||p.sap||'')}</span><span>${esc(p.reference||'Sin Reference No.')}</span></button>`;}).join('');bomResults.querySelectorAll('[data-item]').forEach(button=>button.onclick=()=>{selectedBomItem=button.dataset.item;const part=partFor(selectedBomItem)||{};bomCreate.disabled=false;bomResults.querySelectorAll('[data-item]').forEach(option=>{option.classList.toggle('selected',option===button);option.setAttribute('aria-selected',String(option===button));});document.getElementById('bomSelectedSummary').textContent=`${part.item} · ${part.reference||'Sin referencia'} · ${part.description||'Sin descripción'}`;});}
+    function renderBomResults(){const terms=normalizeTechnicalName(bomSearch.value).match(/[\p{L}\p{N}]+/gu)||[];const options=availableBomParts().filter(p=>{const technicalName=technicalNameFor(p.item,view,p);const fields=[p.item,p.reference,p.sap,p.description,technicalName].map(normalizeTechnicalName);return terms.every(term=>fields.some(field=>field.includes(term)));});if(!options.length){bomResults.innerHTML='<div class="empty">'+(availableBomParts().length?'No hay coincidencias.':'Todas las referencias del BOM ya tienen marcador en esta vista.')+'</div>';selectedBomItem='';bomCreate.disabled=true;document.getElementById('bomSelectedSummary').textContent='Selecciona una referencia de la lista.';return;}bomResults.innerHTML=options.map(p=>{const technicalName=technicalNameFor(p.item,view,p);return `<button class="bom-option ${selectedBomItem===p.item?'selected':''}" type="button" role="option" aria-selected="${selectedBomItem===p.item}" data-item="${esc(p.item)}"><strong>${esc(p.item)}</strong><span>${technicalName?`<b>${esc(technicalName)}</b><small>${esc(p.description||p.sap||'')}</small>`:esc(p.description||p.sap||'')}</span><span>${esc(p.reference||'Sin Reference No.')}</span></button>`;}).join('');bomResults.querySelectorAll('[data-item]').forEach(button=>button.onclick=()=>{selectedBomItem=button.dataset.item;const part=partFor(selectedBomItem)||{};bomCreate.disabled=false;bomResults.querySelectorAll('[data-item]').forEach(option=>{option.classList.toggle('selected',option===button);option.setAttribute('aria-selected',String(option===button));});document.getElementById('bomSelectedSummary').textContent=`${part.item} · ${part.reference||'Sin referencia'} · ${part.description||'Sin descripción'}`;});}
     document.getElementById('openBomPlacement').addEventListener('click',()=>{if(markerBatch.length){document.getElementById('hint').textContent='Termina primero la ubicación actual: guarda los marcadores o cancélalos antes de agregar otra referencia.';return;}selectedBomItem='';bomSearch.value='';bomQuantity.value='1';bomCreate.disabled=true;renderBomResults();bomDialog.showModal();setTimeout(()=>bomSearch.focus(),0);});
     document.getElementById('closeBomPlacement').addEventListener('click',()=>bomDialog.close());bomDialog.addEventListener('click',event=>{if(event.target===bomDialog)bomDialog.close();});bomSearch.addEventListener('input',renderBomResults);
     document.getElementById('bomPlacementForm').addEventListener('submit',event=>{event.preventDefault();const part=partFor(selectedBomItem);if(!part||markerBatch.length)return;const amount=Math.max(1,Math.min(99,Number(bomQuantity.value)||1));const existing=view.callouts.map(c=>String(c.item).toUpperCase());if(existing.includes(String(part.item).toUpperCase())){bomDialog.close();document.getElementById('hint').textContent='Esta referencia ya tiene marcadores en esta vista.';return;}bomDialog.close();const columns=Math.ceil(Math.sqrt(amount)),rows=Math.ceil(amount/columns),stamp=Date.now().toString(36);for(let i=0;i<amount;i++){const column=i%columns,row=Math.floor(i/columns);const callout={key:'bom:'+view.id+':'+stamp+':'+i+':'+Math.random().toString(36).slice(2,7),item:part.item,label:part.item,qty:1,x:Number((columns===1?50:10+column*80/(columns-1)).toFixed(3)),y:Number((rows===1?50:10+row*80/(rows-1)).toFixed(3)),manual:true,draft:true};view.callouts.push(callout);markerBatch.push({viewId:view.id,callout,part});}placementDraft=null;canvasShell.classList.add('is-placing');placementHelp.hidden=false;document.getElementById('placementMessage').textContent=`Arrastra los ${amount} marcador${amount===1?'':'es'} ${part.item} hasta su posición. Presiona Guardar para fijarlos.`;referencesPanel.open=true;setView(view);canvasShell.classList.add('is-placing');placementHelp.hidden=false;referencesPanel.open=true;document.getElementById('hint').textContent='Marcadores en edición: arrástralos en el plano y guárdalos cuando termines.';});
@@ -308,10 +312,10 @@
       if (!value) return true;
       const part = c.part || partFor(c.item, sourceView);
       const variants = c.part ? [] : sourceView.bom?.filter(row => row.item === c.item || c.variantItems?.includes(row.item)) || [];
-      const technicalName = technicalNames[pieceKey(c.item, sourceView, part)];
+      const technicalName = technicalNameFor(c.item, sourceView, part);
       const terms = value.match(/[\p{L}\p{N}]+/gu) || [];
       const fields = [c.item, technicalName, part?.reference, part?.sap, part?.description, ...variants.flatMap(row => [
-        row.item, row.reference, row.sap, technicalNames[pieceKey(row.item, sourceView, row)],
+        row.item, row.reference, row.sap, technicalNameFor(row.item, sourceView, row),
       ])].map(field => normalizeTechnicalName(field));
       return terms.every(term => fields.some(field => field.includes(term)));
     }
@@ -359,7 +363,7 @@
     }
 function applyMarkerSearch(){const markers=[...marks.querySelectorAll('.hotspot')],hasSearch=Boolean(markerQuery),byKey=hasSearch?new Map(view.callouts.map(c=>[c.key,c])):null;let matchesCount=0;const matches=[];markers.forEach(button=>{const c=byKey?.get(button.dataset.key),matched=!hasSearch||(focusedResult ? c?.key===focusedResult : markerMatches(c,markerQuery));button.classList.toggle('is-search-dim',hasSearch&&!matched);button.classList.toggle('is-search-match',hasSearch&&matched);if(matched)matchesCount++;if(hasSearch&&matched&&c)matches.push(c);});if(hasSearch||(!usesAssemblyBom&&!isMovement&&(!isElliptical||view.id!=='general')))document.getElementById('resultCount').textContent=`${hasSearch?matchesCount:view.callouts.length} referencia${(hasSearch?matchesCount:view.callouts.length)===1?'':'s'}`;if(hasSearch&&!matchesCount){document.getElementById('hint').textContent='No hay coincidencias en este plano.';resetCanvasView(true);}else if(hasSearch){document.getElementById('hint').textContent=`${matchesCount} coincidencia${matchesCount===1?'':'s'} enfocada${matchesCount===1?'':'s'} en el plano.`;focusSearchMatches(matches);}else{document.getElementById('hint').textContent='Selecciona un marcador para consultar su información.';resetCanvasView(true);}}
     const showsBomList = () => (isMovement || usesAssemblyBom || (isElliptical && view.id === 'general')) && !markerQuery;
-    function renderParts(){if(showsBomList()){renderBomParts();return;}const list=view.callouts.filter(c=>focusedResult ? c.key===focusedResult : markerMatches(c,markerQuery));if(!markerQuery)document.getElementById('resultCount').textContent=`${list.length} referencia${list.length===1?'':'s'}`;if(!list.length){partsEl.innerHTML='<div class="empty">No hay coincidencias en esta vista.</div>';return}partsEl.innerHTML=list.map(c=>{const p=partFor(c.item),technicalName=technicalNames[pieceKey(c.item,view,p)];return `<button type="button" class="part-row ${selected?.key===c.key?'selected':''}" data-key="${esc(c.key)}" data-edit-reference="${esc(JSON.stringify(window.catalogReferenceOriginal(p || {item:c.item})))}"><span class="part-code">${esc(c.item)}</span><span class="part-desc">${technicalName?`<strong>${esc(technicalName)}</strong><small>${esc(p?.description||'Descripción no disponible')}</small>`:esc(p?.description||'Referencia sin fila coincidente en el BOM')}</span><span class="part-qty">${c.qty == null ? 'En plano' : '× ' + c.qty}</span>${c.draft?'<span class="part-state">Por guardar</span>':''}</button>`}).join('');partsEl.querySelectorAll('[data-key]').forEach(b=>b.onclick=()=>choose(view.callouts.find(c=>c.key===b.dataset.key)));}
+    function renderParts(){if(showsBomList()){renderBomParts();return;}const list=view.callouts.filter(c=>focusedResult ? c.key===focusedResult : markerMatches(c,markerQuery));if(!markerQuery)document.getElementById('resultCount').textContent=`${list.length} referencia${list.length===1?'':'s'}`;if(!list.length){partsEl.innerHTML='<div class="empty">No hay coincidencias en esta vista.</div>';return}partsEl.innerHTML=list.map(c=>{const p=partFor(c.item),technicalName=technicalNameFor(c.item,view,p);return `<button type="button" class="part-row ${selected?.key===c.key?'selected':''}" data-key="${esc(c.key)}" data-edit-reference="${esc(JSON.stringify(window.catalogReferenceOriginal(p || {item:c.item})))}"><span class="part-code">${esc(c.item)}</span><span class="part-desc">${technicalName?`<strong>${esc(technicalName)}</strong><small>${esc(p?.description||'Descripción no disponible')}</small>`:esc(p?.description||'Referencia sin fila coincidente en el BOM')}</span><span class="part-qty">${c.qty == null ? 'En plano' : '× ' + c.qty}</span>${c.draft?'<span class="part-state">Por guardar</span>':''}</button>`}).join('');partsEl.querySelectorAll('[data-key]').forEach(b=>b.onclick=()=>choose(view.callouts.find(c=>c.key===b.dataset.key)));}
 
     function pieceKey(item, sourceView = view, part = partFor(item, sourceView)) {
       if (part?._catalogIdentityKey) return part._catalogIdentityKey;
@@ -387,7 +391,7 @@ function applyMarkerSearch(){const markers=[...marks.querySelectorAll('.hotspot'
       partsEl.innerHTML = rows.map(({ part, marker }, index) => `
         <button type="button" class="part-row" data-bom-row="${index}" data-edit-reference="${esc(JSON.stringify(window.catalogReferenceOriginal(part)))}">
           <span class="part-code">${esc(part.item || (part.viewIds ? '—' : 'Sin ítem'))}</span>
-          <span class="part-desc">${technicalNames[pieceKey(part.item,view,part)]?`<strong>${esc(technicalNames[pieceKey(part.item,view,part)])}</strong><small>${esc(part.description||'Descripción no disponible')}</small>`:esc(part.description)}${part.viewIds ? ' · Pág. ' + esc(part.manualPage) : ' · Ref. ' + esc(part.reference || '—') + ' · SAP ' + esc(part.sap || '—')}</span>
+          <span class="part-desc">${technicalNameFor(part.item,view,part)?`<strong>${esc(technicalNameFor(part.item,view,part))}</strong><small>${esc(part.description||'Descripción no disponible')}</small>`:esc(part.description)}${part.viewIds ? ' · Pág. ' + esc(part.manualPage) : ' · Ref. ' + esc(part.reference || '—') + ' · SAP ' + esc(part.sap || '—')}</span>
           <span class="part-qty">${part.viewIds ? 'Ver plano →' : marker ? 'En plano' : 'Sin marcador'}</span>
         </button>`).join('');
       partsEl.querySelectorAll('[data-bom-row]').forEach(button => {
@@ -449,9 +453,15 @@ function applyMarkerSearch(){const markers=[...marks.querySelectorAll('.hotspot'
     let technicalNames={};let technicalNameEditing='';
     try{technicalNames=JSON.parse(localStorage.getItem(technicalNameStorageKey)||'{}')||{};}catch{technicalNames={};}
     function normalizeTechnicalName(value){return String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLocaleLowerCase();}
-    function technicalNameMarkup(item){const key=pieceKey(item, view, selected?.part || partFor(item));const value=technicalNames[key]||'';if(value&&technicalNameEditing!==key)return '<div class="technical-name-box"><strong>'+esc(value)+'</strong><div class="technical-name-actions"><button class="btn" id="editTechnicalName" type="button">Editar</button><button class="btn" id="deleteTechnicalName" type="button">Eliminar</button></div><p class="technical-name-message" id="technicalNameMessage" aria-live="polite"></p></div>';return '<div class="technical-name-box"><div class="technical-name-entry"><input id="technicalNameInput" type="text" maxlength="80" autocomplete="off" aria-label="Nombre técnico" placeholder="Asigna un nombre a este item" value="'+esc(value)+'"><button class="btn primary" id="saveTechnicalName" type="button">Guardar</button>'+(value?'<button class="btn" id="cancelTechnicalName" type="button">Cancelar</button>':'')+'</div><p class="technical-name-message" id="technicalNameMessage" aria-live="polite"></p></div>';}
-    async function saveTechnicalName(item){const key=pieceKey(item, view, selected?.part || partFor(item));const input=document.getElementById('technicalNameInput');const message=document.getElementById('technicalNameMessage');const name=input?.value.trim()||'';if(!name){message.textContent='Ingresa el nombre técnico de esta pieza.';return;}const normalized=normalizeTechnicalName(name);const duplicate=Object.entries(technicalNames).some(([otherKey,otherName])=>otherKey!==key&&normalizeTechnicalName(otherName)===normalized);if(duplicate){message.textContent='Ese nombre técnico ya está asignado a otra referencia de este despiece.';return;}const next={...technicalNames,[key]:name};try{if(!sync.active)throw new Error("Inicia sesión y conéctate para compartir el nombre en la web y el escritorio.");await sync.save([{tipo:"nombre",clave:key,valor:name}]);technicalNames=next;technicalNameEditing='';renderDetail();renderParts();applyMarkerSearch();}catch(error){message.textContent=error.message;}}
-    function bindTechnicalNameControls(item){const key=pieceKey(item, view, selected?.part || partFor(item));document.getElementById('saveTechnicalName')?.addEventListener('click',()=>saveTechnicalName(item));document.getElementById('technicalNameInput')?.addEventListener('keydown',event=>{if(event.key==='Enter'){event.preventDefault();saveTechnicalName(item);}});document.getElementById('editTechnicalName')?.addEventListener('click',()=>{technicalNameEditing=key;renderDetail();document.getElementById('technicalNameInput')?.focus();});document.getElementById('cancelTechnicalName')?.addEventListener('click',()=>{technicalNameEditing='';renderDetail();});document.getElementById('deleteTechnicalName')?.addEventListener('click',async()=>{if(!confirm('¿Eliminar el nombre técnico de esta referencia?'))return;const next={...technicalNames};delete next[key];try{if(!sync.active)throw new Error("Inicia sesión para compartir este cambio.");await sync.save([{tipo:"nombre",clave:key,valor:""}]);technicalNames=next;technicalNameEditing='';renderDetail();}catch{const msg=document.getElementById('technicalNameMessage');if(msg)msg.textContent='No se pudo actualizar el almacenamiento de este navegador.';}});}
+    async function writeTechnicalName(item,value) {
+      const part = selected?.part || partFor(item);
+      const sharedKey = window.catalogPartNameKey(brandId, part);
+      await sync.save([{tipo:'nombre',clave:sharedKey || pieceKey(item,view,part),valor:value,global:Boolean(sharedKey)}]);
+      if (sharedKey) sharedNames.set(sharedKey,value);
+    }
+    function technicalNameMarkup(item){const key=pieceKey(item, view, selected?.part || partFor(item));const value=technicalNameFor(item,view,selected?.part || partFor(item));if(value&&technicalNameEditing!==key)return '<div class="technical-name-box"><strong>'+esc(value)+'</strong><div class="technical-name-actions"><button class="btn" id="editTechnicalName" type="button">Editar</button><button class="btn" id="deleteTechnicalName" type="button">Eliminar</button></div><p class="technical-name-message" id="technicalNameMessage" aria-live="polite"></p></div>';return '<div class="technical-name-box"><div class="technical-name-entry"><input id="technicalNameInput" type="text" maxlength="80" autocomplete="off" aria-label="Nombre técnico" placeholder="Asigna un nombre a este item" value="'+esc(value)+'"><button class="btn primary" id="saveTechnicalName" type="button">Guardar</button>'+(value?'<button class="btn" id="cancelTechnicalName" type="button">Cancelar</button>':'')+'</div><p class="technical-name-message" id="technicalNameMessage" aria-live="polite"></p></div>';}
+    async function saveTechnicalName(item){const key=pieceKey(item, view, selected?.part || partFor(item));const input=document.getElementById('technicalNameInput');const message=document.getElementById('technicalNameMessage');const name=input?.value.trim()||'';if(!name){message.textContent='Ingresa el nombre técnico de esta pieza.';return;}const normalized=normalizeTechnicalName(name);const duplicate=!window.catalogPartNameKey(brandId,selected?.part || partFor(item))&&Object.entries(technicalNames).some(([otherKey,otherName])=>otherKey!==key&&normalizeTechnicalName(otherName)===normalized);if(duplicate){message.textContent='Ese nombre técnico ya está asignado a otra referencia de este despiece.';return;}const next={...technicalNames,[key]:name};try{if(!sync.active)throw new Error("Inicia sesión y conéctate para compartir el nombre en la web y el escritorio.");await writeTechnicalName(item,name);technicalNames=next;technicalNameEditing='';renderDetail();renderParts();applyMarkerSearch();}catch(error){message.textContent=error.message;}}
+    function bindTechnicalNameControls(item){const key=pieceKey(item, view, selected?.part || partFor(item));document.getElementById('saveTechnicalName')?.addEventListener('click',()=>saveTechnicalName(item));document.getElementById('technicalNameInput')?.addEventListener('keydown',event=>{if(event.key==='Enter'){event.preventDefault();saveTechnicalName(item);}});document.getElementById('editTechnicalName')?.addEventListener('click',()=>{technicalNameEditing=key;renderDetail();document.getElementById('technicalNameInput')?.focus();});document.getElementById('cancelTechnicalName')?.addEventListener('click',()=>{technicalNameEditing='';renderDetail();});document.getElementById('deleteTechnicalName')?.addEventListener('click',async()=>{if(!confirm('¿Eliminar el nombre técnico de esta referencia?'))return;const next={...technicalNames};delete next[key];try{if(!sync.active)throw new Error("Inicia sesión para compartir este cambio.");await writeTechnicalName(item,"");technicalNames=next;technicalNameEditing='';renderDetail();}catch{const msg=document.getElementById('technicalNameMessage');if(msg)msg.textContent='No se pudo actualizar el almacenamiento de este navegador.';}});}
 
     function movementVariantsMarkup(item) {
       if (!isMovement) return '';
@@ -603,13 +613,14 @@ function applyMarkerSearch(){const markers=[...marks.querySelectorAll('.hotspot'
           (!force && (placementDraft || markerBatch.length || technicalNameEditing || editor?.busy))) return;
       refreshPending = true;
       try {
-        let rows = await sync.read(force === true);
+        const [rows, brandRows] = await Promise.all([sync.read(force === true), window.CatalogSync.readBrandNames(brandId, force === true)]);
         if (!sync.active || (!force && (placementDraft || markerBatch.length || technicalNameEditing || editor?.busy))) return;
         sharedStatus.textContent = '';
-        const snapshot = JSON.stringify(rows);
+        const snapshot = JSON.stringify([rows,brandRows]);
         if (snapshot === sharedSnapshot) return;
         sharedSnapshot = snapshot;
-        sharedRows = rows;
+        sharedRows = [...rows,...brandRows.filter(row=>row.clave.startsWith("pieza:"))];
+        sharedNames = window.catalogNameIndex(brandId,brandRows);
         const versions = new Map(rows.filter(row => row.tipo === 'foto').map(row => [row.clave, row.valor]));
         for (const [item, url] of photoUrls) {
           if (!sharedPhotoVersions.has(item) || sharedPhotoVersions.get(item) !== versions.get(item)) {
@@ -641,6 +652,8 @@ function applyMarkerSearch(){const markers=[...marks.querySelectorAll('.hotspot'
       data, canvas, marks, parts: partsEl, detail, esc, sync, partFor, pieceKey,
       getView: () => view, getSelected: () => selected, getRows: () => sharedRows,
       getNames: () => technicalNames,
+      getName: part => technicalNameFor(part.item,view,part),
+      nameKey: part => window.catalogPartNameKey(brandId,part),
       isBusy: () => Boolean(placementDraft || markerBatch.length || technicalNameEditing),
       redraw: () => setView(view),
       refresh: async () => { sharedSnapshot = undefined; await refreshSharedCatalog(true); },
@@ -666,7 +679,7 @@ function applyMarkerSearch(){const markers=[...marks.querySelectorAll('.hotspot'
     window.addEventListener('focus', refreshVisibleCatalog);
     window.addEventListener('online', refreshVisibleCatalog);
     document.addEventListener('visibilitychange', refreshVisibleCatalog);
-    window.addEventListener('catalog-data-changed', event => { if (event.detail?.modelId === requestedModel) setTimeout(() => refreshSharedCatalog(), 0); });
+    window.addEventListener('catalog-data-changed', event => { if (event.detail?.modelId === requestedModel || sharedNames.size) setTimeout(() => refreshSharedCatalog(), 0); });
     setInterval(() => {
       if (!document.hidden) refreshSharedCatalog();
     }, 5000);
@@ -846,9 +859,9 @@ function applyMarkerSearch(){const markers=[...marks.querySelectorAll('.hotspot'
       </div>
     </form>
   </dialog>
-  <script src="equipos/inventario.js?v=sync-global-1"></script>
+  <script src="equipos/inventario.js?v=nombres-referencia-1"></script>
   <script src="equipos/fotos-mantencion.js?v=miniaturas-1"></script>
-  <script src="equipos/equipos.js?v=sync-global-1"></script>
+  <script src="equipos/equipos.js?v=nombres-referencia-1"></script>
   <script src="supabase-auth.js?v=catalog-session-v1"></script>
   <script id="catalogAuthController">
     (() => {
