@@ -163,7 +163,8 @@ window.createCatalogInventory = (brands, models) => {
       : parseStored(localNames, {});
     const partsById = new Map();
     const brand = brandNames.get(model.brand);
-    const equipment = model.name + " " + model.model;
+    const equipmentNames = window.catalogEquipmentName?.(model) || { es: model.name, en: "" };
+    const equipment = equipmentNames.es + " " + model.model;
     for (const view of data.views) {
       const parts = [
         ...(view.id === "general" ? data.bom || [] : []),
@@ -179,7 +180,9 @@ window.createCatalogInventory = (brands, models) => {
         const original = window.catalogReferenceOriginal(part);
         const id = JSON.stringify([model.id, scoped ? view.id : "", original.item.trim().toUpperCase(), original.reference, original.sap]);
         partsById.set(id, {
-          id, modelId: model.id, brand, equipment, scope: scoped ? view.label : "",
+          id, modelId: model.id, brand, equipment, modelName: equipmentNames.es,
+          modelEnglish: equipmentNames.en, model: model.model,
+          supplierName: part.description || "", scope: scoped ? view.label : "",
           item: part.item, reference: part.reference, sap: part.sap, technicalName: name,
           name: name || part.description || part.reference || part.sap || code,
         });
@@ -193,7 +196,30 @@ window.createCatalogInventory = (brands, models) => {
     part.item && "Ítem " + part.item, part.reference && "Ref. " + part.reference, part.sap && "SAP " + part.sap,
   ].filter(Boolean).join(" · ");
   const equipmentLabel = part => [part.brand, part.equipment, part.scope].filter(Boolean).join(" · ");
-  const modelLabel = model => brandNames.get(model.brand) + " · " + model.name + " " + model.model;
+  const modelLabel = model => {
+    const names = window.catalogEquipmentName?.(model) || { es: model.name, en: "" };
+    return [brandNames.get(model.brand), names.es, names.en, "Modelo: " + model.model].filter(Boolean).join(" · ");
+  };
+  const modelNameMarkup = model => {
+    const names = window.catalogEquipmentName?.(model) || { es: model.name, en: "" };
+    return `<strong>${esc(brandNames.get(model.brand))} · ${esc(names.es)}</strong><small>${esc([names.en, "Modelo: " + model.model].filter(Boolean).join(" · "))}</small>`;
+  };
+  const partTechnicalName = part => part.technicalName?.trim() || "";
+  const partSupplierName = part => {
+    const technicalName = partTechnicalName(part);
+    const supplierName = part.supplierName?.trim() ||
+      (part.name !== technicalName ? part.name : "");
+    return technicalName && normalize(supplierName) !== normalize(technicalName) ? supplierName : "";
+  };
+  const partSearchValues = part => [
+    part.technicalName, part.name, part.supplierName, part.brand, part.equipment,
+    part.modelName, part.modelEnglish, part.model, part.item, part.reference, part.sap, part.scope,
+  ];
+  const matchesPartSearch = (part, value) => {
+    const terms = normalize(value).match(/[\p{L}\p{N}]+/gu) || [];
+    const fields = partSearchValues(part).map(normalize);
+    return terms.every(term => fields.some(field => field.includes(term)));
+  };
 
   function renderInventory() {
     const canWrite = window.CatalogSync.canWrite;
@@ -204,25 +230,28 @@ window.createCatalogInventory = (brands, models) => {
     const stock = records();
     const groups = new Map();
     for (const record of stock) {
-      const primaryPart = currentPart(record.links[0]);
-      const name = primaryPart.name;
       for (const link of record.links.map(currentPart)) {
         if (brand && link.brand !== brand) continue;
-        if (query && ![name, link.technicalName, link.item, link.reference, link.sap, link.brand]
-          .some(value => normalize(value).includes(query))) continue;
-        const groupKey = link.brand + " · " + link.equipment;
-        if (!groups.has(groupKey)) groups.set(groupKey, []);
-        groups.get(groupKey).push({ record, link, name });
+        if (query && !matchesPartSearch(link, query)) continue;
+        const groupKey = [link.brand, link.modelName || link.equipment, link.model && "Modelo: " + link.model]
+          .filter(Boolean).join(" · ");
+        if (!groups.has(groupKey)) groups.set(groupKey, { modelEnglish: link.modelEnglish, rows: [] });
+        groups.get(groupKey).rows.push({ record, link });
       }
     }
     const list = $("inventoryList");
     list.innerHTML = [...groups.entries()].sort(([a], [b]) => a.localeCompare(b, "es"))
-      .map(([group, rows]) => `
+      .map(([group, { modelEnglish, rows }]) => `
         <section class="inventory-group">
           <h3>${esc(group)}</h3>
-          <ul>${rows.sort((a, b) => a.name.localeCompare(b.name, "es")).map(({ record, link, name }) => `
+          ${modelEnglish ? `<small class="inventory-model-english">${esc(modelEnglish)}</small>` : ""}
+          <ul>${rows.sort((a, b) => (partTechnicalName(a.link) || a.link.name || "").localeCompare(partTechnicalName(b.link) || b.link.name || "", "es")).map(({ record, link }) => `
             <li class="inventory-row">
-              <div><strong>${esc(name)}</strong><small>${esc([link.scope, partCode(link)].filter(Boolean).join(" · "))}</small></div>
+              <div class="inventory-part-copy">
+                <strong class="inventory-part-technical">${esc(partTechnicalName(link) || link.name)}</strong>
+                ${partSupplierName(link) ? `<small class="inventory-part-supplier">${esc(partSupplierName(link))}</small>` : ""}
+                <small>${esc([link.scope, partCode(link)].filter(Boolean).join(" · "))}</small>
+              </div>
               <span>${record.quantity === null ? "Sin control de stock" : esc(record.quantity) + (record.links.length > 1 ? " unidades · stock compartido" : " unidades")}</span>
               ${canWrite ? `<div class="inventory-row-actions">
                 <button type="button" class="btn" data-edit-stock="${esc(record.id)}">Editar</button>
@@ -250,7 +279,7 @@ window.createCatalogInventory = (brands, models) => {
       const model = catalogModels.find(model => model.id === id);
       const assigned = links.filter(link => link.modelId === id).length;
       return `<li class="inventory-row">
-        <div><strong>${esc(modelLabel(model))}</strong><small>${assigned ? assigned + (assigned === 1 ? " repuesto vinculado" : " repuestos vinculados") : "Pendiente de asignar repuesto"}</small></div>
+        <div class="inventory-model-copy">${modelNameMarkup(model)}<small>${assigned ? assigned + (assigned === 1 ? " repuesto vinculado" : " repuestos vinculados") : "Pendiente de asignar repuesto"}</small></div>
         <button class="btn" type="button" data-assign-stock="${index}">${assigned ? "Agregar otro repuesto" : "Asignar repuesto"}</button>
       </li>`;
     }).join("");
@@ -270,15 +299,16 @@ window.createCatalogInventory = (brands, models) => {
     const matches = [];
     if (query && index) {
       for (const part of index.values()) {
-        if (!selected.has(part.id) && [part.technicalName, part.item, part.reference, part.sap]
-          .some(value => normalize(value).includes(query))) matches.push(part);
+        if (!selected.has(part.id) && matchesPartSearch(part, query)) matches.push(part);
         if (matches.length === 30) break;
       }
     }
     $("inventoryMatches").innerHTML = matches.map((part, index) => `
       <button type="button" data-stock-link="${index}">
         <strong>${esc(part.technicalName || part.name)}</strong>
+        ${partSupplierName(part) ? `<small class="inventory-part-supplier">${esc(partSupplierName(part))}</small>` : ""}
         <span>${esc(equipmentLabel(part))}</span>
+        ${part.modelEnglish ? `<small class="inventory-part-supplier">${esc([part.modelEnglish, "Modelo: " + part.model].filter(Boolean).join(" · "))}</small>` : ""}
         <span class="inventory-result-fields">
           <span>Ítem <strong>${esc(part.item || "—")}</strong></span>
           <span>Nombre técnico <strong>${esc(part.technicalName || "Sin asignar")}</strong></span>
@@ -303,7 +333,7 @@ window.createCatalogInventory = (brands, models) => {
     }
     $("inventoryLinks").innerHTML = links.map(currentPart).map((part, index) => `
       <li class="inventory-row">
-        <div><strong>${esc(part.name)}</strong><small>${esc(equipmentLabel(part) + " · " + partCode(part))}</small></div>
+        <div><strong>${esc(partTechnicalName(part) || part.name)}</strong>${partSupplierName(part) ? `<small class="inventory-part-supplier">${esc(partSupplierName(part))}</small>` : ""}<small>${esc([part.modelEnglish, "Modelo: " + part.model, part.scope, partCode(part)].filter(Boolean).join(" · "))}</small></div>
         <button type="button" class="btn" data-remove-stock-link="${index}">Quitar vínculo</button>
       </li>`).join("") || "<li>Agrega al menos una pieza del catálogo.</li>";
     for (const button of $("inventoryLinks").querySelectorAll("[data-remove-stock-link]")) {
@@ -325,7 +355,7 @@ window.createCatalogInventory = (brands, models) => {
       return !modelDraft.has(model.id) && terms.every(term => text.includes(term));
     }).sort((a, b) => modelLabel(a).localeCompare(modelLabel(b), "es")) : [];
     modelChoices.innerHTML = matches.slice(0, 8).map(model =>
-      `<button type="button" data-select-model="${esc(model.id)}">＋ ${esc(modelLabel(model))}</button>`
+      `<button type="button" data-select-model="${esc(model.id)}">＋ <span class="inventory-model-copy">${modelNameMarkup(model)}</span></button>`
     ).join("") || (terms.length ? '<p>No hay coincidencias disponibles.</p>' : "");
     if (matches.length > 8) modelChoices.insertAdjacentHTML("beforeend", "<p>Escribe más detalles para acotar la búsqueda.</p>");
     modelDraftList.innerHTML = [...modelDraft].map(id => {
@@ -395,7 +425,7 @@ window.createCatalogInventory = (brands, models) => {
   function resetModels() {
     modelFilter.innerHTML = '<option value="">Selecciona un equipo</option>' + catalogModels
       .filter(model => model.brand === brandFilter.value)
-      .map(model => `<option value="${esc(model.id)}">${esc(model.name + " " + model.model)}</option>`).join("");
+      .map(model => `<option value="${esc(model.id)}">${esc(modelLabel(model))}</option>`).join("");
     modelFilter.value = "";
     modelFilter.disabled = !brandFilter.value;
     search.value = "";

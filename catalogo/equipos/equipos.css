@@ -345,6 +345,47 @@ a.equipment-card:hover {
   color: var(--muted);
 }
 
+.inventory-part-copy > strong {
+  display: block;
+  color: var(--text);
+}
+
+.inventory-model-copy > strong {
+  display: block;
+}
+
+.inventory-model-copy > small,
+.inventory-model-english {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 0.88em;
+  font-weight: 400;
+}
+
+.inventory-model-english {
+  margin: -4px 0 8px;
+}
+
+.inventory-row .inventory-part-supplier {
+  font-size: 0.88em;
+  color: var(--muted);
+}
+
+.part-desc strong,
+.part-desc small,
+.bom-option small {
+  display: block;
+}
+
+.part-desc small,
+.bom-option small {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 0.9em;
+  font-weight: 400;
+}
+
 .inventory-matches {
   max-height: 22vh;
   margin-top: 8px;
