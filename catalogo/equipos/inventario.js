@@ -89,7 +89,7 @@ window.createCatalogInventory = (brands, models) => {
   async function syncInventory(force = false) {
     if (!window.CatalogSync.active || inventoryWriting) return;
     if (inventoryLoading) return inventoryLoading;
-    if (!force && Date.now() - lastInventoryRead < 15000) return;
+    if (!force && Date.now() - lastInventoryRead < 5000) return;
     const version = sessionVersion;
     inventoryLoading = (async () => {
       $("inventoryStatus").textContent = "Sincronizando inventario…";
@@ -125,7 +125,8 @@ window.createCatalogInventory = (brands, models) => {
         : "Inventario compartido actualizado.";
       if (!$("inventoryView").hidden) {
         renderInventory();
-        if (dialog.open) renderPicker();
+        if (referencesLoading) await referencesLoading;
+        await refreshReferences(force);
       }
     })().catch(error => {
       if (version === sessionVersion) $("inventoryStatus").textContent = inventoryError(error);
@@ -143,14 +144,14 @@ window.createCatalogInventory = (brands, models) => {
     try { return JSON.parse(raw) ?? fallback; } catch { return fallback; }
   }
 
-  async function indexModel(modelId) {
+  async function indexModel(modelId, force = false) {
     const model = modelsById.get(modelId);
     if (!model) return;
     const base = await window.catalogLoadModel(modelId);
     const [prefix, scoped, manual] = sources.get(modelId);
     const storage = "smartfit-catalog:" + prefix;
     const remote = window.CatalogSync.active
-      ? await window.CatalogSync.forModel(modelId).read()
+      ? await window.CatalogSync.forModel(modelId).read(force)
       : modelId === "t600x-sf" ? matrixChanges : undefined;
     const localNames = remote ? null : storedValue(storage + ":technical-names:v1");
     const localMarkers = remote ? null : storedValue(storage + ":manual-refs:v1");
@@ -585,45 +586,33 @@ window.createCatalogInventory = (brands, models) => {
     $("inventoryStatus").textContent = "Registro guardado en el inventario compartido.";
   };
 
-  function refreshMatrix() {
-    if (!window.CatalogSync.active || loading || Date.now() - matrixRefreshedAt < 15000) return;
+  let referencesLoading;
+  async function refreshReferences(force = false) {
+    if (!window.CatalogSync.active || referencesLoading) return referencesLoading;
     const version = sessionVersion;
-    loading = window.CatalogSync.read().then(rows => {
-      if (version !== sessionVersion || !window.CatalogSync.active) return;
-      matrixChanges = rows;
-      matrixRefreshedAt = Date.now();
-      return indexModel("t600x-sf");
-    }).then(() => {
+    const relevant = new Set(records().flatMap(record => record.links.map(link => link.modelId)));
+    if (dialog.open && modelFilter.value) relevant.add(modelFilter.value);
+    referencesLoading = Promise.allSettled([...relevant].map(id => indexModel(id, force))).then(results => {
       if (version !== sessionVersion) return;
-      renderInventory();
+      if (results.some(result => result.status === 'rejected')) $("inventoryStatus").textContent =
+        "Algunos nombres compartidos no se pudieron actualizar. Se conservan los datos disponibles.";
+      if (!$("inventoryView").hidden) renderInventory();
       if (dialog.open) renderPicker();
-    }).catch(() => {
-      if (version === sessionVersion) $("inventoryStatus").textContent = "No se pudieron consultar los nombres compartidos de Matrix. Se muestran los datos disponibles en este navegador.";
-    }).finally(() => { if (version === sessionVersion) loading = null; });
+    }).finally(() => { if (version === sessionVersion) referencesLoading = null; });
+    return referencesLoading;
   }
-
   function preparePicker(modelId) {
     pickerErrors.delete(modelId);
     renderPicker();
     if (!modelId) return;
-    indexModel(modelId).catch(() => pickerErrors.add(modelId)).finally(() => {
+    indexModel(modelId, true).catch(() => pickerErrors.add(modelId)).finally(() => {
       if (dialog.open) renderPicker();
     });
-    if (modelId === "t600x-sf") refreshMatrix();
   }
-
   function refresh() {
     renderInventory();
     syncInventory();
-    const linkedModels = new Set(records().flatMap(record => record.links.map(link => link.modelId)));
-    if (linkedModels.has("t600x-sf")) refreshMatrix();
-    if (linkedModels.size) {
-      Promise.allSettled([...linkedModels].map(indexModel)).then(() => {
-        if ($("inventoryView").hidden) return;
-        renderInventory();
-        if (dialog.open) renderPicker();
-      });
-    }
+    refreshReferences();
   }
 
   window.addEventListener("catalog-session-ready", () => {
@@ -634,7 +623,8 @@ window.createCatalogInventory = (brands, models) => {
     inventoryLoading = null;
     inventoryReady = false;
     lastInventoryRead = 0;
-    indexes.delete("t600x-sf");
+    indexes.clear();
+    referencesLoading = null;
     syncInventory(true);
     if (!$("inventoryView").hidden) refresh();
   });
@@ -647,6 +637,9 @@ window.createCatalogInventory = (brands, models) => {
   window.addEventListener("online", () => syncInventory(true));
   setInterval(() => {
     if (!document.hidden && !$("inventoryView").hidden) syncInventory();
-  }, 15000);
+  }, 5000);
+  window.addEventListener("catalog-data-changed", () => {
+    if (!$("inventoryView").hidden || dialog.open) refreshReferences(true);
+  });
   return refresh;
 };

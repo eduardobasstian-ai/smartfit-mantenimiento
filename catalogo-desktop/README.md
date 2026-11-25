@@ -2,7 +2,7 @@
 
 La beta usa Electron y se distribuye mediante un instalador NSIS para Windows x64.
 
-Ejecuta `npm ci` y después `npm run build` en esta carpeta. El instalador queda en `dist/Catalogo-SmartFit-Beta-0.1.2-Setup.exe`.
+Ejecuta `npm ci` y después `npm run build` en esta carpeta. El instalador queda en `dist/Catalogo-SmartFit-Beta-0.1.3-Setup.exe`.
 
 El paquete incluye el catálogo local, sus planos, marcadores y miniaturas. El acceso a Supabase y las fotografías externas requiere conexión.
 
@@ -12,4 +12,6 @@ Esta beta carece de certificado de firma de código. La autenticación con una c
 
 Administradores y supervisores pueden editar las referencias y los marcadores del catálogo. Usa clic derecho en un marcador o una referencia para abrir el menú. El botón **Editar referencias** abre la edición en lote de la vista. Para mover varios marcadores, selecciónalos con Mayús + clic, abre el menú y elige **Mover marcadores**. Arrastra y presiona **Guardar posiciones**; Cancelar restaura las posiciones anteriores. En pantallas táctiles, mantén pulsado un marcador para abrir el menú.
 
-Las ediciones se guardan en Supabase por equipo, sin cambiar los códigos de otras marcas. Los conflictos con cambios de otro dispositivo se notifican antes de sobrescribirlos. La aplicación consulta los cambios de la vista activa al recuperar el foco y cada 15 segundos. Estos permisos se aplican al catálogo; no modifican los perfiles de mantenimiento.
+Las ediciones se guardan en Supabase por equipo, sin cambiar los códigos de otras marcas. Los conflictos con cambios de otro dispositivo se notifican antes de sobrescribirlos. La aplicación consulta los cambios de la vista activa al recuperar el foco y cada 5 segundos. Estos permisos se aplican al catálogo; no modifican los perfiles de mantenimiento.
+
+La beta 0.1.3 actualiza los nombres y referencias de todas las marcas del inventario al recibir los registros compartidos, al volver a la ventana y mientras está visible. Recupera en segundo plano los nombres, marcadores y fotos locales de versiones anteriores, sin reemplazar datos compartidos existentes ni restaurar fotos eliminadas. Las imágenes locales se transfieren con sus bytes originales. Actualizar el instalador conserva el perfil del usuario.

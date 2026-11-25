@@ -90,7 +90,7 @@
   </style>
   <link rel="icon" type="image/x-icon" href="IMG/favicon.ico">
   <link rel="icon" type="image/png" href="IMG/favicon.png">
-  <link rel="stylesheet" href="equipos/equipos.css">
+  <link rel="stylesheet" href="equipos/equipos.css?v=sync-global-1">
 </head>
 <body>
   <header class="topbar"><div class="brand"><img class="brand-mark" src="IMG/logo-header.png" alt="Smart Fit"><div class="brand-copy"><div class="brand-heading"><p class="brand-title">CATÁLOGO DE REPUESTOS</p></div><p class="brand-subtitle">Gestión de equipos y sedes</p></div></div><div id="catalogSession" class="catalog-session" hidden><span>Sesión: <strong id="catalogUserName"></strong></span><button id="catalogLogout" class="btn" type="button">Cerrar sesión</button></div></header>
@@ -210,9 +210,10 @@
   <script src="equipos/catalogo-datos.js"></script>
   <script src="equipos/nombres.js"></script>
   <script src="equipos/fotos.js?v=sin-perdida-1"></script>
-  <script src="equipos/sincronizacion.js?v=edicion-planos-1"></script>
-  <script src="equipos/catalogo-cambios.js"></script>
-  <script src="equipos/catalogo-edicion.js"></script>
+  <script src="equipos/sincronizacion.js?v=sync-global-1"></script>
+  <script src="equipos/catalogo-locales.js?v=sync-global-1"></script>
+  <script src="equipos/catalogo-cambios.js?v=sync-global-1"></script>
+  <script src="equipos/catalogo-edicion.js?v=sync-global-1"></script>
   <script>
   window.openCatalogPlan = async () => {
     const requestedModel = window.catalogModelId;
@@ -449,8 +450,8 @@ function applyMarkerSearch(){const markers=[...marks.querySelectorAll('.hotspot'
     try{technicalNames=JSON.parse(localStorage.getItem(technicalNameStorageKey)||'{}')||{};}catch{technicalNames={};}
     function normalizeTechnicalName(value){return String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLocaleLowerCase();}
     function technicalNameMarkup(item){const key=pieceKey(item, view, selected?.part || partFor(item));const value=technicalNames[key]||'';if(value&&technicalNameEditing!==key)return '<div class="technical-name-box"><strong>'+esc(value)+'</strong><div class="technical-name-actions"><button class="btn" id="editTechnicalName" type="button">Editar</button><button class="btn" id="deleteTechnicalName" type="button">Eliminar</button></div><p class="technical-name-message" id="technicalNameMessage" aria-live="polite"></p></div>';return '<div class="technical-name-box"><div class="technical-name-entry"><input id="technicalNameInput" type="text" maxlength="80" autocomplete="off" aria-label="Nombre técnico" placeholder="Asigna un nombre a este item" value="'+esc(value)+'"><button class="btn primary" id="saveTechnicalName" type="button">Guardar</button>'+(value?'<button class="btn" id="cancelTechnicalName" type="button">Cancelar</button>':'')+'</div><p class="technical-name-message" id="technicalNameMessage" aria-live="polite"></p></div>';}
-    async function saveTechnicalName(item){const key=pieceKey(item, view, selected?.part || partFor(item));const input=document.getElementById('technicalNameInput');const message=document.getElementById('technicalNameMessage');const name=input?.value.trim()||'';if(!name){message.textContent='Ingresa el nombre técnico de esta pieza.';return;}const normalized=normalizeTechnicalName(name);const duplicate=Object.entries(technicalNames).some(([otherKey,otherName])=>otherKey!==key&&normalizeTechnicalName(otherName)===normalized);if(duplicate){message.textContent='Ese nombre técnico ya está asignado a otra referencia de este despiece.';return;}const next={...technicalNames,[key]:name};try{if(sync.active)await sync.save([{tipo:"nombre",clave:key,valor:name}]);else localStorage.setItem(technicalNameStorageKey,JSON.stringify(next));technicalNames=next;technicalNameEditing='';renderDetail();renderParts();applyMarkerSearch();}catch(error){message.textContent=error.message;}}
-    function bindTechnicalNameControls(item){const key=pieceKey(item, view, selected?.part || partFor(item));document.getElementById('saveTechnicalName')?.addEventListener('click',()=>saveTechnicalName(item));document.getElementById('technicalNameInput')?.addEventListener('keydown',event=>{if(event.key==='Enter'){event.preventDefault();saveTechnicalName(item);}});document.getElementById('editTechnicalName')?.addEventListener('click',()=>{technicalNameEditing=key;renderDetail();document.getElementById('technicalNameInput')?.focus();});document.getElementById('cancelTechnicalName')?.addEventListener('click',()=>{technicalNameEditing='';renderDetail();});document.getElementById('deleteTechnicalName')?.addEventListener('click',async()=>{if(!confirm('¿Eliminar el nombre técnico de esta referencia?'))return;const next={...technicalNames};delete next[key];try{if(sync.active)await sync.save([{tipo:"nombre",clave:key,valor:""}]);else localStorage.setItem(technicalNameStorageKey,JSON.stringify(next));technicalNames=next;technicalNameEditing='';renderDetail();}catch{const msg=document.getElementById('technicalNameMessage');if(msg)msg.textContent='No se pudo actualizar el almacenamiento de este navegador.';}});}
+    async function saveTechnicalName(item){const key=pieceKey(item, view, selected?.part || partFor(item));const input=document.getElementById('technicalNameInput');const message=document.getElementById('technicalNameMessage');const name=input?.value.trim()||'';if(!name){message.textContent='Ingresa el nombre técnico de esta pieza.';return;}const normalized=normalizeTechnicalName(name);const duplicate=Object.entries(technicalNames).some(([otherKey,otherName])=>otherKey!==key&&normalizeTechnicalName(otherName)===normalized);if(duplicate){message.textContent='Ese nombre técnico ya está asignado a otra referencia de este despiece.';return;}const next={...technicalNames,[key]:name};try{if(!sync.active)throw new Error("Inicia sesión y conéctate para compartir el nombre en la web y el escritorio.");await sync.save([{tipo:"nombre",clave:key,valor:name}]);technicalNames=next;technicalNameEditing='';renderDetail();renderParts();applyMarkerSearch();}catch(error){message.textContent=error.message;}}
+    function bindTechnicalNameControls(item){const key=pieceKey(item, view, selected?.part || partFor(item));document.getElementById('saveTechnicalName')?.addEventListener('click',()=>saveTechnicalName(item));document.getElementById('technicalNameInput')?.addEventListener('keydown',event=>{if(event.key==='Enter'){event.preventDefault();saveTechnicalName(item);}});document.getElementById('editTechnicalName')?.addEventListener('click',()=>{technicalNameEditing=key;renderDetail();document.getElementById('technicalNameInput')?.focus();});document.getElementById('cancelTechnicalName')?.addEventListener('click',()=>{technicalNameEditing='';renderDetail();});document.getElementById('deleteTechnicalName')?.addEventListener('click',async()=>{if(!confirm('¿Eliminar el nombre técnico de esta referencia?'))return;const next={...technicalNames};delete next[key];try{if(!sync.active)throw new Error("Inicia sesión para compartir este cambio.");await sync.save([{tipo:"nombre",clave:key,valor:""}]);technicalNames=next;technicalNameEditing='';renderDetail();}catch{const msg=document.getElementById('technicalNameMessage');if(msg)msg.textContent='No se pudo actualizar el almacenamiento de este navegador.';}});}
 
     function movementVariantsMarkup(item) {
       if (!isMovement) return '';
@@ -604,19 +605,6 @@ function applyMarkerSearch(){const markers=[...marks.querySelectorAll('.hotspot'
       try {
         let rows = await sync.read(force === true);
         if (!sync.active || (!force && (placementDraft || markerBatch.length || technicalNameEditing || editor?.busy))) return;
-        const importKey = storagePrefix + ':shared-import:v1';
-        if (sync.canWrite && !localStorage.getItem(importKey)) {
-          let localNames = {}; try { localNames = JSON.parse(localStorage.getItem(technicalNameStorageKey) || '{}'); } catch {}
-          let localMarkers = []; try { localMarkers = JSON.parse(localStorage.getItem(manualStorageKey) || '[]'); } catch {}
-          const previous = new Set(rows.map(row => row.tipo + ':' + row.clave));
-          const imports = [
-            ...Object.entries(localNames || {}).map(([clave, valor]) => ({ tipo: 'nombre', clave, valor })),
-            ...(Array.isArray(localMarkers) ? localMarkers : []).map(markerChange),
-          ].filter(row => !previous.has(row.tipo + ':' + row.clave))
-            .map(row => ({ ...row, expected: null }));
-          if (imports.length) { for(let i=0;i<imports.length;i+=500) await sync.edit(imports.slice(i,i+500)); rows = await sync.read(true); }
-          localStorage.setItem(importKey, '1');
-        }
         sharedStatus.textContent = '';
         const snapshot = JSON.stringify(rows);
         if (snapshot === sharedSnapshot) return;
@@ -672,10 +660,16 @@ function applyMarkerSearch(){const markers=[...marks.querySelectorAll('.hotspot'
     }
     configurePlanSession();
     window.addEventListener('catalog-session-ready', configurePlanSession);
-    window.addEventListener('focus', () => refreshSharedCatalog());
+    const refreshVisibleCatalog = () => {
+      if (!document.hidden && !placementDraft && !markerBatch.length && !technicalNameEditing && !editor?.busy) refreshSharedCatalog(true);
+    };
+    window.addEventListener('focus', refreshVisibleCatalog);
+    window.addEventListener('online', refreshVisibleCatalog);
+    document.addEventListener('visibilitychange', refreshVisibleCatalog);
+    window.addEventListener('catalog-data-changed', event => { if (event.detail?.modelId === requestedModel) setTimeout(() => refreshSharedCatalog(), 0); });
     setInterval(() => {
       if (!document.hidden) refreshSharedCatalog();
-    }, 15000);
+    }, 5000);
 
     async function publishBackup(names, markers, photos) {
       if (!sync.canWrite) throw new Error('Solo administradores y supervisores pueden publicar el respaldo.');
@@ -852,9 +846,9 @@ function applyMarkerSearch(){const markers=[...marks.querySelectorAll('.hotspot'
       </div>
     </form>
   </dialog>
-  <script src="equipos/inventario.js?v=edicion-planos-1"></script>
+  <script src="equipos/inventario.js?v=sync-global-1"></script>
   <script src="equipos/fotos-mantencion.js?v=miniaturas-1"></script>
-  <script src="equipos/equipos.js?v=miniaturas-1"></script>
+  <script src="equipos/equipos.js?v=sync-global-1"></script>
   <script src="supabase-auth.js?v=catalog-session-v1"></script>
   <script id="catalogAuthController">
     (() => {

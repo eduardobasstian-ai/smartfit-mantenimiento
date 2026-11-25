@@ -24,6 +24,7 @@ window.CatalogSync = (() => {
 
   const photoPath = (item, model = "") => `/storage/v1/object/${bucket}/mtm3839/${model ? model + "/" : ""}${encodeURIComponent(item)}`;
   const canWrite = () => ["administrador", "supervisor"].includes(session?.role);
+  const changed = modelId => window.dispatchEvent(new CustomEvent("catalog-data-changed", { detail: { modelId } }));
 
   function modelScope(id) {
     const model = id === "t600x-sf" ? "" : id;
@@ -39,7 +40,7 @@ window.CatalogSync = (() => {
       get active() { return Boolean(session); },
       get canWrite() { return canWrite(); },
       async read(force = false) {
-        if (!force && snapshot && snapshotSession === session && Date.now() - loadedAt < 15000) return snapshot;
+        if (!force && snapshot && snapshotSession === session && Date.now() - loadedAt < 5000) return snapshot;
         if (pending) return pending;
         const current = session;
         const revision = generation;
@@ -70,6 +71,7 @@ window.CatalogSync = (() => {
         }));
         generation++;
         loadedAt = 0;
+        changed(id);
       },
       async edit(changes) {
         if (!canWrite()) throw new Error("Tu perfil no permite editar el catálogo.");
@@ -79,6 +81,7 @@ window.CatalogSync = (() => {
         }));
         generation++;
         loadedAt = 0;
+        changed(id);
       },
       async readPhoto(item) {
         const response = await request(photoPath(item, model).replace("/object/", "/object/authenticated/"));
@@ -96,6 +99,19 @@ window.CatalogSync = (() => {
           method: "POST", headers: { "Content-Type": blob.type, "x-upsert": "true" }, body: blob,
         }));
         await scope.save([{ tipo: "foto", clave: item, valor: crypto.randomUUID() }]);
+      },
+      async importPhoto(item, blob) {
+        if (!canWrite()) throw new Error("Tu perfil no permite compartir fotos.");
+        const response = await request(photoPath(item, model), {
+          method: "POST", headers: { "Content-Type": blob.type, "x-upsert": "false" }, body: blob,
+        });
+        if (!response.ok) {
+          const error = await response.clone().json().catch(() => null);
+          if (response.status === 409 || String(error?.statusCode) === "409" || error?.error === "Duplicate") return false;
+          await checked(response);
+        }
+        await scope.edit([{ tipo: "foto", clave: item, valor: crypto.randomUUID(), expected: null }]);
+        return true;
       },
       async removePhoto(item) {
         if (!canWrite()) throw new Error("Tu perfil no permite eliminar fotos.");

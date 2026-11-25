@@ -5,6 +5,8 @@
   background: #191b22;
 }
 
+.catalog-recovery-status { margin: 12px 24px; color: #b6becc; font-size: 13px; }
+
 .equipment-header {
   display: flex;
   align-items: flex-start;
