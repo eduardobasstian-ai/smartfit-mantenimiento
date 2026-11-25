@@ -18,7 +18,7 @@
       notice = document.createElement("p");
       notice.className = "catalog-recovery-status";
       notice.setAttribute("role", "status");
-      document.getElementById("catalogApp").prepend(notice);
+      document.querySelector("#catalogApp > main").prepend(notice);
     }
     notice.textContent = text;
     notice.hidden = !text;
