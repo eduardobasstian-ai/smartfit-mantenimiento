@@ -134,7 +134,7 @@
       return true;
     }
 
-    global.SmartFitMobileBack = { start, handleHardwareBack };
+    global.SmartFitMobileBack = { start, handleHardwareBack, captureCurrent, restoreCurrent: options.restore };
     return true;
   }
 
