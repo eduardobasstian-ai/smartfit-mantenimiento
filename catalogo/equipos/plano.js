@@ -1,0 +1,590 @@
+window.openCatalogPlan = async () => {
+    const requestedModel = window.catalogModelId;
+    const isElliptical = requestedModel === 'e-es-f';
+    const manualModel = window.catalogManuals.find(model => model.id === requestedModel);
+    const usesAssemblyBom = requestedModel === 'hs-abc' || Boolean(manualModel);
+    const isMovement = requestedModel === 'rt-g2';
+    const isLocalModel = isElliptical || usesAssemblyBom || isMovement;
+    const baseCatalog = await window.catalogLoadModel(requestedModel);
+    const data = structuredClone(baseCatalog);
+    const storagePrefix = manualModel ? 'smartfit-catalog:' + manualModel.id : isMovement ? 'smartfit-catalog:Movement-RT-G2' : usesAssemblyBom ? 'smartfit-catalog:Hammer-HS-ABC' : isElliptical ? 'smartfit-catalog:Matrix-E-ES-F:MEP1354-00' :
+      'smartfit-catalog:Matrix-T600X-SF:MTM3839-00';
+    const backupFormat = 'smartfit-catalog-' + (manualModel ? manualModel.id : isMovement ? 'movement-rt-g2' : usesAssemblyBom ? 'hs-abc' : isElliptical ? 'mep1354' : 'mtm3839') + '-v1';
+    const manualStorageKey=storagePrefix + ':manual-refs:v1';
+    const sync = window.CatalogSync.forModel(requestedModel);
+    let editor;
+    let sharedRows = [];
+    let sharedNames = new Map();
+    const brandId = manualModel?.brand || (isMovement ? "movement" : usesAssemblyBom ? "hammer-strength" : "matrix");
+    const technicalNameFor = (item, sourceView = view, part = partFor(item, sourceView)) => window.catalogTechnicalName(brandId, part, technicalNames, pieceKey(item, sourceView, part), sharedNames);
+    let manualEntries=[];try{const stored=JSON.parse(localStorage.getItem(manualStorageKey)||'[]');if(Array.isArray(stored))manualEntries=stored;}catch{}
+    window.catalogApplyChanges(data, manualEntries.map(valor => ({ tipo: "marcador", valor })));
+    const tabs=document.getElementById('tabs'),canvasShell=document.getElementById('canvasShell'),canvas=document.getElementById('canvas'),img=document.getElementById('planImage'),marks=document.getElementById('hotspots'),partsEl=document.getElementById('parts'),detail=document.getElementById('detail'),markerSearch=document.getElementById('markerSearch');
+    let view=data.views[0], selected=null, markerQuery='', zoom=1, photoUrls=new Map(), placementDraft=null, markerBatch=[], markerDrag=null, suppressMarkerClick=false, selectedBomItem='',photoDbPromise=null,photoSaveNotice='';
+    const photoDbName = manualModel ? 'smartfit-catalog-' + manualModel.id + '-photos-v1' : isMovement ? 'smartfit-catalog-movement-rt-g2-photos-v1' : usesAssemblyBom ? 'smartfit-catalog-hs-abc-photos-v1' : isElliptical ? 'smartfit-catalog-mep1354-photos-v1' : 'smartfit-catalog-local-photos-v1';
+    function photoDb(){if(!photoDbPromise)photoDbPromise=new Promise((resolve,reject)=>{if(!('indexedDB'in window)){reject(new Error('Este navegador no permite almacenamiento local persistente.'));return}const req=indexedDB.open(photoDbName,1);req.onupgradeneeded=()=>{if(!req.result.objectStoreNames.contains('photos'))req.result.createObjectStore('photos')};req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error||new Error('No se pudo abrir el almacenamiento local.'))});return photoDbPromise}
+    async function readPhoto(item){if(sync.active){const shared=sharedSnapshot !== undefined && !sharedPhotoVersions.get(item) ? null : await sync.readPhoto(item);if(shared)return shared;if(sharedPhotoVersions.get(item)==="")return null;}const db=await photoDb();return new Promise((resolve,reject)=>{const req=db.transaction('photos','readonly').objectStore('photos').get(item);req.onsuccess=()=>resolve(req.result||null);req.onerror=()=>reject(req.error)})}
+    async function writePhoto(item,blob){if(sync.active)return sync.savePhoto(item,blob);const db=await photoDb();return new Promise((resolve,reject)=>{const tx=db.transaction('photos','readwrite');tx.objectStore('photos').put(blob,item);tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error||new Error('No se pudo guardar la fotografía localmente.'));tx.onabort=()=>reject(tx.error||new Error('Se canceló el guardado local.'))})}
+    async function deletePhoto(item){if(sync.active)return sync.removePhoto(item);const db=await photoDb();return new Promise((resolve,reject)=>{const tx=db.transaction('photos','readwrite');tx.objectStore('photos').delete(item);tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error)})}
+    const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    const partFor=(code, sourceView=view)=>sourceView.parts?.[String(code)]||data.parts[String(code)]||null;
+    const refDialog=document.getElementById('referenceDialog'),refForm=document.getElementById('referenceForm'),placementHelp=document.getElementById('placementHelp'),referencesPanel=document.getElementById('referencesPanel'),bomDialog=document.getElementById('bomPlacementDialog'),bomSearch=document.getElementById('bomSearch'),bomResults=document.getElementById('bomResults'),bomQuantity=document.getElementById('bomQuantity'),bomCreate=document.getElementById('createBomMarkers');
+    function openReferenceDialog(){refForm.reset();refForm.querySelector('[name=qty]').value='1';refDialog.showModal();setTimeout(()=>refForm.querySelector('[name=item]').focus(),0);}
+    function cancelPlacement(){placementDraft=null;canvasShell.classList.remove('is-placing');placementHelp.hidden=true;document.getElementById('hint').textContent='Selecciona un marcador para consultar su información.';}
+    function beginPlacement(event){event.preventDefault();const values=new FormData(refForm);const item=String(values.get('item')||'').trim().toUpperCase();const itemInput=refForm.querySelector('[name=item]');if(!/^[A-Z0-9._-]+$/.test(item)){itemInput.setCustomValidity('Usa solo letras, números, punto, guion o guion bajo.');itemInput.reportValidity();return;}itemInput.setCustomValidity('');const previous=partFor(item)||{};placementDraft={item,qty:Math.max(1,Math.min(999,Number(values.get('qty'))||1)),part:{item,reference:String(values.get('reference')||'').trim()||previous.reference||'',sap:String(values.get('sap')||'').trim()||previous.sap||'',description:String(values.get('description')||'').trim()||previous.description||''}};refDialog.close();canvasShell.classList.add('is-placing');placementHelp.hidden=false;document.getElementById('hint').textContent='Ubica '+item+': haz clic en el punto correspondiente del plano.';canvasShell.scrollIntoView({behavior:'smooth',block:'center'});}
+    async function placeReference(event){if(!placementDraft||event.target.closest('.hotspot,.plan-badge,button'))return;const rect=canvas.getBoundingClientRect();if(!rect.width||!rect.height)return;const x=Math.max(0,Math.min(100,(event.clientX-rect.left)/rect.width*100));const y=Math.max(0,Math.min(100,(event.clientY-rect.top)/rect.height*100));const callout={key:'manual:'+view.id+':'+Date.now().toString(36)+':'+Math.random().toString(36).slice(2,7),item:placementDraft.item,label:placementDraft.item,qty:placementDraft.qty,x:Number(x.toFixed(3)),y:Number(y.toFixed(3)),manual:true};const record={viewId:view.id,callout,part:placementDraft.part};if(sync.active){try{await sync.save([markerChange(record)]);}catch(error){document.getElementById("hint").textContent=error.message;return;}}manualEntries.push(record);view.callouts.push(callout);(view.parts||data.parts)[callout.item]=record.part;let persisted=true;try{if(!sync.active)localStorage.setItem(manualStorageKey,JSON.stringify(manualEntries));}catch{persisted=false;}cancelPlacement();setView(view);referencesPanel.open=true;choose(callout);document.getElementById('hint').textContent=persisted?(sync.active?'Referencia publicada.':'Referencia agregada y guardada en este navegador.'):'Referencia agregada en esta sesión; el navegador no permitió guardarla para la próxima visita.';}
+    document.getElementById('addReference').addEventListener('click',openReferenceDialog);
+    document.getElementById('closeReferenceDialog').addEventListener('click',()=>refDialog.close());refDialog.addEventListener('click',event=>{if(event.target===refDialog)refDialog.close();});
+    function availableBomParts(){const placed=new Set(view.callouts.map(c=>String(c.item).toUpperCase()));return Object.values(view.parts||data.parts).filter(p=>p?.item&&!placed.has(String(p.item).toUpperCase())).sort((a,b)=>String(a.item).localeCompare(String(b.item),undefined,{numeric:true,sensitivity:'base'}));}
+    function renderBomResults(){const terms=normalizeTechnicalName(bomSearch.value).match(/[\p{L}\p{N}]+/gu)||[];const options=availableBomParts().filter(p=>{const technicalName=technicalNameFor(p.item,view,p);const fields=[p.item,p.reference,p.sap,p.description,technicalName].map(normalizeTechnicalName);return terms.every(term=>fields.some(field=>field.includes(term)));});if(!options.length){bomResults.innerHTML='<div class="empty">'+(availableBomParts().length?'No hay coincidencias.':'Todas las referencias del BOM ya tienen marcador en esta vista.')+'</div>';selectedBomItem='';bomCreate.disabled=true;document.getElementById('bomSelectedSummary').textContent='Selecciona una referencia de la lista.';return;}bomResults.innerHTML=options.map(p=>{const technicalName=technicalNameFor(p.item,view,p);return `<button class="bom-option ${selectedBomItem===p.item?'selected':''}" type="button" role="option" aria-selected="${selectedBomItem===p.item}" data-item="${esc(p.item)}"><strong>${esc(p.item)}</strong><span>${technicalName?`<b>${esc(technicalName)}</b><small>${esc(p.description||p.sap||'')}</small>`:esc(p.description||p.sap||'')}</span><span>${esc(p.reference||'Sin Reference No.')}</span></button>`;}).join('');bomResults.querySelectorAll('[data-item]').forEach(button=>button.onclick=()=>{selectedBomItem=button.dataset.item;const part=partFor(selectedBomItem)||{};bomCreate.disabled=false;bomResults.querySelectorAll('[data-item]').forEach(option=>{option.classList.toggle('selected',option===button);option.setAttribute('aria-selected',String(option===button));});document.getElementById('bomSelectedSummary').textContent=`${part.item} · ${part.reference||'Sin referencia'} · ${part.description||'Sin descripción'}`;});}
+    document.getElementById('openBomPlacement').addEventListener('click',()=>{if(markerBatch.length){document.getElementById('hint').textContent='Termina primero la ubicación actual: guarda los marcadores o cancélalos antes de agregar otra referencia.';return;}selectedBomItem='';bomSearch.value='';bomQuantity.value='1';bomCreate.disabled=true;renderBomResults();bomDialog.showModal();setTimeout(()=>bomSearch.focus(),0);});
+    document.getElementById('closeBomPlacement').addEventListener('click',()=>bomDialog.close());bomDialog.addEventListener('click',event=>{if(event.target===bomDialog)bomDialog.close();});bomSearch.addEventListener('input',renderBomResults);
+    document.getElementById('bomPlacementForm').addEventListener('submit',event=>{event.preventDefault();const part=partFor(selectedBomItem);if(!part||markerBatch.length)return;const amount=Math.max(1,Math.min(99,Number(bomQuantity.value)||1));const existing=view.callouts.map(c=>String(c.item).toUpperCase());if(existing.includes(String(part.item).toUpperCase())){bomDialog.close();document.getElementById('hint').textContent='Esta referencia ya tiene marcadores en esta vista.';return;}bomDialog.close();const columns=Math.ceil(Math.sqrt(amount)),rows=Math.ceil(amount/columns),stamp=Date.now().toString(36);for(let i=0;i<amount;i++){const column=i%columns,row=Math.floor(i/columns);const callout={key:'bom:'+view.id+':'+stamp+':'+i+':'+Math.random().toString(36).slice(2,7),item:part.item,label:part.item,qty:1,x:Number((columns===1?50:10+column*80/(columns-1)).toFixed(3)),y:Number((rows===1?50:10+row*80/(rows-1)).toFixed(3)),manual:true,draft:true};view.callouts.push(callout);markerBatch.push({viewId:view.id,callout,part});}placementDraft=null;canvasShell.classList.add('is-placing');placementHelp.hidden=false;document.getElementById('placementMessage').textContent=`Arrastra los ${amount} marcador${amount===1?'':'es'} ${part.item} hasta su posición. Presiona Guardar para fijarlos.`;referencesPanel.open=true;setView(view);canvasShell.classList.add('is-placing');placementHelp.hidden=false;referencesPanel.open=true;document.getElementById('hint').textContent='Marcadores en edición: arrástralos en el plano y guárdalos cuando termines.';});
+    function cancelMarkerBatch(){if(placementDraft){cancelPlacement();return;}if(!markerBatch.length)return;const draftKeys=new Set(markerBatch.map(entry=>entry.callout.key));view.callouts=view.callouts.filter(c=>!draftKeys.has(c.key));markerBatch=[];markerDrag=null;placementHelp.hidden=true;canvasShell.classList.remove('is-placing');setView(view);document.getElementById('hint').textContent='Se descartaron los marcadores sin guardar.';}
+    document.getElementById('cancelMarkerDrafts').addEventListener('click',cancelMarkerBatch);
+    document.getElementById('saveMarkerDrafts').addEventListener('click',async()=>{if(!markerBatch.length)return;const records=markerBatch.map(({viewId,callout,part})=>({viewId,callout:{...callout,draft:false,manual:true},part}));try{if(sync.active)await sync.save(records.map(markerChange));else localStorage.setItem(manualStorageKey,JSON.stringify([...manualEntries,...records]));}catch(error){document.getElementById('hint').textContent=error.message;return;}manualEntries.push(...records);for(const entry of markerBatch){entry.callout.draft=false;entry.callout.manual=true;(view.parts||data.parts)[entry.callout.item]=entry.part;}const first=markerBatch[0].callout;markerBatch=[];markerDrag=null;placementHelp.hidden=true;canvasShell.classList.remove('is-placing');setView(view);referencesPanel.open=true;choose(first);document.getElementById('hint').textContent=sync.active?'Marcadores publicados.':'Marcadores guardados y fijados en este navegador.';});
+    marks.addEventListener('pointerdown',event=>{const marker=event.target.closest('.hotspot[data-draft="true"]');if(!marker||!markerBatch.length||event.button!==0)return;event.preventDefault();markerDrag={key:marker.dataset.key,pointerId:event.pointerId,moved:false,startX:event.clientX,startY:event.clientY};marker.setPointerCapture(event.pointerId);});
+    marks.addEventListener('pointermove',event=>{if(!markerDrag||event.pointerId!==markerDrag.pointerId)return;const marker=marks.querySelector(`[data-key="${CSS.escape(markerDrag.key)}"]`);const callout=markerBatch.find(entry=>entry.callout.key===markerDrag.key)?.callout;const rect=canvas.getBoundingClientRect();if(!marker||!rect.width||!rect.height)return;if(Math.hypot(event.clientX-markerDrag.startX,event.clientY-markerDrag.startY)>3)markerDrag.moved=true;callout.x=Number(Math.max(0,Math.min(100,(event.clientX-rect.left)/rect.width*100)).toFixed(3));callout.y=Number(Math.max(0,Math.min(100,(event.clientY-rect.top)/rect.height*100)).toFixed(3));marker.style.setProperty('--x',callout.x+'%');marker.style.setProperty('--y',callout.y+'%');});
+    const finishMarkerDrag=event=>{if(!markerDrag||event.pointerId!==markerDrag.pointerId)return;if(markerDrag.moved){suppressMarkerClick=true;setTimeout(()=>suppressMarkerClick=false,0);renderParts();}markerDrag=null;};marks.addEventListener('pointerup',finishMarkerDrag);marks.addEventListener('pointercancel',finishMarkerDrag);
+    refForm.querySelector('[name=item]').addEventListener('input',()=>refForm.querySelector('[name=item]').setCustomValidity(''));refForm.addEventListener('submit',beginPlacement);canvas.addEventListener('click',placeReference);
+    function drawTabs() {
+      const scrollLeft = tabs.scrollLeft;
+      tabs.innerHTML = data.views.map(entry => {
+        const name = window.catalogViewName(entry);
+        return `<button class="tab ${entry.id === view.id ? 'active' : ''}" data-view="${esc(entry.id)}" type="button"
+          ${entry.id === view.id ? 'aria-current="true"' : ''}>${esc(name.es)}${name.en ? `<small lang="en">${esc(name.en)}</small>` : ''}</button>`;
+      }).join('');
+      tabs.scrollLeft = scrollLeft;
+      const currentButton = tabs.querySelector('.tab.active');
+      if (currentButton && tabs.clientWidth) {
+        const bounds = tabs.getBoundingClientRect();
+        const button = currentButton.getBoundingClientRect();
+        if (button.left < bounds.left) tabs.scrollLeft -= bounds.left - button.left;
+        if (button.right > bounds.right) tabs.scrollLeft += button.right - bounds.right;
+      }
+      tabs.querySelectorAll('[data-view]').forEach(button => {
+        button.onclick = () => {
+          if (editor?.busy) {
+            document.getElementById('hint').textContent = 'Guarda o cancela la edición antes de cambiar de vista.';
+            return;
+          }
+          if (markerBatch.length && button.dataset.view !== view.id) {
+            document.getElementById('hint').textContent = 'Guarda o cancela los marcadores pendientes.';
+            return;
+          }
+          focusedResult = null;
+          showPlanResults(false);
+          setView(data.views.find(entry => entry.id === button.dataset.view));
+          tabs.querySelector('.tab.active')?.focus({ preventScroll: true });
+        };
+      });
+    }
+    function setView(v){if(editor?.moving && v.id!==view.id)return;if(placementDraft)cancelPlacement();if(markerBatch.length&&v.id!==view.id){document.getElementById('hint').textContent='Hay marcadores pendientes de guardar. Guarda posiciones o cancela la edición antes de cambiar de vista.';return;}view=v;selected=null;const viewName=window.catalogViewName(v,true);const heading=document.getElementById('viewTitle');heading.textContent=viewName.es;const subtitle=document.getElementById('viewTitleEnglish');subtitle.textContent=viewName.en;subtitle.hidden=!viewName.en;if(img.getAttribute('src')!==v.image)img.src=v.image;const drawing=v.drawing||data.drawing;img.alt=`${v.title} · plano ${drawing}`;document.getElementById('planDrawing').textContent=`Despiece original · ${drawing}`;canvas.style.aspectRatio=`${v.imageWidth}/${v.imageHeight}`;canvas.style.width=`${zoom*100}%`;marks.innerHTML=v.callouts.map(c=>`<button class="hotspot ${c.draft?'is-draft':''}" ${c.draft?'data-draft="true"':''} type="button" title="${esc(c.item)} · ${c.qty == null ? 'cantidad no indicada' : c.qty + ' unidad(es)'}${c.draft?' · arrastra para ubicar':''}" aria-label="Pieza ${esc(c.item)}${c.qty == null ? '' : ', cantidad ' + c.qty}${c.draft?', marcador por guardar':''}" style="--x:${c.x}%;--y:${c.y}%" data-key="${esc(c.key)}">${esc(String(c.label||c.item).replace(/\s*[×x]\s*\d+\s*$/i,"").trim())}</button>`).join('');marks.querySelectorAll('.hotspot').forEach(b=>b.onclick=()=>{if(suppressMarkerClick)return;choose(v.callouts.find(c=>c.key===b.dataset.key));});drawTabs();renderParts();renderDetail();applyMarkerSearch();editor?.paint();}
+    function choose(c){const part=partFor(c.item);if(part?.viewIds){openManualSection(part);return;}selected=c;marks.querySelectorAll('.hotspot').forEach(b=>b.classList.toggle('selected',b.dataset.key===c.key));if(!showsBomList())renderParts();renderDetail();}
+    function indexManualMarkers(sourceView) {
+      const markers = new Map();
+      for (const callout of sourceView.callouts) {
+        for (const item of [callout.item, ...(callout.variantItems || [])]) {
+          if (!markers.has(item)) markers.set(item, callout);
+        }
+      }
+      return markers;
+    }
+    function markerMatches(c, value, sourceView = view) {
+      if (!value) return true;
+      const part = c.part || partFor(c.item, sourceView);
+      const variants = c.part ? [] : sourceView.bom?.filter(row => row.item === c.item || c.variantItems?.includes(row.item)) || [];
+      const technicalName = technicalNameFor(c.item, sourceView, part);
+      const terms = value.match(/[\p{L}\p{N}]+/gu) || [];
+      const fields = [c.item, technicalName, part?.reference, part?.sap, part?.description, ...variants.flatMap(row => [
+        row.item, row.reference, row.sap, technicalNameFor(row.item, sourceView, row),
+      ])].map(field => normalizeTechnicalName(field));
+      return terms.every(term => fields.some(field => field.includes(term)));
+    }
+    let searchFocusFrame = 0;
+
+    function resetCanvasView(smooth = true) {
+      cancelAnimationFrame(searchFocusFrame);
+      canvasShell.classList.remove('is-search-centered');
+      setZoom(1);
+      canvasShell.scrollTo({ left: 0, top: 0, behavior: smooth ? 'smooth' : 'instant' });
+    }
+
+    function focusSearchMatches(matches) {
+      cancelAnimationFrame(searchFocusFrame);
+      searchFocusFrame = requestAnimationFrame(() => {
+        if (canvasShell.hidden || !canvasShell.clientWidth) return;
+        const left = Math.min(...matches.map(match => match.x));
+        const right = Math.max(...matches.map(match => match.x));
+        const top = Math.min(...matches.map(match => match.y));
+        const bottom = Math.max(...matches.map(match => match.y));
+        const baseWidth = canvasShell.clientWidth;
+        const baseHeight = baseWidth * view.imageHeight / view.imageWidth;
+        const target = matches.length === 1 ? 2.4 : Math.min(
+          (baseWidth - 48) / Math.max(5, (right - left) / 100 * baseWidth),
+          (canvasShell.clientHeight - 48) / Math.max(5, (bottom - top) / 100 * baseHeight)
+        ) * 0.78;
+
+        // Leave enough scroll space to center a marker at any edge of the drawing.
+        canvasShell.classList.add('is-search-centered');
+        setZoom(target);
+        const width = canvasShell.clientWidth;
+        const height = canvasShell.clientHeight;
+        canvas.style.setProperty('--center-space-x', width / 2 + 'px');
+        canvas.style.setProperty('--center-space-y', height / 2 + 'px');
+        const shellBounds = canvasShell.getBoundingClientRect();
+        const drawingBounds = canvas.getBoundingClientRect();
+        canvasShell.scrollTo({
+          left: canvasShell.scrollLeft + drawingBounds.left - shellBounds.left -
+            canvasShell.clientLeft + drawingBounds.width * (left + right) / 200 - width / 2,
+          top: canvasShell.scrollTop + drawingBounds.top - shellBounds.top -
+            canvasShell.clientTop + drawingBounds.height * (top + bottom) / 200 - height / 2,
+          behavior: 'instant',
+        });
+      });
+    }
+function applyMarkerSearch(){const markers=[...marks.querySelectorAll('.hotspot')],hasSearch=Boolean(markerQuery),byKey=hasSearch?new Map(view.callouts.map(c=>[c.key,c])):null;let matchesCount=0;const matches=[];markers.forEach(button=>{const c=byKey?.get(button.dataset.key),matched=!hasSearch||(focusedResult ? c?.key===focusedResult : markerMatches(c,markerQuery));button.classList.toggle('is-search-dim',hasSearch&&!matched);button.classList.toggle('is-search-match',hasSearch&&matched);if(matched)matchesCount++;if(hasSearch&&matched&&c)matches.push(c);});if(hasSearch||(!usesAssemblyBom&&!isMovement&&(!isElliptical||view.id!=='general')))document.getElementById('resultCount').textContent=`${hasSearch?matchesCount:view.callouts.length} referencia${(hasSearch?matchesCount:view.callouts.length)===1?'':'s'}`;if(hasSearch&&!matchesCount){document.getElementById('hint').textContent='No hay coincidencias en este plano.';resetCanvasView(true);}else if(hasSearch){document.getElementById('hint').textContent=`${matchesCount} coincidencia${matchesCount===1?'':'s'} enfocada${matchesCount===1?'':'s'} en el plano.`;focusSearchMatches(matches);}else{document.getElementById('hint').textContent='Selecciona un marcador para consultar su información.';resetCanvasView(true);}}
+    const showsBomList = () => (isMovement || usesAssemblyBom || (isElliptical && view.id === 'general')) && !markerQuery;
+    function renderParts(){if(showsBomList()){renderBomParts();return;}const list=view.callouts.filter(c=>focusedResult ? c.key===focusedResult : markerMatches(c,markerQuery));if(!markerQuery)document.getElementById('resultCount').textContent=`${list.length} referencia${list.length===1?'':'s'}`;if(!list.length){partsEl.innerHTML='<div class="empty">No hay coincidencias en esta vista.</div>';return}partsEl.innerHTML=list.map(c=>{const p=partFor(c.item),technicalName=technicalNameFor(c.item,view,p);return `<button type="button" class="part-row ${selected?.key===c.key?'selected':''}" data-key="${esc(c.key)}" data-edit-reference="${esc(JSON.stringify(window.catalogReferenceOriginal(p || {item:c.item})))}"><span class="part-code">${esc(c.item)}</span><span class="part-desc">${technicalName?`<strong>${esc(technicalName)}</strong><small>${esc(p?.description||'Descripción no disponible')}</small>`:esc(p?.description||'Referencia sin fila coincidente en el BOM')}</span><span class="part-qty">${c.qty == null ? 'En plano' : '× ' + c.qty}</span>${c.draft?'<span class="part-state">Por guardar</span>':''}</button>`}).join('');partsEl.querySelectorAll('[data-key]').forEach(b=>b.onclick=()=>choose(view.callouts.find(c=>c.key===b.dataset.key)));}
+
+    function pieceKey(item, sourceView = view, part = partFor(item, sourceView)) {
+      if (part?._catalogIdentityKey) return part._catalogIdentityKey;
+      const code = String(item || '').trim().toUpperCase();
+      if (manualModel) return sourceView.id + ':' + code + ':' + (part?.reference || '');
+      return (usesAssemblyBom || isMovement) ? sourceView.id + ':' + code : code;
+    }
+    const technicalNameStorageKey=storagePrefix + ':technical-names:v1';
+    function renderBomParts() {
+      const manualMarkers = manualModel ? indexManualMarkers(view) : null;
+      const parts = new Map();
+      for (const part of [...(view.bom || data.bom || []), ...Object.values(view.parts || data.parts)]) {
+        const key = JSON.stringify([part.item, part.reference, part.sap]);
+        if (!parts.has(key)) parts.set(key, part);
+      }
+      const rows = [...parts.values()].map(part => {
+        const positionedPart = partFor(part.item);
+        const marker = manualMarkers ? manualMarkers.get(part.item)
+          : isMovement || (positionedPart?.reference === part.reference && positionedPart?.sap === part.sap)
+          ? view.callouts.find(callout => callout.item === part.item)
+          : undefined;
+        return { part, marker };
+      });
+      document.getElementById('resultCount').textContent = rows.length + ' referencias';
+      partsEl.innerHTML = rows.map(({ part, marker }, index) => `
+        <button type="button" class="part-row" data-bom-row="${index}" data-edit-reference="${esc(JSON.stringify(window.catalogReferenceOriginal(part)))}">
+          <span class="part-code">${esc(part.item || (part.viewIds ? '—' : 'Sin ítem'))}</span>
+          <span class="part-desc">${technicalNameFor(part.item,view,part)?`<strong>${esc(technicalNameFor(part.item,view,part))}</strong><small>${esc(part.description||'Descripción no disponible')}</small>`:esc(part.description)}${part.viewIds ? ' · Pág. ' + esc(part.manualPage) : ' · Ref. ' + esc(part.reference || '—') + ' · SAP ' + esc(part.sap || '—')}</span>
+          <span class="part-qty">${part.viewIds ? 'Ver plano →' : marker ? 'En plano' : 'Sin marcador'}</span>
+        </button>`).join('');
+      partsEl.querySelectorAll('[data-bom-row]').forEach(button => {
+        button.onclick = () => {
+          const { part, marker } = rows[Number(button.dataset.bomRow)];
+          if (part.viewIds) {
+            openManualSection(part);
+            return;
+          }
+          if (manualModel) {
+            choose({ ...(marker || {}), item: part.item, qty: part.quantity, part });
+            return;
+          }
+          if (marker && !isMovement) {
+            choose(marker);
+            return;
+          }
+          showUnpositionedPart(part, Boolean(marker));
+        };
+      });
+    }
+
+    function openManualSection(part) {
+      const linkedViews = data.views.filter(entry => part.viewIds.includes(entry.id));
+      const open = entry => {
+        markerSearch.value = '';
+        markerQuery = '';
+        focusedResult = null;
+        showPlanResults(false);
+        setView(entry);
+      };
+      if (linkedViews.length === 1) {
+        open(linkedViews[0]);
+        return;
+      }
+      selected = null;
+      detail.innerHTML = `<h3>${esc(part.description)}</h3><div class="plan-search-list">${linkedViews.map((entry, index) =>
+        `<button type="button" data-manual-view="${index}">${esc(entry.title)} →</button>`
+      ).join('')}</div>`;
+      detail.querySelectorAll('[data-manual-view]').forEach(button => {
+        button.onclick = () => open(linkedViews[Number(button.dataset.manualView)]);
+      });
+    }
+
+    function showUnpositionedPart(part, hasMarker = false) {
+      selected = null;
+      marks.querySelectorAll('.hotspot.selected').forEach(mark => mark.classList.remove('selected'));
+      detail.innerHTML = `<h3>Referencia ${esc(part.reference || part.sap || part.item)}</h3>
+            <p class="detail-sub">${hasMarker ? 'Referencia del listado del conjunto.' : 'Esta referencia aún no tiene un marcador vinculado en esta vista.'}</p>
+            <table class="table"><tbody>
+              <tr><th>Item No.</th><td>${esc(part.item || '—')}</td></tr>
+              <tr><th>Reference No.</th><td>${esc(part.reference || '—')}</td></tr>
+              <tr><th>SAP Parts No.</th><td>${esc(part.sap || '—')}</td></tr>
+              <tr><th>Descripción</th><td>${esc(part.description || '—')}</td></tr>
+              ${part.quantity ? `<tr><th>Cantidad en el conjunto</th><td>${esc(part.quantity)}</td></tr>` : ''}
+            </tbody></table>`;
+    }
+
+    let technicalNames={};let technicalNameEditing='';
+    try{technicalNames=JSON.parse(localStorage.getItem(technicalNameStorageKey)||'{}')||{};}catch{technicalNames={};}
+    function normalizeTechnicalName(value){return String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLocaleLowerCase();}
+    async function writeTechnicalName(item,value) {
+      const part = selected?.part || partFor(item);
+      const sharedKey = window.catalogPartNameKey(brandId, part);
+      await sync.save([{tipo:'nombre',clave:sharedKey || pieceKey(item,view,part),valor:value,global:Boolean(sharedKey)}]);
+      if (sharedKey) sharedNames.set(sharedKey,value);
+    }
+    function technicalNameMarkup(item){const key=pieceKey(item, view, selected?.part || partFor(item));const value=technicalNameFor(item,view,selected?.part || partFor(item));if(value&&technicalNameEditing!==key)return '<div class="technical-name-box"><strong>'+esc(value)+'</strong><div class="technical-name-actions"><button class="btn" id="editTechnicalName" type="button">Editar</button><button class="btn" id="deleteTechnicalName" type="button">Eliminar</button></div><p class="technical-name-message" id="technicalNameMessage" aria-live="polite"></p></div>';return '<div class="technical-name-box"><div class="technical-name-entry"><input id="technicalNameInput" type="text" maxlength="80" autocomplete="off" aria-label="Nombre técnico" placeholder="Asigna un nombre a este item" value="'+esc(value)+'"><button class="btn primary" id="saveTechnicalName" type="button">Guardar</button>'+(value?'<button class="btn" id="cancelTechnicalName" type="button">Cancelar</button>':'')+'</div><p class="technical-name-message" id="technicalNameMessage" aria-live="polite"></p></div>';}
+    async function saveTechnicalName(item){const key=pieceKey(item, view, selected?.part || partFor(item));const input=document.getElementById('technicalNameInput');const message=document.getElementById('technicalNameMessage');const name=input?.value.trim()||'';if(!name){message.textContent='Ingresa el nombre técnico de esta pieza.';return;}const normalized=normalizeTechnicalName(name);const duplicate=!window.catalogPartNameKey(brandId,selected?.part || partFor(item))&&Object.entries(technicalNames).some(([otherKey,otherName])=>otherKey!==key&&normalizeTechnicalName(otherName)===normalized);if(duplicate){message.textContent='Ese nombre técnico ya está asignado a otra referencia de este despiece.';return;}const next={...technicalNames,[key]:name};try{if(!sync.active)throw new Error("Inicia sesión y conéctate para compartir el nombre en la web y el escritorio.");await writeTechnicalName(item,name);technicalNames=next;technicalNameEditing='';renderDetail();renderParts();applyMarkerSearch();}catch(error){message.textContent=error.message;}}
+    function bindTechnicalNameControls(item){const key=pieceKey(item, view, selected?.part || partFor(item));document.getElementById('saveTechnicalName')?.addEventListener('click',()=>saveTechnicalName(item));document.getElementById('technicalNameInput')?.addEventListener('keydown',event=>{if(event.key==='Enter'){event.preventDefault();saveTechnicalName(item);}});document.getElementById('editTechnicalName')?.addEventListener('click',()=>{technicalNameEditing=key;renderDetail();document.getElementById('technicalNameInput')?.focus();});document.getElementById('cancelTechnicalName')?.addEventListener('click',()=>{technicalNameEditing='';renderDetail();});document.getElementById('deleteTechnicalName')?.addEventListener('click',async()=>{if(!confirm('¿Eliminar el nombre técnico de esta referencia?'))return;const next={...technicalNames};delete next[key];try{if(!sync.active)throw new Error("Inicia sesión para compartir este cambio.");await writeTechnicalName(item,"");technicalNames=next;technicalNameEditing='';renderDetail();}catch{const msg=document.getElementById('technicalNameMessage');if(msg)msg.textContent='No se pudo actualizar el almacenamiento de este navegador.';}});}
+
+    function movementVariantsMarkup(item) {
+      if (!isMovement) return '';
+      const variants = view.bom.filter(part => part.item === item);
+      if (variants.length < 2) return '';
+      return '<details open><summary>Variantes del ítem</summary><ul>' +
+        variants.map(part => '<li><strong>' + esc(part.reference) + '</strong> · ' +
+          esc(part.description) + '</li>').join('') + '</ul></details>';
+    }
+
+    function renderMarkerVariants(marker) {
+      const variants = view.bom.filter(part => marker.variantItems.includes(part.item));
+      detail.innerHTML = `<h3>Pieza ${esc(marker.item)}</h3>
+        <p class="detail-sub">Selecciona la variante indicada para el equipo.</p>
+        <div class="plan-search-list">${variants.map((part, index) => `
+          <button type="button" data-marker-variant="${index}">
+            <strong>${esc(part.item)} · ${esc(part.reference || part.sap)}</strong>
+            <span>${esc(part.description)}</span>
+          </button>`).join('')}</div>`;
+      detail.querySelectorAll('[data-marker-variant]').forEach(button => {
+        button.onclick = () => {
+          const part = variants[Number(button.dataset.markerVariant)];
+          choose({ ...marker, item: part.item, qty: part.quantity, part });
+        };
+      });
+    }
+
+    function renderDetail(){if(selected?.variantItems && !selected.part){renderMarkerVariants(selected);return;}if(!selected){detail.innerHTML='<h3>Pieza seleccionada</h3><p class="detail-sub">Elige una llamada del plano o una fila del listado.</p><div class="photo">La fotografía real de la pieza se puede cargar para esta referencia.</div><div class="empty">Los campos de la pieza aparecerán aquí.</div>';return}const item=selected.item,p=selected.part||partFor(item)||{},photoKey=pieceKey(item,view,p);let url=photoUrls.get(photoKey);detail.innerHTML=`<h3>Pieza ${esc(item)}</h3><p class="detail-sub">Plano ${esc(view.drawing||data.drawing)}${selected.qty == null || usesAssemblyBom ? '' : ' · cantidad de esta llamada: ' + selected.qty}</p>${manualModel && !selected.key ? '<p class="fine">Sin marcador en esta vista.</p>' : ''}<div class="photo">${url?`<img src="${url}" alt="Fotografía local de ${esc(item)}" title="Tocar o hacer clic para ampliar">`:'Sin fotografía real cargada para esta pieza.'}</div><table class="table"><tbody><tr><th>Item No.</th><td><strong>${esc(p.item||item)}</strong></td></tr><tr><th>Nombre técnico</th><td>${technicalNameMarkup(item)}</td></tr><tr><th>Reference No.</th><td>${esc(p.reference||'Sin coincidencia en BOM')}</td></tr><tr><th>SAP Parts No.</th><td>${esc(p.sap||'Sin coincidencia en BOM')}</td></tr><tr><th>Description</th><td>${esc(p.description||'Sin coincidencia en BOM')}</td></tr><tr><th>${usesAssemblyBom?'Cantidad en el conjunto':'Cantidad en plano'}</th><td>${selected.qty == null ? 'No indicada' : selected.qty + (selected.qty===1?' unidad':' unidades')}${usesAssemblyBom||selected.qty==null?'':` (llamada ${esc(item)}${selected.qty>1?' ×'+selected.qty:''})`}</td></tr></tbody></table>${movementVariantsMarkup(item)}<div class="upload"><span class="upload-label">Cargar Foto</span><input id="partPhoto" type="file" accept="image/*"><button class="btn ${url?'':'hidden'}" id="removePhoto" type="button">Quitar foto</button></div><p class="fine" id="photoSaveNotice">${esc(photoSaveNotice||(sync.active?'La foto se optimiza y se guarda en el catálogo compartido.':'La foto se guarda en este navegador.'))}</p>`;if(window.CatalogSync.active&&!window.CatalogSync.canWrite){detail.querySelector(".upload").hidden=true;detail.querySelectorAll(".technical-name-box button, .technical-name-box input").forEach(control=>control.hidden=true);}bindTechnicalNameControls(item);const preview=document.querySelector('.photo img');preview?.addEventListener('click',()=>{const dialog=document.getElementById('photoPreviewDialog'),image=document.getElementById('photoPreviewImage');image.src=preview.src;image.alt=`Fotografía ampliada de ${item}`;dialog.showModal()});const f=document.getElementById('partPhoto');f.onchange=async()=>{const file=f.files?.[0],forItem=photoKey;if(!file)return;if(!file.type.startsWith('image/')){photoSaveNotice='El archivo seleccionado no es una imagen.';renderDetail();return}f.disabled=true;document.getElementById('removePhoto').disabled=true;document.getElementById('photoSaveNotice').textContent='Optimizando y guardando la foto…';try{const optimized=await window.CatalogPhotos.optimize(file);await writePhoto(forItem,optimized);const old=photoUrls.get(forItem);if(old)URL.revokeObjectURL(old);photoUrls.set(forItem,URL.createObjectURL(optimized));photoSaveNotice=optimized.size<file.size?'Foto guardada con '+Math.round((1-optimized.size/file.size)*100)+' % menos peso y sus dimensiones originales.':(sync.active?'Foto publicada.':'Foto original guardada en este navegador.');if(selected && pieceKey(selected.item,view,selected.part||partFor(selected.item))===forItem)renderDetail()}catch(error){photoSaveNotice=`No se pudo guardar la foto: ${error.message||'revisa el espacio disponible del navegador.'}`;if(selected && pieceKey(selected.item,view,selected.part||partFor(selected.item))===forItem)renderDetail()}};document.getElementById('removePhoto')?.addEventListener('click',async()=>{try{await deletePhoto(photoKey);const old=photoUrls.get(photoKey);if(old)URL.revokeObjectURL(old);photoUrls.delete(photoKey);photoSaveNotice='Foto eliminada.'}catch(error){photoSaveNotice=`No se pudo eliminar la foto: ${error.message||''}`}if(selected && pieceKey(selected.item,view,selected.part||partFor(selected.item))===photoKey)renderDetail()});if(!url){readPhoto(photoKey).then(blob=>{if(!blob||photoUrls.has(photoKey))return;photoUrls.set(photoKey,URL.createObjectURL(blob));if(selected && pieceKey(selected.item,view,selected.part||partFor(selected.item))===photoKey)renderDetail()}).catch(()=>{photoSaveNotice='No se pudo cargar la foto.'; const notice=document.getElementById('photoSaveNotice');if(selected && pieceKey(selected.item,view,selected.part||partFor(selected.item))===photoKey&&notice)notice.textContent=photoSaveNotice;})}}
+    const planResults = document.getElementById('planSearchResults');
+    const planSearchList = document.getElementById('planSearchList');
+    const planSearchStatus = document.getElementById('planSearchStatus');
+    const planSearchBack = document.getElementById('backToPlanResults');
+    const planFoot = document.querySelector('.canvas-foot');
+    const openBomPlacement = document.getElementById('openBomPlacement');
+    let focusedResult = null;
+
+    function showPlanResults(show) {
+      planResults.hidden = !show;
+      canvasShell.hidden = show;
+      planFoot.hidden = show;
+      referencesPanel.hidden = show;
+      openBomPlacement.disabled = show;
+      planSearchBack.hidden = show || !markerQuery;
+    }
+
+    function openPlanMatch({ v, c, part }) {
+      focusedResult = c.key || null;
+      showPlanResults(false);
+      setView(v);
+      if (manualModel && part) {
+        choose({ ...c, item: part.item, qty: part.quantity, part });
+      } else if (!c.key) showUnpositionedPart(part);
+    }
+
+    function renderPlanResults({ openSingle = false } = {}) {
+      const matches = data.views.flatMap(v => {
+        if (manualModel) {
+          const parts = (v.bom || []).filter(part => markerMatches({ item: part.item, part }, markerQuery, v));
+          if (!parts.length) return [];
+          const markers = indexManualMarkers(v);
+          return parts.map(part => ({ v, part, c: markers.get(part.item) || part }));
+        }
+        const matchesInView = v.callouts.filter(c => !c.draft && markerMatches(c, markerQuery, v))
+          .map(c => ({ v, c }));
+        if (usesAssemblyBom || isMovement) {
+          const positioned = new Set(v.callouts.map(c => c.item));
+          for (const part of v.bom || Object.values(v.parts)) {
+            if (!positioned.has(part.item) && markerMatches(part, markerQuery, v)) {
+              matchesInView.push({ v, c: part, part });
+            }
+          }
+        }
+        return matchesInView;
+      });
+      if (openSingle && matches.length === 1) {
+        openPlanMatch(matches[0]);
+        return;
+      }
+      planSearchStatus.textContent = matches.length
+        ? `${matches.length} coincidencia${matches.length === 1 ? '' : 's'}`
+        : 'No se encontraron coincidencias en los planos.';
+      planSearchList.innerHTML = matches.map(({ v, c, part: matchedPart }, index) => {
+        const part = matchedPart || (isMovement && v.bom.find(row => row.item === c.item && normalizeTechnicalName(row.reference).includes(markerQuery))) || partFor(c.item, v);
+        const label = v.id === 'general' ? v.label : `Vista ${v.label}`;
+        return `<button type="button" data-result="${index}">
+          <strong>${esc(label)} · ${esc(c.item)}</strong>
+          <span>${esc(part?.description || 'Descripción no disponible')}</span>
+        </button>`;
+      }).join('');
+      planSearchList.onclick = event => {
+        const button = event.target.closest('[data-result]');
+        if (!button) return;
+        const match = matches[Number(button.dataset.result)];
+        openPlanMatch(match);
+        const { c } = match;
+        [...marks.querySelectorAll('.hotspot')].find(marker => marker.dataset.key === c.key)?.focus({ preventScroll: true });
+      };
+      showPlanResults(true);
+    }
+
+    markerSearch.addEventListener('input', () => {
+      if (markerBatch.length || placementDraft || editor?.busy) {
+        markerSearch.value = markerQuery;
+        document.getElementById('hint').textContent = 'Guarda o cancela los marcadores pendientes antes de buscar.';
+        return;
+      }
+      markerQuery = normalizeTechnicalName(markerSearch.value);
+      focusedResult = null;
+      if (markerQuery) {
+        renderPlanResults({ openSingle: true });
+      } else {
+        showPlanResults(false);
+        renderParts();
+        applyMarkerSearch();
+      }
+    });
+    document.getElementById('backToPlanResults').addEventListener('click', () => {
+      if (markerBatch.length || placementDraft) {
+        document.getElementById('hint').textContent = 'Guarda o cancela los marcadores pendientes antes de volver.';
+        return;
+      }
+      focusedResult = null;
+      renderPlanResults();
+      document.getElementById('planSearchTitle').focus();
+    });
+    function setZoom(next){zoom=Math.max(1,Math.min(5,next));canvas.style.width=`${zoom*100}%`;canvasShell.classList.toggle('is-zoomed',zoom>1);if(zoom<=1){canvasShell.classList.remove('is-search-centered');canvasShell.scrollLeft=0;canvasShell.scrollTop=0;}}
+    document.getElementById('zoomIn').addEventListener('click',()=>setZoom(zoom+.25));
+    document.getElementById('zoomOut').addEventListener('click',()=>setZoom(zoom-.25));
+    document.getElementById('zoomReset').addEventListener('click',()=>resetCanvasView(true));
+    let dragState=null;
+    canvasShell.addEventListener('pointerdown',event=>{if(zoom<=1||event.pointerType!=='mouse'||event.button!==0||event.target.closest('button,.hotspot'))return;dragState={x:event.clientX,y:event.clientY,left:canvasShell.scrollLeft,top:canvasShell.scrollTop,pointerId:event.pointerId};canvasShell.classList.add('is-dragging');canvasShell.setPointerCapture(event.pointerId);});
+    canvasShell.addEventListener('pointermove',event=>{if(!dragState||event.pointerId!==dragState.pointerId)return;canvasShell.scrollLeft=dragState.left-(event.clientX-dragState.x);canvasShell.scrollTop=dragState.top-(event.clientY-dragState.y);});
+    const endCanvasDrag=event=>{if(!dragState||event.pointerId!==dragState.pointerId)return;dragState=null;canvasShell.classList.remove('is-dragging');};
+    canvasShell.addEventListener('pointerup',endCanvasDrag);canvasShell.addEventListener('pointercancel',endCanvasDrag);canvasShell.addEventListener('lostpointercapture',()=>{dragState=null;canvasShell.classList.remove('is-dragging');});
+    setView(view);const samplePart=view.callouts.find(c=>c.item==='Z03');if(samplePart)choose(samplePart);
+    const photoPreviewDialog=document.getElementById('photoPreviewDialog');
+    const transferStatus = document.getElementById('catalogTransferStatus');
+    const sharedStatus = document.getElementById('catalogSharedStatus');
+    const exportData = document.getElementById('exportCatalogData');
+    const importData = document.getElementById('importCatalogData');
+    let sharedSnapshot;
+    let sharedGeometry;
+    let refreshPending = false;
+    let sharedPhotoVersions = new Map();
+
+    const markerChange = record => ({ tipo: 'marcador', clave: record.callout.key, valor: record });
+
+    async function refreshSharedCatalog(force = false) {
+      if (document.getElementById('partsView').hidden || !sync.active || refreshPending ||
+          (!force && (placementDraft || markerBatch.length || technicalNameEditing || editor?.busy))) return;
+      refreshPending = true;
+      try {
+        const [rows, brandRows] = await Promise.all([sync.read(force === true), window.CatalogSync.readBrandNames(brandId, force === true)]);
+        if (!sync.active || (!force && (placementDraft || markerBatch.length || technicalNameEditing || editor?.busy))) return;
+        sharedStatus.textContent = '';
+        const snapshot = JSON.stringify([rows,brandRows]);
+        if (snapshot === sharedSnapshot) return;
+        sharedSnapshot = snapshot;
+        sharedRows = [...rows,...brandRows.filter(row=>row.clave.startsWith("pieza:"))];
+        sharedNames = window.catalogNameIndex(brandId,brandRows);
+        const versions = new Map(rows.filter(row => row.tipo === 'foto').map(row => [row.clave, row.valor]));
+        for (const [item, url] of photoUrls) {
+          if (!sharedPhotoVersions.has(item) || sharedPhotoVersions.get(item) !== versions.get(item)) {
+            URL.revokeObjectURL(url);
+            photoUrls.delete(item);
+          }
+        }
+        sharedPhotoVersions = versions;
+        technicalNames = Object.fromEntries(rows.filter(row => row.tipo === 'nombre' && row.valor)
+          .map(row => [row.clave, row.valor]));
+        const geometry = JSON.stringify(rows.filter(row => row.tipo === 'marcador' || row.tipo === 'referencia'));
+        if (geometry === sharedGeometry) {
+          renderParts();
+          renderDetail();
+          applyMarkerSearch();
+          if (!planResults.hidden) renderPlanResults();
+          return;
+        }
+        sharedGeometry = geometry;
+        manualEntries = rows.filter(row => row.tipo === 'marcador').map(row => row.valor);
+        const viewId = view.id;
+        const selectedKey = selected?.key;
+        data.parts = structuredClone(baseCatalog.parts);
+        data.views = structuredClone(baseCatalog.views);
+        window.catalogApplyChanges(data, rows);
+        setView(data.views.find(entry => entry.id === viewId) || data.views[0]);
+        const callout = view.callouts.find(entry => entry.key === selectedKey);
+        if (callout) choose(callout);
+        if (!planResults.hidden) renderPlanResults();
+      } catch {
+        sharedStatus.textContent = 'El catálogo compartido no está disponible. Comprueba la conexión y la configuración de Supabase.';
+      } finally {
+        refreshPending = false;
+      }
+    }
+
+    editor = window.createCatalogPlanEditor({
+      data, canvas, marks, parts: partsEl, detail, esc, sync, partFor, pieceKey,
+      getView: () => view, getSelected: () => selected, getRows: () => sharedRows,
+      getNames: () => technicalNames,
+      getName: part => technicalNameFor(part.item,view,part),
+      nameKey: part => window.catalogPartNameKey(brandId,part),
+      isBusy: () => Boolean(placementDraft || markerBatch.length || technicalNameEditing),
+      redraw: () => setView(view),
+      refresh: async () => { sharedSnapshot = undefined; await refreshSharedCatalog(true); },
+      onConflict: () => { sharedSnapshot = undefined; },
+    });
+    function configurePlanSession() {
+      sharedSnapshot = undefined;
+      sharedPhotoVersions = new Map();
+      photoUrls.forEach(URL.revokeObjectURL);
+      photoUrls.clear();
+      const canEdit = window.CatalogSync.canWrite;
+      editor.setPermissions();
+      importData.disabled = !canEdit;
+      document.getElementById('openBomPlacement').hidden = !canEdit;
+      document.getElementById('addReference').hidden = !canEdit;
+      refreshSharedCatalog();
+    }
+    configurePlanSession();
+    window.addEventListener('catalog-session-ready', configurePlanSession);
+    const refreshVisibleCatalog = () => {
+      if (!document.hidden && !placementDraft && !markerBatch.length && !technicalNameEditing && !editor?.busy) refreshSharedCatalog(true);
+    };
+    window.addEventListener('focus', refreshVisibleCatalog);
+    window.addEventListener('online', refreshVisibleCatalog);
+    document.addEventListener('visibilitychange', refreshVisibleCatalog);
+    window.addEventListener('catalog-data-changed', event => { if (event.detail?.modelId === requestedModel || sharedNames.size) setTimeout(() => refreshSharedCatalog(), 0); });
+    setInterval(() => {
+      if (!document.hidden) refreshSharedCatalog();
+    }, 5000);
+
+    async function publishBackup(names, markers, photos) {
+      if (!sync.canWrite) throw new Error('Solo administradores y supervisores pueden publicar el respaldo.');
+      const changes = [
+        ...Object.entries(names).map(([clave, valor]) => ({ tipo: 'nombre', clave, valor })),
+        ...markers.map(markerChange),
+      ];
+      if (changes.length) await sync.save(changes);
+      for (const [item, blob] of photos) await sync.savePhoto(item, blob);
+      photoUrls.forEach(URL.revokeObjectURL);
+      photoUrls.clear();
+      sharedSnapshot = undefined;
+      await refreshSharedCatalog();
+      transferStatus.textContent = `Respaldo publicado con ${photos.length} fotos.`;
+    }
+
+    function photoDataUrl(blob) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(reader.error);
+        reader.readAsDataURL(blob);
+      });
+    }
+
+    async function transferCatalog(task) {
+      exportData.disabled = importData.disabled = true;
+      try {
+        await task();
+      } catch (error) {
+        transferStatus.textContent = error.message || 'No se pudieron trasladar los datos.';
+      } finally {
+        exportData.disabled = importData.disabled = false;
+        importData.value = '';
+        importData.disabled = window.CatalogSync.active && !window.CatalogSync.canWrite;
+      }
+    }
+
+    exportData.onclick = () => transferCatalog(async () => {
+      const db = await photoDb();
+      const photos = await new Promise((resolve, reject) => {
+        const entries = [];
+        const request = db.transaction('photos').objectStore('photos').openCursor();
+        request.onerror = () => reject(request.error);
+        request.onsuccess = () => {
+          const cursor = request.result;
+          if (!cursor) return resolve(entries);
+          entries.push([cursor.key, cursor.value]);
+          cursor.continue();
+        };
+      });
+      const backup = {
+        format: backupFormat,
+        names: JSON.parse(localStorage.getItem(technicalNameStorageKey) || "{}"),
+        markers: JSON.parse(localStorage.getItem(manualStorageKey) || "[]"),
+        photos: await Promise.all(photos.map(async ([key, blob]) => [key, await photoDataUrl(blob)])),
+      };
+      const url = URL.createObjectURL(new Blob([JSON.stringify(backup)], {type: 'application/json'}));
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'respaldo-catalogo-' + data.drawing.toLowerCase() + '.json';
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      transferStatus.textContent = `Respaldo exportado con ${photos.length} fotos.`;
+    });
+
+    importData.onchange = () => {
+      const file = importData.files[0];
+      if (!file) return;
+      transferCatalog(async () => {
+        if (placementDraft || markerBatch.length) throw new Error('Guarda o cancela los marcadores pendientes antes de importar.');
+        const backup = JSON.parse(await file.text());
+        if (backup?.format !== backupFormat ||
+            !backup.names || typeof backup.names !== 'object' || Array.isArray(backup.names) ||
+            !Object.values(backup.names).every(name => typeof name === 'string') ||
+            !Array.isArray(backup.markers) || !Array.isArray(backup.photos)) {
+          throw new Error('Selecciona un respaldo válido de este catálogo.');
+        }
+        for (const entry of backup.markers) {
+          if (!entry || typeof entry.viewId !== 'string' || !entry.callout || !entry.part ||
+              typeof entry.callout.item !== 'string' || typeof entry.callout.key !== 'string' ||
+              ![entry.callout.x, entry.callout.y].every(value => Number.isFinite(value) && value >= 0 && value <= 100) ||
+              !Number.isInteger(entry.callout.qty) || entry.callout.qty < 1) {
+            throw new Error('El respaldo contiene un marcador inválido.');
+          }
+        }
+        const photos = backup.photos.map(([item, url]) => {
+          const match = typeof url === 'string' && /^data:(image\/[\w.+-]+);base64,([a-z0-9+/=]+)$/i.exec(url);
+          if (typeof item !== 'string' || !match) throw new Error('El respaldo contiene una foto inválida.');
+          return [item, new Blob([Uint8Array.from(atob(match[2]), char => char.charCodeAt(0))], {type: match[1]})];
+        });
+        if (sync.active) {
+          await publishBackup(backup.names, backup.markers, photos);
+          return;
+        }
+        const names = {...technicalNames, ...backup.names};
+        const markers = [...new Map([...manualEntries, ...backup.markers].map(entry => [entry.callout.key, entry])).values()];
+        const db = await photoDb();
+        await new Promise((resolve, reject) => {
+          const tx = db.transaction('photos', 'readwrite');
+          tx.oncomplete = resolve;
+          tx.onabort = () => reject(tx.error || new Error('No se pudieron restaurar las fotos.'));
+          const store = tx.objectStore('photos');
+          for (const [item, blob] of photos) store.put(blob, item);
+        });
+        localStorage.setItem(technicalNameStorageKey, JSON.stringify(names));
+        localStorage.setItem(manualStorageKey, JSON.stringify(markers));
+        location.reload();
+      });
+    };
+    addEventListener('beforeunload',()=>photoUrls.forEach(URL.revokeObjectURL));
+    return refreshSharedCatalog;
+  };

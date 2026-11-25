@@ -117,14 +117,15 @@ window.createCatalogInventory = (brands, models) => {
         if (imported) rows = await window.CatalogSync.readInventory();
       }
       if (version !== sessionVersion) return;
-      cacheInventory(rows);
+      const inventoryChanged = !inventoryReady || JSON.stringify(rows) !== JSON.stringify(sharedRecords);
+      if (inventoryChanged) cacheInventory(rows);
       inventoryReady = true;
       lastInventoryRead = Date.now();
       $("inventoryStatus").textContent = failedImport
         ? "Algunos registros locales siguen pendientes de compartir. Conservamos sus datos en este dispositivo."
         : "Inventario compartido actualizado.";
       if (!$("inventoryView").hidden) {
-        renderInventory();
+        if (inventoryChanged) renderInventory();
         if (referencesLoading) await referencesLoading;
         await refreshReferences(force);
       }
@@ -144,7 +145,7 @@ window.createCatalogInventory = (brands, models) => {
     try { return JSON.parse(raw) ?? fallback; } catch { return fallback; }
   }
 
-  async function indexModel(modelId, force = false) {
+  async function indexModel(modelId, force = false, loadedBrandRows) {
     const model = modelsById.get(modelId);
     if (!model) return;
     const base = await window.catalogLoadModel(modelId);
@@ -155,10 +156,10 @@ window.createCatalogInventory = (brands, models) => {
       : modelId === "t600x-sf" ? matrixChanges : undefined;
     const localNames = remote ? null : storedValue(storage + ":technical-names:v1");
     const localMarkers = remote ? null : storedValue(storage + ":manual-refs:v1");
-    const brandRows = window.CatalogSync.active ? await window.CatalogSync.readBrandNames(model.brand,force) : [];
+    const brandRows = loadedBrandRows || (window.CatalogSync.active ? await window.CatalogSync.readBrandNames(model.brand,force) : []);
     const sharedNames = window.catalogNameIndex(model.brand,brandRows);
     const cached = indexes.get(modelId);
-    if (cached && cached.remote === remote && cached.brandRows === brandRows && cached.localNames === localNames && cached.localMarkers === localMarkers) return;
+    if (cached && cached.remote === remote && cached.brandRows === brandRows && cached.localNames === localNames && cached.localMarkers === localMarkers) return false;
     const data = window.catalogApplyChanges(structuredClone(base), remote ||
       parseStored(localMarkers, []).map(valor => ({ tipo: "marcador", valor })));
     const names = remote
@@ -192,6 +193,7 @@ window.createCatalogInventory = (brands, models) => {
       }
     }
     indexes.set(modelId, { partsById, remote, brandRows, localNames, localMarkers });
+    return true;
   }
 
   const currentPart = link => indexes.get(link.modelId)?.partsById.get(link.id) || link;
@@ -594,13 +596,20 @@ window.createCatalogInventory = (brands, models) => {
     const version = sessionVersion;
     const relevant = new Set(records().flatMap(record => record.links.map(link => link.modelId)));
     if (dialog.open && modelFilter.value) relevant.add(modelFilter.value);
-    referencesLoading = Promise.allSettled([...relevant].map(id => indexModel(id, force))).then(results => {
+    referencesLoading = (async () => {
+      const brands = [...new Set([...relevant].map(id => modelsById.get(id)?.brand).filter(Boolean))];
+      const values = await Promise.all(brands.map(brand => window.CatalogSync.readBrandNames(brand, force)));
+      const rowsByBrand = new Map(brands.map((brand, index) => [brand, values[index]]));
+      return Promise.allSettled([...relevant].map(id => indexModel(id, force, rowsByBrand.get(modelsById.get(id)?.brand))));
+    })().then(results => {
       if (version !== sessionVersion) return;
       if (results.some(result => result.status === 'rejected')) $("inventoryStatus").textContent =
         "Algunos nombres compartidos no se pudieron actualizar. Se conservan los datos disponibles.";
-      if (!$("inventoryView").hidden) renderInventory();
-      if (dialog.open) renderPicker();
-    }).finally(() => { if (version === sessionVersion) referencesLoading = null; });
+      const changed = results.some(result => result.status === 'fulfilled' && result.value);
+      if (changed && !$("inventoryView").hidden) renderInventory();
+      if (changed && dialog.open) renderPicker();
+    }).catch(error => { if (version === sessionVersion) $("inventoryStatus").textContent = inventoryError(error); })
+      .finally(() => { if (version === sessionVersion) referencesLoading = null; });
     return referencesLoading;
   }
   function preparePicker(modelId) {

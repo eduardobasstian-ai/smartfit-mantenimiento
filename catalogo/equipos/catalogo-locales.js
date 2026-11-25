@@ -13,15 +13,26 @@
   const read = (key, fallback) => {
     try { return JSON.parse(localStorage.getItem(key)) || fallback; } catch { return fallback; }
   };
-  function status(text) {
+  let noticeTimer;
+  function status(text, duration = 0) {
+    clearTimeout(noticeTimer);
+    if (!text && !notice) return;
     if (!notice) {
-      notice = document.createElement("p");
+      notice = document.createElement("div");
       notice.className = "catalog-recovery-status";
       notice.setAttribute("role", "status");
-      document.querySelector("#catalogApp > main").prepend(notice);
+      const copy = document.createElement("span");
+      const close = document.createElement("button");
+      close.type = "button";
+      close.textContent = "×";
+      close.setAttribute("aria-label", "Cerrar aviso de sincronización");
+      close.onclick = () => { clearTimeout(noticeTimer); notice.hidden = true; };
+      notice.append(copy, close);
+      document.body.append(notice);
     }
-    notice.textContent = text;
+    notice.querySelector("span").textContent = text;
     notice.hidden = !text;
+    if (text && duration) noticeTimer = setTimeout(() => { notice.hidden = true; }, duration);
   }
   async function openDatabase(name) {
     return new Promise((resolve, reject) => {
@@ -101,7 +112,7 @@
       }
       if (version === currentVersion) status(failed
         ? "Hay datos locales pendientes de compartir. Conservamos los originales y volveremos a intentarlo al reconectar."
-        : saved ? `Se compartieron ${saved} nombres, marcadores o fotos locales. Los datos compartidos existentes se conservaron.` : "");
+        : saved ? `Se compartieron ${saved} nombres, marcadores o fotos locales. Los datos compartidos existentes se conservaron.` : "", failed ? 0 : 5000);
     })().finally(() => {
       running = null;
       if (version !== currentVersion && window.CatalogSync.canWrite) setTimeout(() => recover().catch(() => {}), 0);

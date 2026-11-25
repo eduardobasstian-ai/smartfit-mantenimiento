@@ -6,13 +6,16 @@ window.CatalogSync = (() => {
 
   async function request(path, options = {}) {
     if (!session) throw new Error("Inicia sesión para conectar el catálogo.");
-    const { url, key, getToken } = session;
+    const current = session;
+    const { url, key, getToken } = current;
     const token = await getToken();
+    if (session !== current) throw new Error("La sesión cambió.");
+    const started = performance.now();
     return fetch(url + path, {
       ...options,
       cache: "no-store",
       headers: { apikey: key, Authorization: `Bearer ${token}`, ...options.headers },
-    });
+    }).finally(() => window.catalogMeasure?.("Catálogo · petición", started));
   }
 
   async function checked(response) {
@@ -54,9 +57,9 @@ window.CatalogSync = (() => {
         if (page.length < 500) break;
       }
       if (current !== session) throw new Error("La sesión cambió.");
-      entry.rows = rows;
+      entry.rows = cached?.rows && JSON.stringify(cached.rows) === JSON.stringify(rows) ? cached.rows : rows;
       entry.time = Date.now();
-      return rows;
+      return entry.rows;
     })().finally(() => {
       entry.pending = null;
       if (!entry.rows && brandNames.get(brand) === entry) brandNames.delete(brand);
@@ -95,10 +98,10 @@ window.CatalogSync = (() => {
             if (page.length < 500) break;
           }
           if (current !== session || revision !== generation) throw new Error("La sesión o el catálogo cambió. Vuelve a intentar.");
-          snapshot = entries;
+          if (!snapshot || snapshotSession !== session || JSON.stringify(snapshot) !== JSON.stringify(entries)) snapshot = entries;
           snapshotSession = session;
           loadedAt = Date.now();
-          return entries;
+          return snapshot;
         })().finally(() => { pending = null; });
         return pending;
       },

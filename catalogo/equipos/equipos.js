@@ -100,7 +100,21 @@
   let activeBrand;
   let planLoading;
   let refreshPlan;
-  const inventoryPage = window.createCatalogInventory(brands, models);
+  let inventoryController;
+  let inventoryLoading;
+  function inventoryPage() {
+    if (inventoryController) return inventoryController();
+    if (inventoryLoading) return inventoryLoading;
+    document.getElementById('inventoryAdd').disabled = true;
+    const started = performance.now();
+    inventoryLoading = Promise.all(['catalogo-cambios.js', 'inventario.js'].map(window.catalogLoadScript)).then(() => {
+      inventoryController = window.createCatalogInventory(brands, models);
+      if (!inventory.hidden) inventoryController();
+      window.catalogMeasure('Catálogo · abrir inventario', started);
+    }).catch(error => { document.getElementById('inventoryStatus').textContent = error.message; })
+      .finally(() => { inventoryLoading = null; });
+    return inventoryLoading;
+  }
 
   function renderBrands() {
     grid.innerHTML = brands.map(([id, name, logo]) => {
@@ -110,7 +124,7 @@
         <div class="equipment-brand-info">
           <strong>${name}</strong><span>${countLabel} · Ver equipos →</span>
         </div>
-        ${logo ? `<span class="equipment-brand-logo"><img src="${logo}" alt="" width="72" height="72"></span>` : ""}
+        ${logo ? `<span class="equipment-brand-logo"><img src="${id === 'shua' ? logo : 'catalogo-assets/logos-mini/' + id + '.png'}" alt="" width="72" height="72" loading="lazy" decoding="async"></span>` : ""}
       </a>`;
     }).join("");
   }

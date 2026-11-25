@@ -2,7 +2,7 @@
 
 La beta usa Electron y se distribuye mediante un instalador NSIS para Windows x64.
 
-Ejecuta `npm ci` y después `npm run build` en esta carpeta. El instalador queda en `dist/Catalogo-SmartFit-Beta-0.1.5-Setup.exe`.
+Ejecuta `npm ci` y después `npm run build` en esta carpeta. El instalador queda en `dist/Catalogo-SmartFit-Beta-0.1.6-Setup.exe`.
 
 El paquete incluye el catálogo local, sus planos, marcadores y miniaturas. El acceso a Supabase y las fotografías externas requiere conexión.
 
@@ -19,3 +19,7 @@ La beta 0.1.3 actualiza los nombres y referencias de todas las marcas del invent
 La beta 0.1.4 comparte el nombre técnico por marca y referencia (SAP si no hay referencia). Conserva el ítem y la vista de cada equipo. Los nombres antiguos de manuales se reconocen por referencia cuando no son contradictorios. Una asignación explícita o su eliminación prevalece sobre esos nombres antiguos. Si no existe referencia ni SAP, el nombre permanece asociado a su ítem original.
 
 La beta 0.1.5 mantiene el aviso de recuperación dentro del contenido principal, sin agregar columnas ni desplazar el menú durante la sincronización.
+
+La beta 0.1.6 muestra los avisos de sincronización como mensajes flotantes en una esquina, con botón para cerrar. El éxito se oculta después de cinco segundos. El aviso no participa en la distribución del menú ni del contenido.
+
+Carga el código de planos, edición e inventario al abrir cada vista. Las tarjetas de marcas usan imágenes derivadas de 144 píxeles, conservando los originales. Las lecturas sin cambios mantienen sus índices y evitan reconstruir el plano; los nombres compartidos se consultan una vez por marca en cada actualización del inventario. La telemetría del catálogo añade tiempos de apertura de vistas y peticiones al cliente Sentry existente, sin registrar códigos, nombres de usuarios ni contenido de las piezas.
