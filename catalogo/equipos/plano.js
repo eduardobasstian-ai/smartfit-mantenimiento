@@ -328,8 +328,9 @@ function applyMarkerSearch(){const markers=[...marks.querySelectorAll('.hotspot'
       planSearchList.innerHTML = matches.map(({ v, c, part: matchedPart }, index) => {
         const part = matchedPart || (isMovement && v.bom.find(row => row.item === c.item && normalizeTechnicalName(row.reference).includes(markerQuery))) || partFor(c.item, v);
         const label = v.id === 'general' ? v.label : `Vista ${v.label}`;
+        const technicalName = technicalNameFor(c.item, v, part);
         return `<button type="button" data-result="${index}">
-          <strong>${esc(label)} · ${esc(c.item)}</strong>
+          <strong>${esc(label)} · ${esc(c.item)}${technicalName ? ' - ' + esc(technicalName) : ''}</strong>
           <span>${esc(part?.description || 'Descripción no disponible')}</span>
         </button>`;
       }).join('');
