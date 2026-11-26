@@ -1020,7 +1020,6 @@
   <script src="EQU/booty-catalog.js"></script>
   <script src="EQU/other-catalogs.js?v=20261026-ubian-rack"></script>
   <script src="common-failures-embed.js?v=20261102-inline-content-1"></script>
-  <script src="inventory-export.js?v=20261107-pdf-export-fix-1"></script>
   <script>
     window.SmartFitQrScanner = {
       open(options) {
@@ -3126,8 +3125,25 @@
       window.profileInventoryExport = { rows: visible, globalRows: rows };
     }
 
-    function exportProfileInventory(format) {
-      renderProfileInventory();
+    let inventoryExportLoading;
+    function loadInventoryExport() {
+      if (!inventoryExportLoading) {
+        inventoryExportLoading = new Promise((resolve, reject) => {
+          const script = document.createElement("script");
+          script.src = "inventory-export.js?v=20261125-on-demand";
+          script.onload = () => resolve(window.SmartFitInventoryExport);
+          script.onerror = () => {
+            script.remove();
+            inventoryExportLoading = null;
+            reject(new Error("No se pudo cargar la exportación. Vuelve a intentarlo."));
+          };
+          document.head.appendChild(script);
+        });
+      }
+      return inventoryExportLoading;
+    }
+
+    async function exportProfileInventory(format) {
       const data = window.profileInventoryExport || { rows: [], globalRows: [] };
       const siteFilter = $("profileInventorySite").value.trim() || "Todas las sedes asignadas";
       const selectedBrand = $("profileInventoryBrand");
@@ -3135,8 +3151,15 @@
       const categoryFilter = $("profileInventoryCategory").value === "*" ? "Todas las categorías" : $("profileInventoryCategory").value;
       const search = $("profileInventorySearch").value.trim() || "Sin búsqueda";
       const payload = { rows: data.rows, globalCount: data.globalRows.length, exportedBy: user.name, siteFilter, brandFilter, categoryFilter, search };
-      if (format === "pdf") window.SmartFitInventoryExport.exportPdf(payload);
-      else window.SmartFitInventoryExport.exportExcel(payload);
+      const reportWindow = format === "pdf" ? window.open("", "_blank") : null;
+      try {
+        const exporter = await loadInventoryExport();
+        if (format === "pdf") exporter.exportPdf(payload, reportWindow);
+        else exporter.exportExcel(payload);
+      } catch (error) {
+        reportWindow?.close();
+        window.alert(error.message);
+      }
     }
 
     function renderSupervisorInventory() {

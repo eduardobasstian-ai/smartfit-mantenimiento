@@ -21,12 +21,11 @@
     };
   };
 
-  function exportPdf(data) {
+  function exportPdf(data, reportWindow = window.open("", "_blank")) {
     const rows = Array.isArray(data.rows) ? data.rows : [];
     const groups = groupRows(rows);
     const now = new Date();
     const exportedAt = new Intl.DateTimeFormat("es-CL", { dateStyle: "long", timeStyle: "short" }).format(now);
-    const reportWindow = window.open("", "_blank");
     if (!reportWindow) { window.alert("El navegador bloqueó el informe. Permite las ventanas emergentes e inténtalo nuevamente."); return; }
     const logo = new URL("IMG/logo-header.png", window.location.href).href;
     const byBrand = groups.brands.map(([brand, count]) => `<tr><td>${esc(brand)}</td><td>${count}</td></tr>`).join("") || '<tr><td colspan="2">Sin equipos</td></tr>';
