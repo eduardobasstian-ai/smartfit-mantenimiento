@@ -675,7 +675,7 @@
   <script src="admin-store.js?v=20261029-performance-stage-2"></script>
   <script src="photo-watermark.js?v=20261123-photo-watermark-7"></script>
   <script src="supabase-data.js?v=20261121-photo-batches"></script>
-  <script src="machine-detail-photos.js?v=2"></script>
+  <script src="machine-detail-photos.js?v=3"></script>
   <script src="pdf-report.js?v=20261123-page-fit-1"></script>
   <script src="EQU/other-catalogs.js?v=20261026-ubian-rack"></script>
   <script src="inventory-export.js?v=20261107-pdf-export-fix-1"></script>
@@ -1998,15 +1998,14 @@
           const dateA = Date.parse(a.date || "") || Date.parse(a.recordedAt || "") || 0;
           const dateB = Date.parse(b.date || "") || Date.parse(b.recordedAt || "") || 0;
           return dateB - dateA;
-        })
-        .slice(0, 2);
-      const maintenanceRows = latestMaintenanceEntries.map(entry => `
+        });
+      const renderMaintenanceEntry = entry => `
         <article class="machine-log-entry">
           <strong>${escapeHtml(formatMachineDate(entry.date, false))} · ${escapeHtml(entry.type || "Mantenimiento")}</strong>
           <p>${escapeHtml(entry.work || "")}${entry.replacement ? `\nRepuesto/material: ${escapeHtml(entry.replacement)}` : ""}${entry.technician ? `\nResponsable: ${escapeHtml(entry.technician)}` : ""}${entry.observations ? `\nObservaciones: ${escapeHtml(entry.observations)}` : ""}</p>
           ${SmartFitMachinePhotos.markup(machine.recordKey, entry, escapeHtml)}
           ${canManageMachineRecords ? `<div class="machine-record-actions"><button class="back-button" type="button" data-edit-machine-record="maintenance" data-record-id="${escapeHtml(entry.id)}">Editar</button><button class="back-button" type="button" data-delete-machine-record="maintenance" data-record-id="${escapeHtml(entry.id)}">Eliminar</button></div>` : ""}
-        </article>`).join("") || '<div class="empty-state">Aún no hay actualizaciones de mantenimiento para esta máquina.</div>';
+        </article>`;
       const visibleMileage = sortMileageRecords(record.mileage).filter(entry => !mileageMonthFilter || mileageDateValue(entry).slice(0, 7) === mileageMonthFilter);
       const mileageRows = visibleMileage.map(entry => `
         <tr><td>${escapeHtml(formatMileageDate(entry))}</td><td>${escapeHtml(entry.km)}</td><td>${escapeHtml(entry.observation || "—")}</td><td>${escapeHtml(entry.technician || "—")}</td><td>${escapeHtml(entry.lubrication || "Sin registro")}</td><td><div class="machine-record-actions">${canManageMachineRecords ? `<button class="back-button" type="button" data-edit-machine-record="mileage" data-record-id="${escapeHtml(entry.id)}">Editar</button><button class="back-button" type="button" data-delete-machine-record="mileage" data-record-id="${escapeHtml(entry.id)}">Eliminar</button>` : `<button class="back-button" type="button" data-request-mileage-edit>Modificar</button>`}</div></td></tr>`).join("") || '<tr><td colspan="6">No hay registros de kilometraje.</td></tr>';
@@ -2046,7 +2045,7 @@
               </div>
             </form>
           </article>
-          <article class="machine-detail-card"><h3>Actualizaciones registradas</h3><div class="machine-log-list">${maintenanceRows}</div></article>
+          <article class="machine-detail-card"><h3>Actualizaciones registradas</h3><div id="machineMaintenanceHistory"></div></article>
         </section>
         ${treadmill ? `<section class="machine-tab-panel" data-machine-panel="mileage" ${currentMachineTab === "mileage" ? "" : "hidden"}>
           <article class="machine-detail-card">
@@ -2067,6 +2066,9 @@
       $("mileageMonthFilter")?.addEventListener("change", event => {
         mileageMonthFilter = event.target.value;
         renderMachineDetail(currentMachine);
+      });
+      SmartFitMachineHistory.show($("machineMaintenanceHistory"), machine.recordKey, latestMaintenanceEntries, renderMaintenanceEntry, () => {
+        if (machine.recordKey) SmartFitMachinePhotos.load($("siteGrid"), String(machine.recordKey), escapeHtml, false);
       });
       if (machine.recordKey) SmartFitMachinePhotos.load($("siteGrid"), String(machine.recordKey), escapeHtml, refreshPhotos);
     }

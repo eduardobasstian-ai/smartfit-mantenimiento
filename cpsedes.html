@@ -1013,7 +1013,7 @@
   <script src="admin-store.js?v=20261029-performance-stage-2"></script>
   <script src="photo-watermark.js?v=20261123-photo-watermark-7"></script>
   <script src="supabase-data.js?v=20261121-photo-batches"></script>
-  <script src="machine-detail-photos.js?v=2"></script>
+  <script src="machine-detail-photos.js?v=3"></script>
   <script src="pdf-report.js?v=20261123-page-fit-1"></script>
   <script src="inspection-reports.js?v=20261119-pdf-full-page-1"></script>
   <script src="EQU/matrix-catalog.js"></script>
@@ -3931,16 +3931,15 @@
           const dateA = Date.parse(a.date || "") || Date.parse(a.recordedAt || "") || 0;
           const dateB = Date.parse(b.date || "") || Date.parse(b.recordedAt || "") || 0;
           return dateB - dateA;
-        })
-        .slice(0, 2);
-      const maintenanceRows = latestMaintenanceEntries.map(entry => `
+        });
+      const renderMaintenanceEntry = entry => `
         <article class="machine-log-entry">
           <strong>${escapeHtml(formatMachineDate(entry.date, false))} · ${escapeHtml(entry.type || "Mantenimiento")}</strong>
           <p>${escapeHtml(entry.work || "")}${entry.replacement ? `\nRepuesto/material: ${escapeHtml(entry.replacement)}` : ""}${entry.technician ? `\nResponsable: ${escapeHtml(entry.technician)}` : ""}${entry.observations ? `\nObservaciones: ${escapeHtml(entry.observations)}` : ""}</p>
           ${(Array.isArray(entry.ticketIds) ? entry.ticketIds : []).map(ticketId => relatedTicketsById.get(ticketId)).filter(Boolean).map(ticket => `<p class="maintenance-ticket-link">Ticket vinculado: <strong>${escapeHtml(ticket.ticketNumber || "—")}</strong> · ${escapeHtml(ticket.title || ticket.type || "Mantenimiento")}</p>`).join("")}
           ${SmartFitMachinePhotos.markup(machine.recordKey, entry, escapeHtml)}
           ${canManageMachineRecords ? `<div class="machine-record-actions"><button class="back-button" type="button" data-edit-machine-record="maintenance" data-record-id="${escapeHtml(entry.id)}">Editar</button><button class="back-button" type="button" data-delete-machine-record="maintenance" data-record-id="${escapeHtml(entry.id)}">Eliminar</button></div>` : ""}
-        </article>`).join("") || '<div class="empty-state">Aún no hay actualizaciones de mantenimiento para esta máquina.</div>';
+        </article>`;
       const mileageMonthValues = [...new Set(record.mileage.map(entry => mileageDateValue(entry).slice(5, 7)).filter(value => /^\d{2}$/.test(value)))].sort();
       const mileageYearValues = [...new Set(record.mileage.map(entry => mileageDateValue(entry).slice(0, 4)).filter(value => /^\d{4}$/.test(value)))].sort((a, b) => b.localeCompare(a));
       if (mileageMonthFilter && !mileageMonthValues.includes(mileageMonthFilter)) mileageMonthFilter = "";
@@ -4012,7 +4011,7 @@
               </div>
             </form>
           </article>
-          <article class="machine-detail-card"><h3>Actualizaciones registradas</h3><div class="machine-log-list">${maintenanceRows}</div></article>
+          <article class="machine-detail-card"><h3>Actualizaciones registradas</h3><div id="machineMaintenanceHistory"></div></article>
         </section>
         <section class="machine-tab-panel" data-machine-panel="tickets" ${currentMachineTab === "tickets" ? "" : "hidden"}>
           <article class="machine-detail-card">
@@ -4067,6 +4066,9 @@
           }
         }).catch(error => console.warn("No se pudieron cargar las fotos de inspección.", error));
       }
+      SmartFitMachineHistory.show($("machineMaintenanceHistory"), machine.recordKey, latestMaintenanceEntries, renderMaintenanceEntry, () => {
+        if (machine.recordKey) SmartFitMachinePhotos.load($("siteGrid"), String(machine.recordKey), escapeHtml, false);
+      });
       if (machine.recordKey) SmartFitMachinePhotos.load($("siteGrid"), String(machine.recordKey), escapeHtml, refreshPhotos);
     }
 

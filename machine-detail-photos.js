@@ -118,5 +118,46 @@
     targets.forEach((id, target) => observer.observe(target));
   }
 
+  const pageSize = 3;
+  let historyKey;
+  let historyPage = 0;
+
+  function showHistory(root, key, entries, renderEntry, onPageChange) {
+    if (historyKey !== key) historyPage = 0;
+    historyKey = key;
+    const pages = Math.ceil(entries.length / pageSize);
+    historyPage = Math.min(historyPage, Math.max(0, pages - 1));
+    root.innerHTML = '<div class="machine-log-list"></div>';
+    const list = root.firstElementChild;
+    let nav;
+    if (pages > 1) {
+      root.insertAdjacentHTML("beforeend", `<nav class="machine-record-actions" aria-label="Páginas de actualizaciones">
+        <button type="button" class="back-button" data-step="-1">Anterior</button>
+        <span aria-live="polite"></span>
+        <button type="button" class="back-button" data-step="1">Siguiente</button>
+      </nav>`);
+      nav = root.lastElementChild;
+      nav.onclick = event => {
+        const button = event.target.closest("button[data-step]");
+        if (!button || button.disabled) return;
+        historyPage += Number(button.dataset.step);
+        renderPage();
+        onPageChange();
+      };
+    }
+    function renderPage() {
+      const start = historyPage * pageSize;
+      list.innerHTML = entries.slice(start, start + pageSize).map(renderEntry).join("") ||
+        '<div class="empty-state">Aún no hay actualizaciones de mantenimiento para esta máquina.</div>';
+      if (nav) {
+        nav.firstElementChild.disabled = historyPage === 0;
+        nav.lastElementChild.disabled = historyPage === pages - 1;
+        nav.querySelector("span").textContent = `Página ${historyPage + 1} de ${pages}`;
+      }
+    }
+    renderPage();
+  }
+
+  global.SmartFitMachineHistory = { show: showHistory };
   global.SmartFitMachinePhotos = { markup, load };
 })(window);
