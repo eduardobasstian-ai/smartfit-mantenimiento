@@ -1892,14 +1892,17 @@
     const pending = readPending();
     pending.tickets = Array.isArray(pending.tickets) ? pending.tickets : [];
     pending.records = pending.records && typeof pending.records === "object" ? pending.records : {};
+    if (!outbox.length && !pending.tickets.length && !Object.keys(pending.records).length) return;
     const outboxTickets = new Map(outbox.filter(item => item?.type === "ticket" && item.ticket?.id)
       .map(item => [String(item.ticket.id), item.ticket]));
     outboxTickets.forEach((_ticket, id) => { if (!pending.tickets.includes(id)) pending.tickets.push(id); });
-    const localTicketsById = new Map((Array.isArray(parseLocal(TICKETS_KEY, [])) ? parseLocal(TICKETS_KEY, []) : [])
-      .map(ticket => [String(ticket.id), ticket]));
+    const pendingTicketIds = new Set(pending.tickets.map(String));
+    const cachedTickets = pendingTicketIds.size ? parseLocal(TICKETS_KEY, []) : [];
+    const localTicketsById = new Map((Array.isArray(cachedTickets) ? cachedTickets : [])
+      .filter(ticket => pendingTicketIds.has(String(ticket.id))).map(ticket => [String(ticket.id), ticket]));
     outboxTickets.forEach((ticket, id) => localTicketsById.set(id, Object.assign({}, localTicketsById.get(id) || {}, ticket)));
     const localTickets = [...localTicketsById.values()];
-    const ticketsWithPhotos = await restoreTicketMedia(localTickets);
+    const ticketsWithPhotos = localTickets.length ? await restoreTicketMedia(localTickets) : [];
     for (const id of pending.tickets || []) {
       const ticket = ticketsWithPhotos.find(row => String(row.id) === String(id));
       if (!ticket) continue;

@@ -79,12 +79,11 @@
   }
 
   async function refreshRequested(options) {
-    if (!await checkConnection()) return { ok: false };
+    if ((!navigator.onLine || needsRecovery) && !await checkConnection()) return { ok: false };
     return syncData(options);
   }
 
-  function reconnectAndRefresh(options = {}) {
-    if (options.silent) return refreshRequested(options);
+  function runManualRefresh(work) {
     if (manualRefresh) return manualRefresh;
     let indicator;
     const delay = setTimeout(() => {
@@ -94,12 +93,20 @@
       indicator.style.cssText = "position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:2147483647;padding:12px 18px;border:1px solid #454854;border-radius:12px;background:#191b22;color:white;font:600 15px system-ui;pointer-events:none";
       document.body?.append(indicator);
     }, 700);
-    manualRefresh = refreshRequested(options).finally(() => {
+    let release;
+    const background = new Promise(resolve => { release = resolve; });
+    const foregroundLimit = setTimeout(() => release({ pending: true }), 1800);
+    const task = Promise.resolve().then(work).finally(() => { manualRefresh = null; });
+    manualRefresh = Promise.race([task, background]).finally(() => {
+      clearTimeout(foregroundLimit);
       clearTimeout(delay);
       indicator?.remove();
-      manualRefresh = null;
     });
     return manualRefresh;
+  }
+
+  function reconnectAndRefresh(options = {}) {
+    return options.silent ? refreshRequested(options) : runManualRefresh(() => refreshRequested(options));
   }
 
   async function monitor() {
@@ -121,6 +128,6 @@
   document.addEventListener("visibilitychange", monitor);
   global.addEventListener("pagehide", () => { active = false; clearTimeout(timer); });
   global.addEventListener("pageshow", event => { if (event.persisted) startMonitoring(); });
-  global.SmartFitOnlineGuard = { checkConnection, reconnectAndRefresh };
+  global.SmartFitOnlineGuard = { checkConnection, reconnectAndRefresh, runManualRefresh };
   startMonitoring();
 })(window);

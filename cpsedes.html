@@ -16,7 +16,7 @@
   <link rel="icon" type="image/x-icon" href="IMG/favicon.ico">
   <link rel="icon" type="image/png" href="IMG/favicon.png">
   <link rel="stylesheet" href="common-failures.css?v=20261102-inline-content-1">
-  <script src="./online-only.js?v=20261125-silent-1"></script>
+  <script src="./online-only.js?v=20261126-background-1"></script>
   <script src="./form-drafts.js?v=20261105-offline-queue-1"></script>
   <style>
     :root {
@@ -1012,7 +1012,7 @@
   <script src="mobile-back-navigation.js?v=20261124-camera-return-1"></script>
   <script src="admin-store.js?v=20261029-performance-stage-2"></script>
   <script src="photo-watermark.js?v=20261123-photo-watermark-7"></script>
-  <script src="supabase-data.js?v=20261121-photo-batches"></script>
+  <script src="supabase-data.js?v=20261126-pending-only"></script>
   <script src="machine-detail-photos.js?v=3"></script>
   <script src="pdf-report.js?v=20261123-page-fit-1"></script>
   <script src="inspection-reports.js?v=20261119-pdf-full-page-1"></script>
@@ -4498,27 +4498,32 @@
       $("supervisorMenuToggle").setAttribute("aria-expanded", "false");
       $("supervisorMenuToggle").setAttribute("aria-label", "Abrir menú");
     });
-    window.SmartFitRefreshCurrentView = async ({ silent = false, dispatchUpdate = null } = {}) => {
+    async function refreshCurrentViewData(dispatchUpdate) {
       const machineKey = currentMachine?.recordKey || "";
       const selectedTab = currentMachineTab;
-      const scrollTop = window.scrollY;
       const infrastructureState = technicianMode
         ? window.SmartFitInfrastructureTechnician?.captureNavigationState?.() || null
         : null;
       if (machineKey) captureMaintenanceDraft();
       const result = await window.SmartFitOnlineGuard?.reconnectAndRefresh?.({
-        silent,
+        silent: true,
         dispatchUpdate: dispatchUpdate ?? (!machineKey && !infrastructureState)
       });
       if (!result?.ok) return result || { ok: false };
-      if (machineKey && currentMachine?.recordKey === machineKey) {
-        currentMachineTab = selectedTab;
+      if (machineKey && currentMachine?.recordKey === machineKey && currentMachineTab === selectedTab) {
+        captureMaintenanceDraft();
         renderMachineDetail(currentMachine);
       } else if (infrastructureState) {
-        await window.SmartFitInfrastructureTechnician?.restoreNavigationState?.(infrastructureState);
+        const current = window.SmartFitInfrastructureTechnician?.captureNavigationState?.();
+        if (current?.phase === infrastructureState.phase && current.sectorId === infrastructureState.sectorId) {
+          await window.SmartFitInfrastructureTechnician.restoreNavigationState(current);
+        }
       }
-      window.requestAnimationFrame(() => window.scrollTo(0, scrollTop));
       return result;
+    }
+    window.SmartFitRefreshCurrentView = ({ silent = false, dispatchUpdate = null } = {}) => {
+      const work = () => refreshCurrentViewData(dispatchUpdate);
+      return silent ? work() : window.SmartFitOnlineGuard.runManualRefresh(work);
     };
     $("refreshViewButton").addEventListener("click", async event => {
       const button = event.currentTarget;
@@ -4527,6 +4532,11 @@
       button.textContent = "Conectando…";
       try {
         const result = await window.SmartFitRefreshCurrentView({ silent: false });
+        if (result?.pending) {
+          button.textContent = previousLabel;
+          button.title = "Actualización en segundo plano.";
+          return;
+        }
         if (!result?.ok) {
           button.textContent = "↻ Sin conexión";
           button.title = "No se pudo conectar. Tus registros locales se conservan; vuelve a intentar.";
