@@ -855,11 +855,17 @@
     const blob = inspectionPhotoBlob(dataUrl);
     const extension = blob.type === "image/webp" ? "webp" : blob.type === "image/png" ? "png" : "jpg";
     const path = `${siteUuid}/${visitId}/${eventId}-${index + 1}.${extension}`;
-    const response = await authorizedFetch(`${URL}/storage/v1/object/${INFRASTRUCTURE_BUCKET}/${encodedStoragePath(path)}`, {
-      method:"POST", headers:{ "Content-Type":blob.type, "cache-control":"31536000", "x-upsert":"true" }, body:blob
-    });
-    if (!response.ok) throw new Error(`No se pudo subir una fotografía del evento (${response.status}): ${await response.text()}`);
-    return { path, type:blob.type, size:blob.size };
+    for (let attempt = 0; ; attempt++) {
+      const response = await authorizedFetch(`${URL}/storage/v1/object/${INFRASTRUCTURE_BUCKET}/${encodedStoragePath(path)}`, {
+        method:"POST", headers:{ "Content-Type":blob.type, "cache-control":"31536000", "x-upsert":"true" }, body:blob
+      });
+      if (response.ok) return { path, type:blob.type, size:blob.size };
+      if (![502, 503, 504, 544].includes(response.status)) {
+        throw new Error(`No se pudo subir la fotografía ${index + 1} del evento (código ${response.status}).`);
+      }
+      if (attempt >= 2) throw new Error("El servidor sigue ocupado al guardar las fotos. Espera un momento y vuelve a pulsar «Guardar y cerrar sector».");
+      await new Promise(resolve => setTimeout(resolve, 1000 * 2 ** attempt + Math.random() * 400));
+    }
   }
   async function saveInfrastructureVisit(siteLegacyId, sector, eventEntries = [], visitDate = "") {
     const actor = appSession();
@@ -897,20 +903,17 @@
         visit_date:cleanDate, status:"uploading", events:[]
       }, "id", "id");
       headerSaved = true;
-      const savedEvents = new Array(entries.length);
-      let nextEvent = 0;
-      await Promise.all(Array.from({ length:Math.min(3, entries.length) }, async () => {
-        while (nextEvent < entries.length) {
-          const index = nextEvent++;
-          const entry = entries[index];
-          const eventId = global.crypto.randomUUID();
-          const photos = await Promise.all(entry.photos.map((photo, photoIndex) => uploadInfrastructurePhoto(siteUuid, visitId, eventId, photoIndex, photo).then(uploaded => {
-            uploadedPaths.push(uploaded.path);
-            return uploaded;
-          })));
-          savedEvents[index] = { id:eventId, catalog_event_id:entry.eventId, name:entry.name, status:entry.status, observations:entry.observations || null, photos };
+      const savedEvents = [];
+      for (const entry of entries) {
+        const eventId = global.crypto.randomUUID();
+        const photos = [];
+        for (const [index, photo] of entry.photos.entries()) {
+          const uploaded = await uploadInfrastructurePhoto(siteUuid, visitId, eventId, index, photo);
+          uploadedPaths.push(uploaded.path);
+          photos.push(uploaded);
         }
-      }));
+        savedEvents.push({ id:eventId, catalog_event_id:entry.eventId, name:entry.name, status:entry.status, observations:entry.observations || null, photos });
+      }
       const response = await authorizedFetch(`${URL}/rest/v1/infrastructure_visits?id=eq.${encodeURIComponent(visitId)}&status=eq.uploading`, {
         method:"PATCH", headers:{ "Content-Type":"application/json", Prefer:"return=representation" },
         body:JSON.stringify({ events:savedEvents, status:"complete", completed_at:new Date().toISOString() })
