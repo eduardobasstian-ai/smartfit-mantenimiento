@@ -574,6 +574,22 @@ a.equipment-card:hover {
 .hotspot.is-batch-selected { outline: 2px solid var(--blue); outline-offset: 3px; }
 .hotspot.is-repositioning { cursor: grab; touch-action: none; }
 .hotspot.is-repositioning:active { cursor: grabbing; }
+.sap-copy-field { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.sap-copy-value { min-width: 0; overflow-wrap: anywhere; }
+.sap-copy-button {
+  position: relative; display: inline-flex; align-items: center; justify-content: center;
+  flex: 0 0 30px; width: 30px; height: 30px; margin-left: auto; padding: 0;
+  border: 0; border-radius: 7px; background: transparent; color: var(--muted); cursor: pointer;
+}
+.sap-copy-button:hover, .sap-copy-button:focus-visible { background: #ffffff14; color: var(--text); }
+.sap-copy-button:focus-visible { outline: 2px solid var(--yellow); outline-offset: 2px; }
+.sap-copy-button::after {
+  content: attr(data-tooltip); position: absolute; right: 0; bottom: calc(100% + 7px);
+  padding: 7px 11px; border-radius: 20px; background: #101113; color: #fff;
+  font: 12px/1.25 system-ui, sans-serif; white-space: nowrap; pointer-events: none;
+  opacity: 0; visibility: hidden; z-index: 5; box-shadow: 0 2px 8px #0004;
+}
+.sap-copy-button:hover::after, .sap-copy-button:focus-visible::after { opacity: 1; visibility: visible; }
 @media (max-width: 600px) {
   .plan-edit-rows fieldset { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .plan-edit-dialog { padding: 12px; }

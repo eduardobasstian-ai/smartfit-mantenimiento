@@ -23,7 +23,7 @@
     if (pending.has(name)) return pending.get(name);
     const promise = new Promise((resolve, reject) => {
       const script = document.createElement('script');
-      script.src = 'equipos/' + name + '?v=' + (name === 'plano.js' ? '20261126-nombre-coincidencias-1' : '20261125-perf1');
+      script.src = 'equipos/' + name + '?v=' + (name === 'plano.js' ? '20261126-copiar-sap-1' : '20261125-perf1');
       script.onload = () => { script.remove(); resolve(); };
       script.onerror = () => { script.remove(); reject(new Error('No se pudo cargar la vista. Vuelve a intentarlo.')); };
       document.head.append(script);
