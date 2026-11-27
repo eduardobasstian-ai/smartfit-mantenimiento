@@ -2,7 +2,7 @@
 
 La beta usa Electron y se distribuye mediante un instalador NSIS para Windows x64.
 
-Ejecuta `npm ci` y después `npm run build` en esta carpeta. El instalador queda en `dist/Catalogo-SmartFit-Beta-0.1.11-Setup.exe`.
+Ejecuta `npm ci` y después `npm run build` en esta carpeta. El instalador queda en `dist/Catalogo-SmartFit-Beta-0.1.12-beta.1-Setup.exe`.
 
 El paquete incluye el catálogo local, sus planos, marcadores y miniaturas. El acceso a Supabase y las fotografías externas requiere conexión.
 
@@ -33,3 +33,9 @@ La beta 0.1.9 permite copiar Item No., Reference No., SAP y Description desde la
 La beta 0.1.11 organiza el inventario por marcas, con búsqueda general y creación de repuestos desde la pantalla principal. Permite seleccionar marcas y buscar equipos por nombre técnico, referencia o SAP mediante índices ligeros compatibles con la apertura directa de archivos locales. Nombre y foto se reutilizan por marca y código; no se comparten automáticamente entre marcas ni se fusionan existencias. Los planos derivados WebP conservan dimensiones y píxeles. La caché de fotografías se aísla por sesión y revisión.
 
 El bloqueo de edición, las reservas y la recuperación duradera de borradores del prototipo `catalogo/preview` no forman parte de esta distribución.
+
+Desde 0.1.12-beta.1 el aplicativo comprueba actualizaciones después de abrir y cada diez minutos. Si hay una versión disponible muestra un aviso flotante pequeño durante doce segundos; vuelve a recordarlo cada diez minutos mientras siga pendiente. Actualizar inicia la descarga en segundo plano. Reiniciar y actualizar pide confirmación y ejecuta el instalador conservando el perfil. Cerrar normalmente la aplicación no instala una actualización pendiente. Si falla la conexión, el trabajo continúa y se vuelve a comprobar más adelante.
+
+Las versiones 0.1.11 y anteriores requieren instalar manualmente esta versión una sola vez para incorporar el actualizador. Las siguientes se distribuyen desde Releases del mismo repositorio, sin credenciales en el aplicativo. Electron Updater verifica la descarga usando el SHA-512 del manifiesto beta.yml; el certificado de firma digital continúa pendiente.
+
+Para publicar una versión siguiente: incrementar version en package.json y package-lock.json, ejecutar npm run test:updates, confirmar los cambios y subir una etiqueta v seguida exactamente de la versión (por ejemplo v0.1.13-beta.1). El flujo catalogo-desktop-release.yml compila en Windows y publica el instalador, su blockmap, el manifiesto beta.yml y SHA-256. La versión permanece como borrador hasta que están todos los archivos. No cambiar un instalador ya publicado sin incrementar versión. El mismo identificador de aplicación y perfil se conserva entre versiones.

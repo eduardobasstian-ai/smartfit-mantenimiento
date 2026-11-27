@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, net, protocol, session, dialog } = require("electron");
+const { app, BrowserWindow, Menu, net, protocol, session, dialog, ipcMain } = require("electron");
 const path = require("node:path");
 const { pathToFileURL } = require("node:url");
 
@@ -47,13 +47,15 @@ if (!app.requestSingleInstanceLock()) {
       title: "Catálogo SmartFit Beta",
       backgroundColor: "#101116",
       icon: path.join(resourceRoot, "catalogo/IMG/favicon.ico"),
-      webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true },
+      webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true, preload: path.join(__dirname, 'preload.cjs') },
     });
     mainWindow.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
     mainWindow.webContents.on("will-navigate", (event, url) => {
       if (!url.startsWith(origin + "/")) event.preventDefault();
     });
     mainWindow.once("ready-to-show", () => mainWindow.show());
+    const updates = require('./actualizaciones.cjs').createUpdates({ app, ipcMain, getWindow: () => mainWindow, dialog, loadUpdater: () => require('electron-updater').autoUpdater });
+    app.once('before-quit', () => updates.dispose());
     await mainWindow.loadURL(origin + "/catalogo/catalogo.html");
   }).catch(error => {
     dialog.showErrorBox("No se pudo abrir el catálogo", error.message);

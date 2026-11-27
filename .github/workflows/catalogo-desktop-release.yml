@@ -1,0 +1,52 @@
+name: Publicar aplicativo Catálogo
+on:
+  push:
+    tags: ['v*']
+permissions:
+  contents: write
+concurrency:
+  group: catalogo-release-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: catalogo-desktop/package-lock.json
+      - name: Comprobar versión y avisos
+        shell: pwsh
+        run: |
+          $version = (Get-Content catalogo-desktop/package.json | ConvertFrom-Json).version
+          if ($env:GITHUB_REF_NAME -ne "v$version") { throw 'La etiqueta no coincide con el aplicativo.' }
+          node scripts/verificar-actualizaciones-catalogo.cjs
+      - run: npm ci
+        working-directory: catalogo-desktop
+      - run: npm run build
+        working-directory: catalogo-desktop
+      - name: Publicar instalador e información de actualización
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $tag = $env:GITHUB_REF_NAME
+          $exe = Get-ChildItem catalogo-desktop/dist/*Setup.exe | Select-Object -First 1
+          if (-not $exe -or -not (Test-Path catalogo-desktop/dist/beta.yml)) { throw 'Falta el instalador o beta.yml.' }
+          $sha = (Get-FileHash -Algorithm SHA256 -LiteralPath $exe.FullName).Hash.ToLowerInvariant()
+          "$sha  $($exe.Name)" | Set-Content -Encoding ascii "$($exe.FullName).sha256"
+          $existing = gh release view $tag --json isDraft 2>$null
+          if ($LASTEXITCODE -eq 0) {
+            if (-not ($existing | ConvertFrom-Json).isDraft) { throw 'Esta versión ya fue publicada.' }
+          } else {
+            gh release create $tag --verify-tag --draft --prerelease --title "Catálogo SmartFit $tag" --generate-notes
+            if ($LASTEXITCODE -ne 0) { throw 'No se pudo crear la versión.' }
+          }
+          $assets = @($exe.FullName, "$($exe.FullName).sha256", 'catalogo-desktop/dist/beta.yml')
+          $assets += @(Get-ChildItem catalogo-desktop/dist/*.blockmap | ForEach-Object FullName)
+          gh release upload $tag @assets --clobber
+          if ($LASTEXITCODE -ne 0) { throw 'No se pudieron subir los archivos.' }
+          gh release edit $tag --draft=false
+          if ($LASTEXITCODE -ne 0) { throw 'No se pudo publicar la versión.' }
