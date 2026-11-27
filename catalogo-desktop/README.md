@@ -2,7 +2,7 @@
 
 La beta usa Electron y se distribuye mediante un instalador NSIS para Windows x64.
 
-Ejecuta `npm ci` y después `npm run build` en esta carpeta. El instalador queda en `dist/Catalogo-SmartFit-Beta-0.1.9-Setup.exe`.
+Ejecuta `npm ci` y después `npm run build` en esta carpeta. El instalador queda en `dist/Catalogo-SmartFit-Beta-0.1.11-Setup.exe`.
 
 El paquete incluye el catálogo local, sus planos, marcadores y miniaturas. El acceso a Supabase y las fotografías externas requiere conexión.
 
@@ -29,3 +29,7 @@ La beta 0.1.7 muestra el nombre técnico asignado junto al ítem en cada coincid
 La beta 0.1.8 agrega el boton Copiar SAP dentro de la fila SAP, alineado a la derecha, con aviso al pasar el cursor y confirmacion al copiar.
 
 La beta 0.1.9 permite copiar Item No., Reference No., SAP y Description desde la ficha. El inventario usa filas compactas con miniaturas ampliables de las fotos vinculadas. Las miniaturas se cargan cuando son visibles y se reutilizan dentro de la sesion; la ampliacion conserva la foto original.
+
+La beta 0.1.11 organiza el inventario por marcas, con búsqueda general y creación de repuestos desde la pantalla principal. Permite seleccionar marcas y buscar equipos por nombre técnico, referencia o SAP mediante índices ligeros compatibles con la apertura directa de archivos locales. Nombre y foto se reutilizan por marca y código; no se comparten automáticamente entre marcas ni se fusionan existencias. Los planos derivados WebP conservan dimensiones y píxeles. La caché de fotografías se aísla por sesión y revisión.
+
+El bloqueo de edición, las reservas y la recuperación duradera de borradores del prototipo `catalogo/preview` no forman parte de esta distribución.

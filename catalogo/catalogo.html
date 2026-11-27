@@ -90,7 +90,7 @@
   </style>
   <link rel="icon" type="image/x-icon" href="IMG/favicon.ico">
   <link rel="icon" type="image/png" href="IMG/favicon.png">
-  <link rel="stylesheet" href="equipos/equipos.css?v=20261126-inventario-fotos-1">
+  <link rel="stylesheet" href="equipos/equipos.css?v=20261127-busqueda2">
 </head>
 <body>
   <header class="topbar"><div class="brand"><img class="brand-mark" src="IMG/logo-header.png" alt="Smart Fit"><div class="brand-copy"><div class="brand-heading"><p class="brand-title">CATÁLOGO DE REPUESTOS</p></div><p class="brand-subtitle">Gestión de equipos y sedes</p></div></div><div id="catalogSession" class="catalog-session" hidden><span>Sesión: <strong id="catalogUserName"></strong></span><button id="catalogLogout" class="btn" type="button">Cerrar sesión</button></div></header>
@@ -152,14 +152,14 @@
         <header class="equipment-header">
           <div>
             <h2 id="inventoryTitle" tabindex="-1">Inventario</h2>
-            <p>Repuestos por marca y equipo. Cada repuesto comparte su cantidad entre los equipos vinculados.</p>
+            <p>Piezas por marca. Consulta sus equipos vinculados; las existencias solo se comparten cuando tú las vinculas.</p>
           </div>
           <div class="equipment-header-actions inventory-filters" role="search" aria-label="Buscar y filtrar inventario">
             <label class="sr-only" for="inventoryListBrand">Filtrar inventario por marca</label>
             <select id="inventoryListBrand"><option value="">Todas las marcas</option></select>
             <label class="sr-only" for="inventoryListSearch">Buscar en inventario por marca, equipo, modelo, nombre técnico, descripción o referencia</label>
             <input id="inventoryListSearch" type="search" placeholder="Buscar marca, modelo o repuesto…" autocomplete="off" aria-controls="inventoryList">
-            <button class="btn primary" id="inventoryAdd" type="button">＋ Agregar a inventario</button>
+            <button class="btn primary" id="inventoryAdd" type="button">＋ Crear repuesto</button>
           </div>
         </header>
         <p id="inventoryStatus" role="status"></p>
@@ -207,12 +207,12 @@
     <dialog class="ref-dialog" id="bomPlacementDialog" aria-labelledby="bomPlacementTitle"><form id="bomPlacementForm"><h2 id="bomPlacementTitle">Agregar referencias al plano</h2><p>Busca una pieza ya registrada en el BOM que todavía no tenga marcador en esta vista. Indica cuántas unidades quieres ubicar.</p><label class="bom-search-label">Buscar por código, referencia o descripción<input id="bomSearch" type="search" autocomplete="off" placeholder="Ej.: B52, SAP o descripción"></label><div class="bom-results" id="bomResults" role="listbox" aria-label="Referencias sin marcador"></div><div class="ref-fields bom-quantity"><label>Cantidad de marcadores<input id="bomQuantity" type="number" min="1" max="99" value="1" required></label><p id="bomSelectedSummary" class="fine">Selecciona una referencia de la lista.</p></div><div class="ref-actions"><button class="btn" id="closeBomPlacement" type="button">Cancelar</button><button class="btn primary" id="createBomMarkers" type="submit" disabled>Crear marcadores</button></div></form></dialog>
   </div>
   <script src="catalogo-assets/manuales/datos.js?v=por-equipo-1"></script>
-  <script src="equipos/catalogo-datos.js"></script>
+  <script src="equipos/catalogo-datos.js?v=20261127-perf2"></script>
   <script src="equipos/nombres.js"></script>
-  <script src="equipos/sincronizacion.js?v=20261125-perf1"></script>
-  <script src="equipos/catalogo-nombres.js?v=nombres-referencia-1"></script>
+  <script src="equipos/sincronizacion.js?v=20261127-busqueda2"></script>
+  <script src="equipos/catalogo-nombres.js?v=20261127-marca1"></script>
   <script src="equipos/catalogo-locales.js?v=aviso-flotante-1"></script>
-  <script src="equipos/carga.js?v=20261127-copiar-campos-1"></script>
+  <script src="equipos/carga.js?v=20261127-archivo1"></script>
   <dialog class="ref-dialog" id="inventoryDialog" aria-labelledby="inventoryDialogTitle">
     <form id="inventoryForm">
       <h2 id="inventoryDialogTitle">Agregar a inventario</h2>
@@ -242,7 +242,7 @@
         <div id="inventoryMatches" class="plan-search-list inventory-matches" aria-label="Resultados del catálogo"></div>
       </div>
       <h3>Vínculos del repuesto</h3>
-      <p>La primera pieza de la lista da el nombre al registro.</p>
+      <p>Vincula las referencias de cada equipo. El stock de este registro se comparte únicamente entre los vínculos que confirmes.</p>
       <ul id="inventoryLinks" class="inventory-links"></ul>
       <div id="inventoryStock" hidden>
         <label class="inventory-stock-option"><input id="inventoryUntracked" type="checkbox"> Producto libre (sin control de stock)</label>
@@ -262,7 +262,7 @@
       <h2 id="inventoryModelsTitle">Selecciona equipos compatibles</h2>
       <div class="ref-fields">
         <label class="wide">Buscar equipos
-          <input id="inventoryModelSearch" type="search" placeholder="Buscar por marca, nombre o modelo" autocomplete="off" aria-controls="inventoryModelChoices">
+          <input id="inventoryModelSearch" type="search" placeholder="Marca, equipo, modelo, nombre técnico, referencia o SAP" autocomplete="off" aria-controls="inventoryModelChoices">
         </label>
       </div>
       <div id="inventoryModelChoices" class="plan-search-list inventory-model-choices"></div>

@@ -1,0 +1,53 @@
+const fs = require('node:fs');
+const vm = require('node:vm');
+const assert = require('node:assert/strict');
+const { performance } = require('node:perf_hooks');
+const window = { dispatchEvent() {} };
+let calls = 0, fail = false, release;
+const context = { window, performance, CustomEvent, crypto, console,
+  fetch: async (_url, options) => {
+    calls++;
+    if (options.method) return new Response('null');
+    if (release) await release;
+    else await new Promise(resolve => setTimeout(resolve, 15));
+    if (fail) return new Response('{}', {status:503});
+    return new Response(new Blob(['foto-original'], {type:'image/png'}));
+  },
+};
+vm.runInNewContext(fs.readFileSync('catalogo/equipos/sincronizacion.js','utf8'),context);
+const sync = window.CatalogSync;
+const connect = () => sync.connect({url:'https://prueba.invalid',key:'test',role:'supervisor',getToken:async()=> 'test'});
+(async () => {
+  connect();
+  const scope = sync.forModel('t600x-sf');
+  const [a,b] = await Promise.all([scope.readPhoto('1','v1'),scope.readPhoto('1','v1')]);
+  assert.equal(calls,1, 'Dos vistas deben compartir una descarga.');
+  assert.equal(a,b);
+  assert.equal(await scope.readPhoto('1','v1'),a);
+  assert.equal(calls,1,'Reabrir la misma revisión no debe descargarla.');
+  await scope.readPhoto('1','v2');
+  assert.equal(calls,2,'Una revisión nueva debe descargarse.');
+  await sync.forModel('hs-abc').readPhoto('1','v2');
+  assert.equal(calls,3,'No mezclar fotografías de distintos equipos.');
+  await scope.savePhoto('1',a);
+  const afterSave=calls;
+  await scope.readPhoto('1','v2');
+  assert.equal(calls,afterSave+1,'Guardar invalida también la revisión anterior.');
+  const before=calls;
+  await scope.readPhoto('sin-version');await scope.readPhoto('sin-version');
+  assert.equal(calls,before+2,'Sin revisión no conservar una imagen potencialmente obsoleta.');
+  fail=true;
+  await assert.rejects(scope.readPhoto('fallo','v1'));
+  fail=false;
+  await scope.readPhoto('fallo','v1');
+  let unblock;
+  release=new Promise(resolve=>{unblock=resolve;});
+  const old=scope.readPhoto('sesion','v1');
+  await new Promise(resolve=>setTimeout(resolve,0));
+  connect();unblock();release=null;
+  await assert.rejects(old,/sesión/);
+  const n=calls;await sync.forModel('t600x-sf').readPhoto('1','v2');
+  assert.equal(calls,n+1,'La nueva sesión no hereda fotos privadas.');
+  sync.disconnect();await assert.rejects(scope.readPhoto('1','v2'),/sesión/);
+  console.log('OK: descarga compartida, reutilización por revisión, equipos y sesiones aislados, invalidación y reintentos.');
+})().catch(error=>{console.error(error);process.exitCode=1;});

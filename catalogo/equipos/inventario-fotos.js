@@ -11,7 +11,11 @@ window.createCatalogInventoryPhotos = () => {
 
   function trimOriginals() {
     const originals = [...cache.values()].filter(entry => entry.blob).sort((a, b) => b.used - a.used);
-    originals.slice(32).forEach(entry => { entry.blob = null; });
+    let bytes = 0;
+    originals.forEach((entry, index) => {
+      bytes += entry.blob.size;
+      if (index >= 32 || bytes > 32 * 1024 * 1024) entry.blob = null;
+    });
   }
   async function thumbnail(blob) {
     let bitmap;
@@ -44,7 +48,7 @@ window.createCatalogInventoryPhotos = () => {
     if (pending.has(id)) return pending.get(id);
     const started = generation;
     const task = (async () => {
-      const blob = await window.CatalogSync.forModel(source.modelId).readPhoto(source.key);
+      const blob = await window.CatalogSync.forModel(source.modelId).readPhoto(source.key, source.version);
       if (!blob || started !== generation) return null;
       const small = await thumbnail(blob);
       if (started !== generation) return null;
@@ -136,7 +140,7 @@ window.createCatalogInventoryPhotos = () => {
       try {
         const entry = await load(id, source);
         if (!entry) return;
-        const blob = entry.blob || await window.CatalogSync.forModel(source.modelId).readPhoto(source.key);
+        const blob = entry.blob || await window.CatalogSync.forModel(source.modelId).readPhoto(source.key, source.version);
         if (!blob || revision !== generation || !button.isConnected) return;
         entry.blob = blob;
         entry.used = Date.now();

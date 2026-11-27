@@ -2,6 +2,21 @@ window.CatalogSync = (() => {
   let session;
   const scopes = new Map();
   const brandNames = new Map();
+  const photos = new Map();
+  let photoBytes = 0;
+  const photoLimit = 32 * 1024 * 1024;
+  function forgetPhoto(key) {
+    const entry = photos.get(key);
+    if (entry?.blob) photoBytes -= entry.blob.size;
+    photos.delete(key);
+  }
+  function clearPhotos() { photos.clear(); photoBytes = 0; }
+  function trimPhotos() {
+    for (const [key, entry] of photos) {
+      if (photoBytes <= photoLimit && photos.size <= 64) break;
+      if (!entry.pending) forgetPhoto(key);
+    }
+  }
   const bucket = "catalogo-fotos-compartidas";
 
   async function request(path, options = {}) {
@@ -34,24 +49,30 @@ window.CatalogSync = (() => {
   };
   const scopedChange = (row, prefix) => {
     const { global: shared, ...change } = row;
-    if (shared && (row.tipo !== "nombre" || !row.clave.startsWith("pieza:"))) throw new Error("Nombre compartido inválido.");
+    if (shared && (!['nombre','foto'].includes(row.tipo) || !row.clave.startsWith("pieza:"))) throw new Error("Dato compartido inválido.");
     return { ...change, clave: shared ? row.clave : prefix + row.clave };
   };
   async function readBrandNames(brand, force = false) {
+    // Metadatos de piezas, sin descargar archivos; una lectura por familia.
     if (!/^[a-z0-9-]+$/.test(brand)) throw new Error("Marca inválida.");
-    const cached = brandNames.get(brand);
+    const cacheKey=window.catalogPartFamily?.(brand) || brand;
+    const cached = brandNames.get(cacheKey);
     if (cached?.pending) return cached.pending;
     if (!force && cached?.rows && Date.now() - cached.time < 5000) return cached.rows;
     const current = session;
     const entry = {};
-    const patterns = [`clave.like.pieza:${brand}:*`, `clave.like.modelo:${brand}-*`];
-    if (brand === "hammer-strength") patterns.push("clave.like.modelo:hs-abc:*");
+    const aliases = window.catalogPartBrands?.(brand) || [brand];
+    const family = window.catalogPartFamily?.(brand) || brand;
+    const patterns = [...new Set([family,...aliases])].map(id=>`clave.like.pieza:${id}:*`);
+    aliases.forEach(id=>patterns.push(`clave.like.modelo:${id}-*`));
+    if (aliases.includes("hammer-strength")) patterns.push("clave.like.modelo:hs-abc:*");
     if (brand === "matrix") patterns.push("clave.like.modelo:e-es-f:*");
+    if (brand === "matrix") patterns.push("and(clave.not.like.modelo:*,clave.not.like.pieza:*)");
     if (brand === "movement") patterns.push("clave.like.modelo:rt-g2:*");
     entry.pending = (async () => {
       const rows = [];
       for (let offset = 0; ; offset += 500) {
-        const response = await checked(await request(`/rest/v1/rpc/catalogo_cambios?tipo=eq.nombre&or=${encodeURIComponent("(" + patterns.join(",") + ")")}&order=clave&limit=500&offset=${offset}`));
+        const response = await checked(await request(`/rest/v1/rpc/catalogo_cambios?tipo=in.(nombre,foto,referencia,marcador)&or=${encodeURIComponent("(" + patterns.join(",") + ")")}&order=clave&limit=500&offset=${offset}`));
         const page = await response.json();
         rows.push(...page);
         if (page.length < 500) break;
@@ -62,9 +83,9 @@ window.CatalogSync = (() => {
       return entry.rows;
     })().finally(() => {
       entry.pending = null;
-      if (!entry.rows && brandNames.get(brand) === entry) brandNames.delete(brand);
+      if (!entry.rows && brandNames.get(cacheKey) === entry) brandNames.delete(cacheKey);
     });
-    brandNames.set(brand, entry);
+    brandNames.set(cacheKey, entry);
     return entry.pending;
   }
 
@@ -125,26 +146,64 @@ window.CatalogSync = (() => {
         loadedAt = 0;
         changed(id);
       },
-      async readPhoto(item) {
-        const response = await request(photoPath(item, model).replace("/object/", "/object/authenticated/"));
-        if (response.status === 404) return null;
-        if (response.status === 400) {
-          const error = await response.clone().json().catch(() => null);
-          if (String(error?.statusCode) === "404") return null;
+      async readPhoto(item, version) {
+        if (!session) throw new Error("Inicia sesión para conectar el catálogo.");
+        const current = session;
+        const key = photoPath(item, item.startsWith('pieza:') ? 'piezas' : model);
+        // Solo reutilizar originales cuya revisión fue confirmada por el catálogo.
+        const revision = typeof version === "string" && version ? version : null;
+        const cached = photos.get(key);
+        if (cached && cached.version === revision) {
+          if (cached.pending) return cached.pending;
+          if (revision) {
+            photos.delete(key); photos.set(key, cached);
+            return cached.blob;
+          }
         }
-        await checked(response);
-        return response.blob();
+        forgetPhoto(key);
+        const entry = { version: revision };
+        const started = performance.now();
+        entry.pending = (async () => {
+          const response = await request(key.replace("/object/", "/object/authenticated/"));
+          let blob = null;
+          let missing = response.status === 404;
+          if (response.status === 400) {
+            const error = await response.clone().json().catch(() => null);
+            missing = String(error?.statusCode) === "404";
+          }
+          if (!missing) { await checked(response); blob = await response.blob(); }
+          if (current !== session) throw new Error("La sesión cambió.");
+          if (photos.get(key) !== entry) throw new Error("La fotografía cambió. Vuelve a intentar.");
+          if (photos.get(key) === entry && revision) {
+            entry.blob = blob;
+            photoBytes += blob?.size || 0;
+          }
+          return blob;
+        })().finally(() => {
+          entry.pending = null;
+          if (photos.get(key) === entry && (!revision || !("blob" in entry))) forgetPhoto(key);
+          trimPhotos();
+          window.catalogMeasure?.("Catálogo · descargar foto", started);
+        });
+        photos.set(key, entry);
+        return entry.pending;
       },
       async savePhoto(item, blob) {
         if (!canWrite()) throw new Error("Tu perfil no permite publicar fotos.");
-        await checked(await request(photoPath(item, model), {
+        const shared = item.startsWith('pieza:');
+        const path = photoPath(item, shared ? 'piezas' : model);
+        forgetPhoto(path);
+        await checked(await request(path, {
           method: "POST", headers: { "Content-Type": blob.type, "x-upsert": "true" }, body: blob,
         }));
-        await scope.save([{ tipo: "foto", clave: item, valor: crypto.randomUUID() }]);
+        await scope.save([{ tipo: "foto", clave: item, valor: crypto.randomUUID(), global:shared }]);
       },
       async importPhoto(item, blob) {
         if (!canWrite()) throw new Error("Tu perfil no permite compartir fotos.");
-        const response = await request(photoPath(item, model), {
+        const shared=item.startsWith('pieza:');
+        const path=photoPath(item,shared?'piezas':model);
+        forgetPhoto(path);
+        const response = await request(path, {
           method: "POST", headers: { "Content-Type": blob.type, "x-upsert": "false" }, body: blob,
         });
         if (!response.ok) {
@@ -152,16 +211,19 @@ window.CatalogSync = (() => {
           if (response.status === 409 || String(error?.statusCode) === "409" || error?.error === "Duplicate") return false;
           await checked(response);
         }
-        await scope.edit([{ tipo: "foto", clave: item, valor: crypto.randomUUID(), expected: null }]);
+        await scope.edit([{ tipo: "foto", clave: item, valor: crypto.randomUUID(), expected: null, global:shared }]);
         return true;
       },
       async removePhoto(item) {
         if (!canWrite()) throw new Error("Tu perfil no permite eliminar fotos.");
+        const shared = item.startsWith('pieza:');
+        const photoModel = shared ? 'piezas' : model;
+        forgetPhoto(photoPath(item, photoModel));
         await checked(await request(`/storage/v1/object/${bucket}`, {
           method: "DELETE", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ prefixes: [`mtm3839/${model ? model + "/" : ""}${item}`] }),
+          body: JSON.stringify({ prefixes: [`mtm3839/${photoModel ? photoModel + "/" : ""}${item}`] }),
         }));
-        await scope.save([{ tipo: "foto", clave: item, valor: "" }]);
+        await scope.save([{ tipo: "foto", clave: item, valor: "", global:shared }]);
       },
     };
     scopes.set(model, scope);
@@ -169,8 +231,8 @@ window.CatalogSync = (() => {
   }
 
   return {
-    connect(settings) { session = settings; scopes.clear(); brandNames.clear(); },
-    disconnect() { session = null; scopes.clear(); brandNames.clear(); },
+    connect(settings) { session = settings; scopes.clear(); brandNames.clear(); clearPhotos(); },
+    disconnect() { session = null; scopes.clear(); brandNames.clear(); clearPhotos(); },
     readBrandNames,
     forModel: modelScope,
     get active() { return Boolean(session); },

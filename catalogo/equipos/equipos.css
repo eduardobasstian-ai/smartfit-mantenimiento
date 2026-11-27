@@ -335,6 +335,20 @@ a.equipment-card:hover {
 .inventory-group h3 {
   margin: 0 0 8px;
 }
+.inventory-brand-heading { display:flex; align-items:center; gap:12px; }
+.inventory-brand-grid .equipment-brand-card { text-align:left; color:inherit; font:inherit; width:100%; }
+.inventory-brand-grid .equipment-brand-info { display:grid; gap:8px; }
+.inventory-brand-choices { display:flex; flex-wrap:wrap; gap:10px 18px; grid-column:1/-1; min-width:0; border:1px solid var(--line); border-radius:9px; padding:12px; margin:0 0 14px; }
+.inventory-brand-choices label { display:flex; align-items:center; gap:6px; font-size:13px; }
+.inventory-piece-dialog > form { padding:24px; }
+#inventoryList > [data-inventory-back] { margin-bottom:18px; }
+.inventory-brand-heading img { width:42px; height:42px; object-fit:contain; padding:4px; border-radius:9px; background:#fff; }
+.inventory-equipment-links { margin-top:7px; font-size:12px; }
+.inventory-equipment-links summary { width:fit-content; cursor:pointer; color:var(--yellow); }
+.inventory-equipment-links summary:focus-visible { outline:2px solid var(--yellow); outline-offset:3px; }
+.inventory-group .inventory-equipment-links ul { margin:8px 0 2px; gap:8px; }
+.inventory-equipment-links li { padding-left:9px; border-left:2px solid var(--line); }
+.inventory-equipment-links li strong { font-size:12px; font-weight:600; }
 
 .inventory-group ul,
 .inventory-links {
@@ -417,6 +431,7 @@ a.equipment-card:hover {
 .inventory-model-copy > strong {
   display: block;
 }
+.inventory-model-copy > .inventory-piece-match { color:var(--yellow); overflow-wrap:anywhere; }
 
 .inventory-model-copy > small,
 .inventory-model-english {

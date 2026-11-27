@@ -23,7 +23,7 @@
     if (pending.has(name)) return pending.get(name);
     const promise = new Promise((resolve, reject) => {
       const script = document.createElement('script');
-      script.src = 'equipos/' + name + '?v=' + (['inventario.js', 'inventario-fotos.js'].includes(name) ? '20261126-inventario-fotos-1' : name === 'plano.js' ? '20261127-copiar-campos-1' : '20261125-perf1');
+      script.src = 'equipos/' + name + '?v=' + (['inventario.js', 'inventario-fotos.js', 'inventario-busqueda.js', 'plano.js'].includes(name) ? '20261127-archivo1' : '20261125-perf1');
       script.onload = () => { script.remove(); resolve(); };
       script.onerror = () => { script.remove(); reject(new Error('No se pudo cargar la vista. Vuelve a intentarlo.')); };
       document.head.append(script);
@@ -33,9 +33,12 @@
   };
   window.openCatalogPlan = async () => {
     const started = performance.now();
-    await Promise.all(['fotos.js', 'catalogo-cambios.js', 'catalogo-edicion.js'].map(window.catalogLoadScript));
-    await window.catalogLoadScript('plano.js');
-    const refresh = await window.openCatalogPlan();
+    // Los módulos solo definen funciones: sus descargas no dependen entre sí.
+    await Promise.all([
+      ...['fotos.js', 'catalogo-cambios.js', 'catalogo-edicion.js', 'plano.js'].map(window.catalogLoadScript),
+      window.catalogLoadModel(window.catalogModelId),
+    ]);
+    const refresh = await window.createCatalogPlan();
     window.catalogMeasure('Catálogo · abrir plano', started);
     return refresh;
   };

@@ -1,9 +1,9 @@
 (() => {
   const models = new Map([
-    ["t600x-sf", ["catalogo-assets/mtm3839-datos.js", () => window.matrixT600xCatalog]],
-    ["e-es-f", ["catalogo-assets/eliptica-e-es-f/datos.js", () => window.ellipticalCatalog]],
-    ["hs-abc", ["catalogo-assets/hs-abc/datos.js", () => window.hammerAbdominalCatalog]],
-    ["rt-g2", ["catalogo-assets/movement-rt-g2/datos.js", () => window.movementRtG2Catalog]],
+    ["t600x-sf", ["catalogo-assets/mtm3839-datos.js?v=20261127-perf2", () => window.matrixT600xCatalog]],
+    ["e-es-f", ["catalogo-assets/eliptica-e-es-f/datos.js?v=20261127-perf2", () => window.ellipticalCatalog]],
+    ["hs-abc", ["catalogo-assets/hs-abc/datos.js?v=20261127-perf2", () => window.hammerAbdominalCatalog]],
+    ["rt-g2", ["catalogo-assets/movement-rt-g2/datos.js?v=20261127-perf2", () => window.movementRtG2Catalog]],
     ...window.catalogManuals.map(({ id, revision }) => [
       id, [`catalogo-assets/manuales/${id}/datos.js?v=${revision}`, () => window.catalogModelData[id]],
     ]),

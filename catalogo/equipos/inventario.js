@@ -43,6 +43,31 @@ window.createCatalogInventory = (brands, models) => {
     .map(([id, name]) => `<option value="${esc(id)}">${esc(name)}</option>`).join("");
   const indexes = new Map();
   const partPhotos = new Map();
+  let inventoryMarkup;
+  const brandSelections=new Set();
+  let equipmentSearch;
+  let searchModule;
+  const brandSearchReady=new Set(), brandSearchPending=new Map(), brandSearchErrors=new Set();
+  const brandSearchWarnings=new Set();
+  let modelSearchTimer;
+  async function prepareEquipmentSearch(){
+    if(!modelsDialog.open || !modelSearch.value.trim() || !brandSelections.size)return;
+    if(!searchModule)searchModule=window.catalogLoadScript('inventario-busqueda.js').then(()=>{equipmentSearch=window.createCatalogEquipmentSearch();}).catch(error=>{searchModule=null;throw error;});
+    await searchModule;
+    await Promise.all([...brandSelections].map(brand=>{
+      if(brandSearchReady.has(brand))return;
+      if(brandSearchPending.has(brand))return brandSearchPending.get(brand);
+      const revision=sessionVersion;
+      const showAvailable=()=>{if(revision===sessionVersion){brandSearchReady.add(brand);if(modelsDialog.open)renderModelChoices(false);}};
+      const task=equipmentSearch.prepare(brand,showAvailable).then(result=>{if(revision===sessionVersion){brandSearchReady.add(brand);if(result?.partial)brandSearchWarnings.add(brand);else brandSearchWarnings.delete(brand);}}).catch(()=>{if(revision===sessionVersion)brandSearchErrors.add(brand);}).finally(()=>{if(brandSearchPending.get(brand)===task)brandSearchPending.delete(brand);if(revision===sessionVersion&&modelsDialog.open)renderModelChoices(false);});
+      brandSearchPending.set(brand,task);return task;
+    }));
+  }
+  const brandChoices=document.createElement('fieldset');
+  brandChoices.className='inventory-brand-choices';
+  brandChoices.innerHTML='<legend>Selecciona las marcas</legend>'+brands.filter(([id])=>catalogModels.some(model=>model.brand===id)).map(([id,name])=>`<label><input type="checkbox" value="${esc(id)}"> ${esc(name)}</label>`).join('');
+  modelSearch.closest('label').before(brandChoices);
+  brandChoices.onchange=()=>{brandSelections.clear();brandChoices.querySelectorAll('input:checked').forEach(input=>brandSelections.add(input.value));renderModelChoices();};
   const thumbnails = window.createCatalogInventoryPhotos();
   const pickerErrors = new Set();
   let matrixChanges;
@@ -150,15 +175,16 @@ window.createCatalogInventory = (brands, models) => {
   async function indexModel(modelId, force = false, loadedBrandRows) {
     const model = modelsById.get(modelId);
     if (!model) return;
-    const base = await window.catalogLoadModel(modelId);
     const [prefix, scoped, manual] = sources.get(modelId);
     const storage = "smartfit-catalog:" + prefix;
-    const remote = window.CatalogSync.active
-      ? await window.CatalogSync.forModel(modelId).read(force)
-      : modelId === "t600x-sf" ? matrixChanges : undefined;
+    const [base, remote, brandRows] = await Promise.all([
+      window.catalogLoadModel(modelId),
+      window.CatalogSync.active ? window.CatalogSync.forModel(modelId).read(force)
+        : modelId === "t600x-sf" ? matrixChanges : undefined,
+      loadedBrandRows || (window.CatalogSync.active ? window.CatalogSync.readBrandNames(model.brand,force) : []),
+    ]);
     const localNames = remote ? null : storedValue(storage + ":technical-names:v1");
     const localMarkers = remote ? null : storedValue(storage + ":manual-refs:v1");
-    const brandRows = loadedBrandRows || (window.CatalogSync.active ? await window.CatalogSync.readBrandNames(model.brand,force) : []);
     const sharedNames = window.catalogNameIndex(model.brand,brandRows);
     const cached = indexes.get(modelId);
     if (cached && cached.remote === remote && cached.brandRows === brandRows && cached.localNames === localNames && cached.localMarkers === localMarkers) return false;
@@ -170,6 +196,7 @@ window.createCatalogInventory = (brands, models) => {
       : parseStored(localNames, {});
     const partsById = new Map();
     const photoVersions = new Map((remote || []).filter(row => row.tipo === 'foto' && row.valor).map(row => [row.clave, row.valor]));
+    const sharedPhotos = window.catalogPhotoIndex(model.brand,brandRows);
     const brand = brandNames.get(model.brand);
     const equipmentNames = window.catalogEquipmentName?.(model) || { es: model.name, en: "" };
     const equipment = equipmentNames.es + " " + model.model;
@@ -187,7 +214,12 @@ window.createCatalogInventory = (brands, models) => {
         const name = window.catalogTechnicalName(model.brand,part,names,nameKey,sharedNames);
         const original = window.catalogReferenceOriginal(part);
         const id = JSON.stringify([model.id, scoped ? view.id : "", original.item.trim().toUpperCase(), original.reference, original.sap]);
-        if (photoVersions.has(nameKey)) partPhotos.set(id, { modelId, key: nameKey, version: photoVersions.get(nameKey) });
+        const sharedPhotoKey = window.catalogPartNameKey(model.brand,part);
+        if (sharedPhotos.has(sharedPhotoKey)) {
+          const sharedPhoto=sharedPhotos.get(sharedPhotoKey);
+          if(sharedPhoto)partPhotos.set(id,sharedPhoto);else partPhotos.delete(id);
+        }
+        else if (photoVersions.has(nameKey)) partPhotos.set(id, { modelId, key: nameKey, version: photoVersions.get(nameKey) });
         else partPhotos.delete(id);
         partsById.set(id, {
           id, modelId: model.id, brand, equipment, modelName: equipmentNames.es,
@@ -206,6 +238,28 @@ window.createCatalogInventory = (brands, models) => {
   const partCode = part => [
     part.item && "Ítem " + part.item, part.reference && "Ref. " + part.reference, part.sap && "SAP " + part.sap,
   ].filter(Boolean).join(" · ");
+  const pieceDialog=document.createElement('dialog');
+  pieceDialog.className='ref-dialog inventory-piece-dialog';
+  pieceDialog.setAttribute('aria-label','Repuesto y equipos vinculados');
+  document.body.append(pieceDialog);
+  function catalogLink(part){
+    const model=modelsById.get(part.modelId);
+    if(!model)return '';
+    const url=new URL('catalogo.html',location.href);
+    url.searchParams.set('equipo',part.modelId);
+    const previewUser=new URLSearchParams(location.search).get('preview_user');
+    if(previewUser)url.searchParams.set('preview_user',previewUser);
+    url.hash=`equipos/${model.brand}/${model.id}`;
+    return url.href;
+  }
+  function showRecord(record){
+    if(!record)return;
+    const parts=record.links.map(currentPart);
+    const part=parts.find(link=>partTechnicalName(link))||parts[0];
+    pieceDialog.innerHTML=`<form method="dialog"><h2>${esc(partTechnicalName(part)||part.name)}</h2><p>${record.quantity===null?'Sin control de stock':esc(record.quantity)+' unidades'}${record.links.length>1?' · Registro vinculado a varios equipos':''}</p><h3>Catálogos y equipos vinculados</h3><ul class="inventory-links">${parts.map(link=>`<li class="inventory-row"><div><strong>${esc(equipmentLabel(link))}</strong><small>${esc([link.model,partCode(link)].filter(Boolean).join(' · '))}</small></div>${catalogLink(link)?`<a class="btn" href="${esc(catalogLink(link))}">Ver catálogo →</a>`:''}</li>`).join('')}</ul><div class="ref-actions">${window.CatalogSync.canWrite?'<button class="btn primary" type="button" data-edit-piece>Editar repuesto</button>':''}<button class="btn" value="close">Cerrar</button></div></form>`;
+    pieceDialog.querySelector('[data-edit-piece]')?.addEventListener('click',()=>{pieceDialog.close();open(record);});
+    pieceDialog.showModal();
+  }
   const equipmentLabel = part => [part.brand, part.equipment, part.scope].filter(Boolean).join(" · ");
   const modelLabel = model => {
     const names = window.catalogEquipmentName?.(model) || { es: model.name, en: "" };
@@ -238,7 +292,16 @@ window.createCatalogInventory = (brands, models) => {
     $("inventoryAdd").disabled = !inventoryReady || inventoryWriting;
     const query = normalize(inventorySearch.value);
     const brand = inventoryBrand.value;
+    $("inventoryAdd").hidden=!canWrite || Boolean(brand);
     const stock = records();
+    const list = $("inventoryList");
+    if(!brand && !query){
+      const counts=new Map();
+      for(const record of stock)for(const name of new Set(record.links.map(link=>currentPart(link).brand)))counts.set(name,(counts.get(name)||0)+1);
+      const markup='<div class="equipment-grid inventory-brand-grid">'+brands.map(([id,name])=>`<button class="equipment-card equipment-brand-card" type="button" data-inventory-brand="${esc(name)}"><span class="equipment-brand-info"><strong>${esc(name)}</strong><span>${counts.get(name)||0} repuestos · Ver inventario →</span></span><span class="equipment-brand-logo"><img src="${id==='shua'?'marcas/shua/Shua_Logo.avif':`catalogo-assets/logos-mini/${id}.png`}" alt="" width="72" height="72" loading="lazy" decoding="async"></span></button>`).join('')+'</div>';
+      if(markup!==inventoryMarkup){inventoryMarkup=markup;list.innerHTML=markup;thumbnails.watch(list,new Map());}
+      return;
+    }
     const groups = new Map();
     const visiblePhotos = new Map();
     function photoMarkup(record, link) {
@@ -248,38 +311,56 @@ window.createCatalogInventory = (brands, models) => {
       return `<button class="inventory-part-photo" type="button" ${source ? `data-inventory-photo="${esc(id)}"` : ''} data-photo-label="${esc(partTechnicalName(link) || link.name)}" aria-label="Sin fotografía de ${esc(partTechnicalName(link) || link.name)}" disabled><span>Sin foto</span></button>`;
     }
     for (const record of stock) {
+      const byBrand=new Map();
       for (const link of record.links.map(currentPart)) {
         if (brand && link.brand !== brand) continue;
-        if (query && !matchesPartSearch(link, query)) continue;
-        const groupKey = [link.brand, link.modelName || link.equipment, link.model && "Modelo: " + link.model]
-          .filter(Boolean).join(" · ");
-        if (!groups.has(groupKey)) groups.set(groupKey, { modelEnglish: link.modelEnglish, rows: [] });
-        groups.get(groupKey).rows.push({ record, link });
+        if(!byBrand.has(link.brand))byBrand.set(link.brand,[]);
+        byBrand.get(link.brand).push(link);
+      }
+      for(const [group, linked] of byBrand){
+        if(query && !linked.some(link=>matchesPartSearch(link,query)))continue;
+        const matching=query ? linked.filter(part=>matchesPartSearch(part,query)) : linked;
+        const link=matching.find(part=>partTechnicalName(part)) || matching[0];
+        if(!groups.has(group))groups.set(group,{rows:[]});
+        groups.get(group).rows.push({record,link,linked});
       }
     }
-    const list = $("inventoryList");
-    list.innerHTML = [...groups.entries()].sort(([a], [b]) => a.localeCompare(b, "es"))
-      .map(([group, { modelEnglish, rows }]) => `
+    const markup = (brand?'<button class="btn equipment-back" type="button" data-inventory-back>← Volver a marcas</button>':'')+([...groups.entries()].sort(([a], [b]) => a.localeCompare(b, "es"))
+      .map(([group, { rows }]) => {
+        const brandId=brands.find(([,name])=>name===group)?.[0];
+        const logo=brandId==='shua' ? 'marcas/shua/Shua_Logo.avif' : brandId ? `catalogo-assets/logos-mini/${brandId}.png` : '';
+        return `
         <section class="inventory-group">
-          <h3>${esc(group)}</h3>
-          ${modelEnglish ? `<small class="inventory-model-english">${esc(modelEnglish)}</small>` : ""}
-          <ul>${rows.sort((a, b) => (partTechnicalName(a.link) || a.link.name || "").localeCompare(partTechnicalName(b.link) || b.link.name || "", "es")).map(({ record, link }) => `
+          <h3 class="inventory-brand-heading">${logo?`<img src="${logo}" alt="" width="42" height="42" loading="lazy" decoding="async">`:''}<span>${esc(group)}</span></h3>
+          <ul>${rows.sort((a, b) => (partTechnicalName(a.link) || a.link.name || "").localeCompare(partTechnicalName(b.link) || b.link.name || "", "es")).map(({ record, link, linked }) => `
             <li class="inventory-row inventory-list-row">
               ${photoMarkup(record, link)}
               <div class="inventory-part-copy">
                 <strong class="inventory-part-technical">${esc(partTechnicalName(link) || link.name)}</strong>
                 ${partSupplierName(link) ? `<small class="inventory-part-supplier">${esc(partSupplierName(link))}</small>` : ""}
-                <small>${esc([link.scope, partCode(link)].filter(Boolean).join(" · "))}</small>
+                <small>${esc([link.reference && 'Ref. '+link.reference,link.sap && 'SAP '+link.sap].filter(Boolean).join(' · '))}</small>
+                <details class="inventory-equipment-links" data-inventory-links="${esc(record.id+':'+group)}">
+                  <summary>Ver equipos vinculados (${new Set(linked.map(part=>part.modelId)).size})</summary>
+                  <ul>${linked.map(part=>`<li><strong>${esc(part.modelName || part.equipment || 'Equipo')} ${esc(part.model || '')}</strong><small>${esc([part.scope,partCode(part)].filter(Boolean).join(' · '))}</small></li>`).join('')}</ul>
+                </details>
               </div>
               <span class="inventory-stock-label">${record.quantity === null ? "Sin control de stock" : esc(record.quantity) + (record.links.length > 1 ? " unidades · stock compartido" : " unidades")}</span>
-              ${canWrite ? `<div class="inventory-row-actions">
+              <div class="inventory-row-actions">
+                <button type="button" class="btn" data-view-stock="${esc(record.id)}">Ver</button>
+              ${canWrite ? `
                 <button type="button" class="btn" data-edit-stock="${esc(record.id)}">Editar</button>
-                <button type="button" class="btn" data-delete-stock="${esc(record.id)}">Eliminar</button>
-              </div>` : ""}
+                <button type="button" class="btn" data-delete-stock="${esc(record.id)}">Quitar del inventario</button>
+              ` : ""}</div>
             </li>`).join("")}</ul>
-        </section>`).join("") || `<p class="equipment-empty">${stock.length
+        </section>`;}).join("") || `<p class="equipment-empty">${stock.length
       ? "No hay repuestos que coincidan con la búsqueda o el filtro."
-      : "Todavía no hay repuestos en inventario."}</p>`;
+      : "Todavía no hay repuestos en inventario."}</p>`);
+    // No sustituir filas ni volver a decodificar miniaturas cuando nada cambió.
+    if (markup === inventoryMarkup) return;
+    inventoryMarkup = markup;
+    const expanded=new Set([...list.querySelectorAll('details[open][data-inventory-links]')].map(node=>node.dataset.inventoryLinks));
+    list.innerHTML = markup;
+    list.querySelectorAll('[data-inventory-links]').forEach(node=>{node.open=expanded.has(node.dataset.inventoryLinks);});
     thumbnails.watch(list, visiblePhotos);
   }
 
@@ -368,15 +449,31 @@ window.createCatalogInventory = (brands, models) => {
     }
   }
 
-  function renderModelChoices() {
+  function renderModelChoices(prepare=true) {
     const terms = normalize(modelSearch.value).match(/[\p{L}\p{N}]+/gu) || [];
+    const partMatches=new Map();
     const matches = terms.length ? catalogModels.filter(model => {
+      if(!brandSelections.has(model.brand)||modelDraft.has(model.id))return false;
       const text = normalize(modelLabel(model)).replace(/[^\p{L}\p{N}]/gu, "");
-      return !modelDraft.has(model.id) && terms.every(term => text.includes(term));
+      if(terms.every(term=>text.includes(term)))return true;
+      const part=brandSearchReady.has(model.brand) && equipmentSearch?.find(model,terms,text);
+      if(part)partMatches.set(model.id,part);
+      return Boolean(part);
     }).sort((a, b) => modelLabel(a).localeCompare(modelLabel(b), "es")) : [];
-    modelChoices.innerHTML = matches.slice(0, 8).map(model =>
-      `<button type="button" data-select-model="${esc(model.id)}">＋ <span class="inventory-model-copy">${modelNameMarkup(model)}</span></button>`
-    ).join("") || (terms.length ? '<p>No hay coincidencias disponibles.</p>' : "");
+    const waiting=terms.length && [...brandSelections].some(brand=>!brandSearchReady.has(brand)&&!brandSearchErrors.has(brand));
+    const updating=terms.length && [...brandSelections].some(brand=>brandSearchPending.has(brand));
+    const incomplete=[...brandSelections].some(brand=>brandSearchErrors.has(brand)||brandSearchWarnings.has(brand));
+    modelChoices.innerHTML = matches.slice(0, 8).map(model => {
+      const part=partMatches.get(model.id);
+      return `<button type="button" data-select-model="${esc(model.id)}">＋ <span class="inventory-model-copy">${modelNameMarkup(model)}${part?`<small class="inventory-piece-match">${esc([part.technicalName&&'Nombre técnico: '+part.technicalName,part.reference&&'Ref. '+part.reference,part.sap&&'SAP '+part.sap].filter(Boolean).join(' · '))}</small>`:''}</span></button>`;
+    }
+    ).join("") || (!brandSelections.size ? '<p>Selecciona una o varias marcas y busca los equipos.</p>' : waiting||updating||incomplete ? '' : terms.length ? '<p>No hay coincidencias disponibles.</p>' : "");
+    if(waiting||updating)modelChoices.insertAdjacentHTML('beforeend','<p role="status">Buscando en los repuestos de las marcas seleccionadas…</p>');
+    if(terms.length && incomplete){
+      const unavailable=[...brandSelections].filter(brand=>brandSearchErrors.has(brand)).map(id=>brandNames.get(id));
+      modelChoices.insertAdjacentHTML('beforeend',`<p role="status">${unavailable.length?'No se pudo cargar el índice de '+esc(unavailable.join(', '))+'.':'No se pudieron actualizar los nombres y cambios compartidos. Se muestran los códigos y datos disponibles.'} La búsqueda puede estar incompleta.</p><button type="button" data-retry-model-search>Reintentar consulta</button>`);
+    }
+    if(prepare&&waiting){clearTimeout(modelSearchTimer);modelSearchTimer=setTimeout(()=>prepareEquipmentSearch().catch(()=>{brandSelections.forEach(brand=>brandSearchErrors.add(brand));renderModelChoices(false);}),200);}
     if (matches.length > 8) modelChoices.insertAdjacentHTML("beforeend", "<p>Escribe más detalles para acotar la búsqueda.</p>");
     modelDraftList.innerHTML = [...modelDraft].map(id => {
       const model = catalogModels.find(model => model.id === id);
@@ -388,6 +485,7 @@ window.createCatalogInventory = (brands, models) => {
 
   modelSearch.oninput = renderModelChoices;
   modelChoices.onclick = event => {
+    if(event.target.closest('[data-retry-model-search]')){brandSelections.forEach(brand=>{brandSearchErrors.delete(brand);brandSearchWarnings.delete(brand);brandSearchReady.delete(brand);});renderModelChoices();return;}
     const button = event.target.closest("[data-select-model]");
     if (!button) return;
     modelDraft.add(button.dataset.selectModel);
@@ -408,6 +506,10 @@ window.createCatalogInventory = (brands, models) => {
     modelDraft = new Set([...selectedModels, ...links.map(link => link.modelId)]
       .filter(id => catalogModels.some(model => model.id === id)));
     modelSearch.value = "";
+    brandSearchReady.clear();brandSearchErrors.clear();brandSearchWarnings.clear();
+    brandSelections.clear();
+    for(const id of modelDraft){const brand=modelsById.get(id)?.brand;if(brand)brandSelections.add(brand);}
+    brandChoices.querySelectorAll('input').forEach(input=>{input.checked=brandSelections.has(input.value);});
     $("inventoryModelsStatus").textContent = "";
     renderModelChoices();
     modelsDialog.showModal();
@@ -477,8 +579,8 @@ window.createCatalogInventory = (brands, models) => {
       : [];
     untracked.checked = record?.quantity === null;
     quantity.value = record?.quantity ?? 1;
-    $("inventoryDialogTitle").textContent = editing ? "Editar inventario" : "Agregar a inventario";
-    $("inventorySave").textContent = editing ? "Guardar cambios" : "Agregar a inventario";
+    $("inventoryDialogTitle").textContent = editing ? "Editar repuesto" : "Crear repuesto";
+    $("inventorySave").textContent = editing ? "Guardar cambios" : "Crear repuesto";
     formStatus.textContent = "";
     dialog.showModal();
     if (links.length) {
@@ -496,6 +598,11 @@ window.createCatalogInventory = (brands, models) => {
   inventoryBrand.onchange = renderInventory;
   $("inventoryCancel").onclick = () => dialog.close();
   $("inventoryList").onclick = async event => {
+    const brandCard=event.target.closest('[data-inventory-brand]');
+    if(brandCard){inventoryBrand.value=brandCard.dataset.inventoryBrand;renderInventory();return;}
+    if(event.target.closest('[data-inventory-back]')){inventoryBrand.value='';inventorySearch.value='';renderInventory();return;}
+    const viewButton=event.target.closest('[data-view-stock]');
+    if(viewButton){showRecord(records().find(record=>record.id===viewButton.dataset.viewStock));return;}
     const photo = event.target.closest('[data-inventory-photo]');
     if (photo) { await thumbnails.open(photo); return; }
     if (!window.CatalogSync.canWrite || !inventoryReady || inventoryWriting) return;
@@ -505,9 +612,7 @@ window.createCatalogInventory = (brands, models) => {
       const record = records().find(entry => entry.id === id);
       if (!record) return;
       const name = currentPart(record.links[0]).name;
-      const message = record.links.length > 1
-        ? `¿Eliminar «${name}» del inventario? Se quitará de todos sus equipos vinculados.`
-        : `¿Eliminar «${name}» del inventario?`;
+      const message = `¿Quitar «${name}» del inventario${record.links.length>1?' y de sus vínculos de stock compartido':''}? Los equipos, planos y referencias del catálogo se conservan.`;
       if (!window.confirm(message)) return;
       inventoryWriting = true;
       remove.disabled = true;
@@ -615,8 +720,7 @@ window.createCatalogInventory = (brands, models) => {
     if (dialog.open && modelFilter.value) relevant.add(modelFilter.value);
     referencesLoading = (async () => {
       const brands = [...new Set([...relevant].map(id => modelsById.get(id)?.brand).filter(Boolean))];
-      const values = await Promise.all(brands.map(brand => window.CatalogSync.readBrandNames(brand, force)));
-      const rowsByBrand = new Map(brands.map((brand, index) => [brand, values[index]]));
+      const rowsByBrand = new Map(brands.map(brand => [brand, window.CatalogSync.readBrandNames(brand, force)]));
       return Promise.allSettled([...relevant].map(id => indexModel(id, force, rowsByBrand.get(modelsById.get(id)?.brand))));
     })().then(results => {
       if (version !== sessionVersion) return;
@@ -645,6 +749,7 @@ window.createCatalogInventory = (brands, models) => {
 
   window.addEventListener("catalog-session-ready", () => {
     sessionVersion++;
+    clearTimeout(modelSearchTimer);brandSearchReady.clear();brandSearchErrors.clear();brandSearchWarnings.clear();brandSearchPending.clear();if(equipmentSearch)equipmentSearch=window.createCatalogEquipmentSearch();
     matrixChanges = undefined;
     matrixRefreshedAt = 0;
     loading = null;
@@ -652,6 +757,7 @@ window.createCatalogInventory = (brands, models) => {
     inventoryReady = false;
     lastInventoryRead = 0;
     indexes.clear();
+    inventoryMarkup = undefined;
     partPhotos.clear();
     referencesLoading = null;
     syncInventory(true);
@@ -668,6 +774,8 @@ window.createCatalogInventory = (brands, models) => {
     if (!document.hidden && !$("inventoryView").hidden) syncInventory();
   }, 5000);
   window.addEventListener("catalog-data-changed", () => {
+    brandSearchReady.clear();brandSearchErrors.clear();brandSearchWarnings.clear();
+    if(modelsDialog.open)renderModelChoices();
     if (!$("inventoryView").hidden || dialog.open) refreshReferences(true);
   });
   return refresh;
