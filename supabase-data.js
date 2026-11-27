@@ -80,14 +80,30 @@
     }
   }
   let refreshInFlight = null;
-  async function refreshAuth(force = false) {
+  function sessionId(session) {
+    try {
+      const payload = session.access_token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+      return JSON.parse(atob(payload)).session_id;
+    } catch (_) { return null; }
+  }
+  function replacementSession(previous) {
+    const latest = auth();
+    if (latest?.refresh_token === previous.refresh_token) return null;
+    const id = sessionId(previous);
+    if (id && id === sessionId(latest)) return latest;
+    throw new Error("La sesión cambió. Vuelve a abrir la vista.");
+  }
+  async function refreshAuth(rejected = null) {
     const current = auth();
     if (!current?.refresh_token) throw new Error("La sesión de Supabase venció. Vuelve a iniciar sesión.");
     const expiresAt = Number(current.expires_at) || 0;
-    if (!force && expiresAt > Math.floor(Date.now() / 1000) + 60) return current;
+    if (rejected && replacementSession(rejected)) return current;
+    if (!rejected && expiresAt > Math.floor(Date.now() / 1000) + 60) return current;
     if (refreshInFlight) return refreshInFlight;
 
-    refreshInFlight = (async () => {
+    const renew = async () => {
+      const newer = replacementSession(current);
+      if (newer) return newer;
       const response = await fetch(`${URL}/auth/v1/token?grant_type=refresh_token`, {
         method: "POST",
         headers: { apikey: KEY, "Content-Type": "application/json" },
@@ -96,7 +112,13 @@
       const text = await response.text();
       let result = {};
       try { result = text ? JSON.parse(text) : {}; } catch (error) {}
+      const latest = replacementSession(current);
+      if (latest) return latest;
       if (!response.ok || !result.access_token || !result.refresh_token) {
+        if (["refresh_token_already_used", "refresh_token_not_found"].includes(result.error_code) ||
+            /invalid refresh token|refresh token.*already used/i.test(result.msg || result.message || result.error_description || "")) {
+          throw new Error("Tu sesión venció. Pulsa «Cerrar sesión» y vuelve a ingresar.");
+        }
         throw new Error(result.error_description || result.msg || result.message || "La sesión venció y no se pudo renovar.");
       }
       const next = Object.assign({}, current, result, {
@@ -104,7 +126,10 @@
       });
       sessionStorage.setItem("smartfit.supabase.auth", JSON.stringify(next));
       return next;
-    })();
+    };
+    refreshInFlight = global.navigator?.locks
+      ? global.navigator.locks.request("smartfit.supabase.auth.refresh", renew)
+      : renew();
     try { return await refreshInFlight; }
     finally { refreshInFlight = null; }
   }
@@ -115,7 +140,7 @@
     headers.set("Authorization", `Bearer ${session.access_token}`);
     let response = await fetch(url, Object.assign({}, options, { headers }));
     if (response.status === 401 && session.refresh_token) {
-      session = await refreshAuth(true);
+      session = await refreshAuth(session);
       headers.set("Authorization", `Bearer ${session.access_token}`);
       response = await fetch(url, Object.assign({}, options, { headers }));
     }
