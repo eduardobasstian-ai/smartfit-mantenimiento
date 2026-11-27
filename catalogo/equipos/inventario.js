@@ -42,6 +42,8 @@ window.createCatalogInventory = (brands, models) => {
     .filter(([id]) => catalogModels.some(model => model.brand === id))
     .map(([id, name]) => `<option value="${esc(id)}">${esc(name)}</option>`).join("");
   const indexes = new Map();
+  const partPhotos = new Map();
+  const thumbnails = window.createCatalogInventoryPhotos();
   const pickerErrors = new Set();
   let matrixChanges;
   let loading;
@@ -160,12 +162,14 @@ window.createCatalogInventory = (brands, models) => {
     const sharedNames = window.catalogNameIndex(model.brand,brandRows);
     const cached = indexes.get(modelId);
     if (cached && cached.remote === remote && cached.brandRows === brandRows && cached.localNames === localNames && cached.localMarkers === localMarkers) return false;
+    for (const [id, photo] of partPhotos) if (photo.modelId === modelId) partPhotos.delete(id);
     const data = window.catalogApplyChanges(structuredClone(base), remote ||
       parseStored(localMarkers, []).map(valor => ({ tipo: "marcador", valor })));
     const names = remote
       ? Object.fromEntries(remote.filter(row => row.tipo === "nombre").map(row => [row.clave, row.valor]))
       : parseStored(localNames, {});
     const partsById = new Map();
+    const photoVersions = new Map((remote || []).filter(row => row.tipo === 'foto' && row.valor).map(row => [row.clave, row.valor]));
     const brand = brandNames.get(model.brand);
     const equipmentNames = window.catalogEquipmentName?.(model) || { es: model.name, en: "" };
     const equipment = equipmentNames.es + " " + model.model;
@@ -183,6 +187,8 @@ window.createCatalogInventory = (brands, models) => {
         const name = window.catalogTechnicalName(model.brand,part,names,nameKey,sharedNames);
         const original = window.catalogReferenceOriginal(part);
         const id = JSON.stringify([model.id, scoped ? view.id : "", original.item.trim().toUpperCase(), original.reference, original.sap]);
+        if (photoVersions.has(nameKey)) partPhotos.set(id, { modelId, key: nameKey, version: photoVersions.get(nameKey) });
+        else partPhotos.delete(id);
         partsById.set(id, {
           id, modelId: model.id, brand, equipment, modelName: equipmentNames.es,
           modelEnglish: equipmentNames.en, model: model.model,
@@ -234,6 +240,13 @@ window.createCatalogInventory = (brands, models) => {
     const brand = inventoryBrand.value;
     const stock = records();
     const groups = new Map();
+    const visiblePhotos = new Map();
+    function photoMarkup(record, link) {
+      const source = partPhotos.get(link.id) || record.links.map(part => partPhotos.get(part.id)).find(Boolean);
+      const id = source ? JSON.stringify([source.modelId, source.key, source.version]) : '';
+      if (source) visiblePhotos.set(id, source);
+      return `<button class="inventory-part-photo" type="button" ${source ? `data-inventory-photo="${esc(id)}"` : ''} data-photo-label="${esc(partTechnicalName(link) || link.name)}" aria-label="Sin fotografía de ${esc(partTechnicalName(link) || link.name)}" disabled><span>Sin foto</span></button>`;
+    }
     for (const record of stock) {
       for (const link of record.links.map(currentPart)) {
         if (brand && link.brand !== brand) continue;
@@ -251,13 +264,14 @@ window.createCatalogInventory = (brands, models) => {
           <h3>${esc(group)}</h3>
           ${modelEnglish ? `<small class="inventory-model-english">${esc(modelEnglish)}</small>` : ""}
           <ul>${rows.sort((a, b) => (partTechnicalName(a.link) || a.link.name || "").localeCompare(partTechnicalName(b.link) || b.link.name || "", "es")).map(({ record, link }) => `
-            <li class="inventory-row">
+            <li class="inventory-row inventory-list-row">
+              ${photoMarkup(record, link)}
               <div class="inventory-part-copy">
                 <strong class="inventory-part-technical">${esc(partTechnicalName(link) || link.name)}</strong>
                 ${partSupplierName(link) ? `<small class="inventory-part-supplier">${esc(partSupplierName(link))}</small>` : ""}
                 <small>${esc([link.scope, partCode(link)].filter(Boolean).join(" · "))}</small>
               </div>
-              <span>${record.quantity === null ? "Sin control de stock" : esc(record.quantity) + (record.links.length > 1 ? " unidades · stock compartido" : " unidades")}</span>
+              <span class="inventory-stock-label">${record.quantity === null ? "Sin control de stock" : esc(record.quantity) + (record.links.length > 1 ? " unidades · stock compartido" : " unidades")}</span>
               ${canWrite ? `<div class="inventory-row-actions">
                 <button type="button" class="btn" data-edit-stock="${esc(record.id)}">Editar</button>
                 <button type="button" class="btn" data-delete-stock="${esc(record.id)}">Eliminar</button>
@@ -266,6 +280,7 @@ window.createCatalogInventory = (brands, models) => {
         </section>`).join("") || `<p class="equipment-empty">${stock.length
       ? "No hay repuestos que coincidan con la búsqueda o el filtro."
       : "Todavía no hay repuestos en inventario."}</p>`;
+    thumbnails.watch(list, visiblePhotos);
   }
 
   function renderPicker() {
@@ -481,6 +496,8 @@ window.createCatalogInventory = (brands, models) => {
   inventoryBrand.onchange = renderInventory;
   $("inventoryCancel").onclick = () => dialog.close();
   $("inventoryList").onclick = async event => {
+    const photo = event.target.closest('[data-inventory-photo]');
+    if (photo) { await thumbnails.open(photo); return; }
     if (!window.CatalogSync.canWrite || !inventoryReady || inventoryWriting) return;
     const remove = event.target.closest("[data-delete-stock]");
     if (remove) {
@@ -635,6 +652,7 @@ window.createCatalogInventory = (brands, models) => {
     inventoryReady = false;
     lastInventoryRead = 0;
     indexes.clear();
+    partPhotos.clear();
     referencesLoading = null;
     syncInventory(true);
     if (!$("inventoryView").hidden) refresh();

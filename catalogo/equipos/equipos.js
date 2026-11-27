@@ -107,7 +107,7 @@
     if (inventoryLoading) return inventoryLoading;
     document.getElementById('inventoryAdd').disabled = true;
     const started = performance.now();
-    inventoryLoading = Promise.all(['catalogo-cambios.js', 'inventario.js'].map(window.catalogLoadScript)).then(() => {
+    inventoryLoading = Promise.all(['catalogo-cambios.js', 'inventario-fotos.js', 'inventario.js'].map(window.catalogLoadScript)).then(() => {
       inventoryController = window.createCatalogInventory(brands, models);
       if (!inventory.hidden) inventoryController();
       window.catalogMeasure('Catálogo · abrir inventario', started);

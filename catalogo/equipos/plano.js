@@ -224,10 +224,10 @@ function applyMarkerSearch(){const markers=[...marks.querySelectorAll('.hotspot'
       detail.innerHTML = `<h3>Referencia ${esc(part.reference || part.sap || part.item)}</h3>
             <p class="detail-sub">${hasMarker ? 'Referencia del listado del conjunto.' : 'Esta referencia aún no tiene un marcador vinculado en esta vista.'}</p>
             <table class="table"><tbody>
-              <tr><th>Item No.</th><td>${esc(part.item || '—')}</td></tr>
-              <tr><th>Reference No.</th><td>${esc(part.reference || '—')}</td></tr>
+              <tr><th>Item No.</th><td>${copyFieldMarkup(part.item,"Item No.")}</td></tr>
+              <tr><th>Reference No.</th><td>${copyFieldMarkup(part.reference,"Reference No.")}</td></tr>
               <tr><th>SAP Parts No.</th><td>${sapMarkup(part.sap)}</td></tr>
-              <tr><th>Descripción</th><td>${esc(part.description || '—')}</td></tr>
+              <tr><th>Descripción</th><td>${copyFieldMarkup(part.description,"Description")}</td></tr>
               ${part.quantity ? `<tr><th>Cantidad en el conjunto</th><td>${esc(part.quantity)}</td></tr>` : ''}
             </tbody></table>`;
     }
@@ -271,23 +271,28 @@ function applyMarkerSearch(){const markers=[...marks.querySelectorAll('.hotspot'
       });
     }
 
-    function renderDetail(){if(selected?.variantItems && !selected.part){renderMarkerVariants(selected);return;}if(!selected){detail.innerHTML='<h3>Pieza seleccionada</h3><p class="detail-sub">Elige una llamada del plano o una fila del listado.</p><div class="photo">La fotografía real de la pieza se puede cargar para esta referencia.</div><div class="empty">Los campos de la pieza aparecerán aquí.</div>';return}const item=selected.item,p=selected.part||partFor(item)||{},photoKey=pieceKey(item,view,p);let url=photoUrls.get(photoKey);detail.innerHTML=`<h3>Pieza ${esc(item)}</h3><p class="detail-sub">Plano ${esc(view.drawing||data.drawing)}${selected.qty == null || usesAssemblyBom ? '' : ' · cantidad de esta llamada: ' + selected.qty}</p>${manualModel && !selected.key ? '<p class="fine">Sin marcador en esta vista.</p>' : ''}<div class="photo">${url?`<img src="${url}" alt="Fotografía local de ${esc(item)}" title="Tocar o hacer clic para ampliar">`:'Sin fotografía real cargada para esta pieza.'}</div><table class="table"><tbody><tr><th>Item No.</th><td><strong>${esc(p.item||item)}</strong></td></tr><tr><th>Nombre técnico</th><td>${technicalNameMarkup(item)}</td></tr><tr><th>Reference No.</th><td>${esc(p.reference||'Sin coincidencia en BOM')}</td></tr><tr><th>SAP Parts No.</th><td>${sapMarkup(p.sap, 'Sin coincidencia en BOM')}</td></tr><tr><th>Description</th><td>${esc(p.description||'Sin coincidencia en BOM')}</td></tr><tr><th>${usesAssemblyBom?'Cantidad en el conjunto':'Cantidad en plano'}</th><td>${selected.qty == null ? 'No indicada' : selected.qty + (selected.qty===1?' unidad':' unidades')}${usesAssemblyBom||selected.qty==null?'':` (llamada ${esc(item)}${selected.qty>1?' ×'+selected.qty:''})`}</td></tr></tbody></table>${movementVariantsMarkup(item)}<div class="upload"><span class="upload-label">Cargar Foto</span><input id="partPhoto" type="file" accept="image/*"><button class="btn ${url?'':'hidden'}" id="removePhoto" type="button">Quitar foto</button></div><p class="fine" id="photoSaveNotice">${esc(photoSaveNotice||(sync.active?'La foto se optimiza y se guarda en el catálogo compartido.':'La foto se guarda en este navegador.'))}</p>`;if(window.CatalogSync.active&&!window.CatalogSync.canWrite){detail.querySelector(".upload").hidden=true;detail.querySelectorAll(".technical-name-box button, .technical-name-box input").forEach(control=>control.hidden=true);}bindTechnicalNameControls(item);const preview=document.querySelector('.photo img');preview?.addEventListener('click',()=>{const dialog=document.getElementById('photoPreviewDialog'),image=document.getElementById('photoPreviewImage');image.src=preview.src;image.alt=`Fotografía ampliada de ${item}`;dialog.showModal()});const f=document.getElementById('partPhoto');f.onchange=async()=>{const file=f.files?.[0],forItem=photoKey;if(!file)return;if(!file.type.startsWith('image/')){photoSaveNotice='El archivo seleccionado no es una imagen.';renderDetail();return}f.disabled=true;document.getElementById('removePhoto').disabled=true;document.getElementById('photoSaveNotice').textContent='Optimizando y guardando la foto…';try{const optimized=await window.CatalogPhotos.optimize(file);await writePhoto(forItem,optimized);const old=photoUrls.get(forItem);if(old)URL.revokeObjectURL(old);photoUrls.set(forItem,URL.createObjectURL(optimized));photoSaveNotice=optimized.size<file.size?'Foto guardada con '+Math.round((1-optimized.size/file.size)*100)+' % menos peso y sus dimensiones originales.':(sync.active?'Foto publicada.':'Foto original guardada en este navegador.');if(selected && pieceKey(selected.item,view,selected.part||partFor(selected.item))===forItem)renderDetail()}catch(error){photoSaveNotice=`No se pudo guardar la foto: ${error.message||'revisa el espacio disponible del navegador.'}`;if(selected && pieceKey(selected.item,view,selected.part||partFor(selected.item))===forItem)renderDetail()}};document.getElementById('removePhoto')?.addEventListener('click',async()=>{try{await deletePhoto(photoKey);const old=photoUrls.get(photoKey);if(old)URL.revokeObjectURL(old);photoUrls.delete(photoKey);photoSaveNotice='Foto eliminada.'}catch(error){photoSaveNotice=`No se pudo eliminar la foto: ${error.message||''}`}if(selected && pieceKey(selected.item,view,selected.part||partFor(selected.item))===photoKey)renderDetail()});if(!url){readPhoto(photoKey).then(blob=>{if(!blob||photoUrls.has(photoKey))return;photoUrls.set(photoKey,URL.createObjectURL(blob));if(selected && pieceKey(selected.item,view,selected.part||partFor(selected.item))===photoKey)renderDetail()}).catch(()=>{photoSaveNotice='No se pudo cargar la foto.'; const notice=document.getElementById('photoSaveNotice');if(selected && pieceKey(selected.item,view,selected.part||partFor(selected.item))===photoKey&&notice)notice.textContent=photoSaveNotice;})}}
+    function renderDetail(){if(selected?.variantItems && !selected.part){renderMarkerVariants(selected);return;}if(!selected){detail.innerHTML='<h3>Pieza seleccionada</h3><p class="detail-sub">Elige una llamada del plano o una fila del listado.</p><div class="photo">La fotografía real de la pieza se puede cargar para esta referencia.</div><div class="empty">Los campos de la pieza aparecerán aquí.</div>';return}const item=selected.item,p=selected.part||partFor(item)||{},photoKey=pieceKey(item,view,p);let url=photoUrls.get(photoKey);detail.innerHTML=`<h3>Pieza ${esc(item)}</h3><p class="detail-sub">Plano ${esc(view.drawing||data.drawing)}${selected.qty == null || usesAssemblyBom ? '' : ' · cantidad de esta llamada: ' + selected.qty}</p>${manualModel && !selected.key ? '<p class="fine">Sin marcador en esta vista.</p>' : ''}<div class="photo">${url?`<img src="${url}" alt="Fotografía local de ${esc(item)}" title="Tocar o hacer clic para ampliar">`:'Sin fotografía real cargada para esta pieza.'}</div><table class="table"><tbody><tr><th>Item No.</th><td>${copyFieldMarkup(p.item||item,"Item No.")}</td></tr><tr><th>Nombre técnico</th><td>${technicalNameMarkup(item)}</td></tr><tr><th>Reference No.</th><td>${copyFieldMarkup(p.reference,"Reference No.","Sin coincidencia en BOM")}</td></tr><tr><th>SAP Parts No.</th><td>${sapMarkup(p.sap, 'Sin coincidencia en BOM')}</td></tr><tr><th>Description</th><td>${copyFieldMarkup(p.description,"Description","Sin coincidencia en BOM")}</td></tr><tr><th>${usesAssemblyBom?'Cantidad en el conjunto':'Cantidad en plano'}</th><td>${selected.qty == null ? 'No indicada' : selected.qty + (selected.qty===1?' unidad':' unidades')}${usesAssemblyBom||selected.qty==null?'':` (llamada ${esc(item)}${selected.qty>1?' ×'+selected.qty:''})`}</td></tr></tbody></table>${movementVariantsMarkup(item)}<div class="upload"><span class="upload-label">Cargar Foto</span><input id="partPhoto" type="file" accept="image/*"><button class="btn ${url?'':'hidden'}" id="removePhoto" type="button">Quitar foto</button></div><p class="fine" id="photoSaveNotice">${esc(photoSaveNotice||(sync.active?'La foto se optimiza y se guarda en el catálogo compartido.':'La foto se guarda en este navegador.'))}</p>`;if(window.CatalogSync.active&&!window.CatalogSync.canWrite){detail.querySelector(".upload").hidden=true;detail.querySelectorAll(".technical-name-box button, .technical-name-box input").forEach(control=>control.hidden=true);}bindTechnicalNameControls(item);const preview=document.querySelector('.photo img');preview?.addEventListener('click',()=>{const dialog=document.getElementById('photoPreviewDialog'),image=document.getElementById('photoPreviewImage');image.src=preview.src;image.alt=`Fotografía ampliada de ${item}`;dialog.showModal()});const f=document.getElementById('partPhoto');f.onchange=async()=>{const file=f.files?.[0],forItem=photoKey;if(!file)return;if(!file.type.startsWith('image/')){photoSaveNotice='El archivo seleccionado no es una imagen.';renderDetail();return}f.disabled=true;document.getElementById('removePhoto').disabled=true;document.getElementById('photoSaveNotice').textContent='Optimizando y guardando la foto…';try{const optimized=await window.CatalogPhotos.optimize(file);await writePhoto(forItem,optimized);const old=photoUrls.get(forItem);if(old)URL.revokeObjectURL(old);photoUrls.set(forItem,URL.createObjectURL(optimized));photoSaveNotice=optimized.size<file.size?'Foto guardada con '+Math.round((1-optimized.size/file.size)*100)+' % menos peso y sus dimensiones originales.':(sync.active?'Foto publicada.':'Foto original guardada en este navegador.');if(selected && pieceKey(selected.item,view,selected.part||partFor(selected.item))===forItem)renderDetail()}catch(error){photoSaveNotice=`No se pudo guardar la foto: ${error.message||'revisa el espacio disponible del navegador.'}`;if(selected && pieceKey(selected.item,view,selected.part||partFor(selected.item))===forItem)renderDetail()}};document.getElementById('removePhoto')?.addEventListener('click',async()=>{try{await deletePhoto(photoKey);const old=photoUrls.get(photoKey);if(old)URL.revokeObjectURL(old);photoUrls.delete(photoKey);photoSaveNotice='Foto eliminada.'}catch(error){photoSaveNotice=`No se pudo eliminar la foto: ${error.message||''}`}if(selected && pieceKey(selected.item,view,selected.part||partFor(selected.item))===photoKey)renderDetail()});if(!url){readPhoto(photoKey).then(blob=>{if(!blob||photoUrls.has(photoKey))return;photoUrls.set(photoKey,URL.createObjectURL(blob));if(selected && pieceKey(selected.item,view,selected.part||partFor(selected.item))===photoKey)renderDetail()}).catch(()=>{photoSaveNotice='No se pudo cargar la foto.'; const notice=document.getElementById('photoSaveNotice');if(selected && pieceKey(selected.item,view,selected.part||partFor(selected.item))===photoKey&&notice)notice.textContent=photoSaveNotice;})}}
+    function copyFieldMarkup(value, label, fallback = '—') {
+      const text = String(value ?? '');
+      if (!text.trim()) return esc(fallback);
+      const tooltip = 'Copiar ' + label;
+      return `<div class="sap-copy-field"><strong class="sap-copy-value">${esc(text)}</strong><button class="sap-copy-button" type="button" data-copy-value="${esc(text)}" data-copy-label="${esc(label)}" data-tooltip="${esc(tooltip)}" aria-label="${esc(tooltip)}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true" focusable="false"><rect x="8" y="8" width="12" height="13" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/></svg></button></div>`;
+    }
     function sapMarkup(value, fallback = '—') {
-      const sap = String(value || '').trim();
-      if (!sap) return esc(fallback);
-      return `<div class="sap-copy-field"><strong class="sap-copy-value">${esc(sap)}</strong><button class="sap-copy-button" type="button" data-copy-sap="${esc(sap)}" data-tooltip="Copiar SAP" aria-label="Copiar SAP"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true" focusable="false"><rect x="8" y="8" width="12" height="13" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/></svg></button></div>`;
+      return copyFieldMarkup(value, 'SAP', fallback);
     }
     detail.addEventListener('click', async event => {
-      const button = event.target.closest('[data-copy-sap]');
+      const button = event.target.closest('[data-copy-value]');
       if (!button) return;
-      const sap = button.dataset.copySap;
+      const text = button.dataset.copyValue;
+      const label = 'Copiar ' + button.dataset.copyLabel;
       try {
         try {
           if (!navigator.clipboard?.writeText) throw new Error('Sin portapapeles');
-          await navigator.clipboard.writeText(sap);
+          await navigator.clipboard.writeText(text);
         } catch {
           const input = document.createElement('textarea');
-          input.value = sap;
+          input.value = text;
           input.style.cssText = 'position:fixed;opacity:0;pointer-events:none;top:0;left:0';
           document.body.append(input);
           let copied;
@@ -295,15 +300,15 @@ function applyMarkerSearch(){const markers=[...marks.querySelectorAll('.hotspot'
           finally { input.remove(); button.focus({ preventScroll: true }); }
           if (!copied) throw new Error('No se pudo copiar');
         }
-        button.dataset.tooltip = 'SAP copiado';
-        button.setAttribute('aria-label', 'SAP copiado');
+        button.dataset.tooltip = button.dataset.copyLabel === 'SAP' ? 'SAP copiado' : 'Copiado';
+        button.setAttribute('aria-label', button.dataset.tooltip);
       } catch {
         button.dataset.tooltip = 'No se pudo copiar';
-        button.setAttribute('aria-label', 'No se pudo copiar SAP');
+        button.setAttribute('aria-label', 'No se pudo copiar');
       }
       setTimeout(() => {
-        button.dataset.tooltip = 'Copiar SAP';
-        button.setAttribute('aria-label', 'Copiar SAP');
+        button.dataset.tooltip = label;
+        button.setAttribute('aria-label', label);
       }, 2000);
     });
 

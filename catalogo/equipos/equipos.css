@@ -384,6 +384,36 @@ a.equipment-card:hover {
   color: var(--text);
 }
 
+#inventoryList .inventory-group h3 { font-size: 18px; margin-bottom: 6px; }
+#inventoryList .inventory-model-english { font-size: 12px; margin-bottom: 7px; }
+.inventory-list-row {
+  display: grid; grid-template-columns: 56px minmax(0, 1fr) max-content max-content;
+  gap: 8px 12px; padding: 8px 10px;
+}
+.inventory-part-photo {
+  display: flex; align-items: center; justify-content: center;
+  width: 56px; height: 56px; padding: 0; overflow: hidden;
+  border: 1px solid var(--line); border-radius: 8px; background: #f4f4f6;
+  color: #626977; cursor: zoom-in;
+}
+.inventory-part-photo:disabled { cursor: default; opacity: 1; }
+.inventory-part-photo span { font: 10px system-ui, sans-serif; }
+.inventory-part-photo img { width: 100%; height: 100%; display: block; object-fit: contain; }
+.inventory-part-photo:focus-visible { outline: 2px solid var(--yellow); outline-offset: 2px; }
+.inventory-list-row .inventory-part-technical { font-size: 15px; line-height: 1.25; }
+.inventory-list-row small { margin-top: 3px; font-size: 12px; line-height: 1.25; }
+.inventory-list-row .inventory-part-supplier { font-size: 12px; }
+.inventory-stock-label { font-size: 13px; }
+.inventory-list-row .btn { font-size: 12px; padding: 8px 11px; }
+@media (max-width: 640px) {
+  .inventory-list-row { grid-template-columns: 48px minmax(0, 1fr); gap: 5px 10px; }
+  .inventory-part-photo { width: 48px; height: 48px; }
+  .inventory-list-row .inventory-stock-label,
+  .inventory-list-row > .inventory-row-actions { grid-column: 2; }
+  .inventory-list-row > .inventory-row-actions { justify-content: flex-end; }
+  #inventoryList .inventory-group h3 { font-size: 16px; }
+}
+
 .inventory-model-copy > strong {
   display: block;
 }
