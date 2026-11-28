@@ -1,5 +1,10 @@
 (() => {
   "use strict";
+  const catalog = location.pathname.includes("/catalogo/");
+  // Las comprobaciones automáticas del catálogo no son sesiones de usuarios.
+  if (catalog && (navigator.webdriver === true || window.__SMARTFIT_AUTOMATED_TEST__ === true)) return;
+  const localCatalog = catalog && (location.protocol === 'file:' ||
+    ['localhost','127.0.0.1','[::1]'].includes(location.hostname));
   const base = new URL(".", document.currentScript.src);
   const page = location.pathname.includes("/catalogo/") ? "catalogo" :
     (location.pathname.split("/").pop() || "index.html").replace(/\.html$/, "");
@@ -33,7 +38,7 @@
       const client = window.Sentry;
       client.init({
         dsn: "https://bbd9c78199f3411a1c23bf6ba3505fb3@o4512467577995264.ingest.us.sentry.io/4512467616137216",
-        environment: "production", defaultIntegrations: false, integrations: [],
+        environment: localCatalog ? "development" : "production", defaultIntegrations: false, integrations: [],
         sendDefaultPii: false, maxBreadcrumbs: 0, tracesSampleRate: 0.1,
         tracePropagationTargets: [],
         initialScope: {tags: {pantalla: page, superficie: surface}},

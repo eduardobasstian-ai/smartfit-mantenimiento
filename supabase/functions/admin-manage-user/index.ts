@@ -5,7 +5,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
-const roles = ["Administrador", "Supervisor", "Técnico", "Líder", "Coordinador"];
+const roles = ["Administrador", "Supervisor", "Técnico", "Líder", "Coordinador", "Bodega"];
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 const fail = (message: string, status = 400) => json({ error: message }, status);
 
@@ -51,7 +51,7 @@ Deno.serve(async request => {
   const email = String(body.email || "").trim().toLowerCase();
   const active = body.active !== false;
   const tempPassword = String(body.tempPassword || "");
-  const siteLegacyIds = role === "Administrador" ? [] : [...new Set(Array.isArray(body.siteIds) ? body.siteIds.map(String) : [])];
+  const siteLegacyIds = ["Administrador", "Bodega"].includes(role) ? [] : [...new Set(Array.isArray(body.siteIds) ? body.siteIds.map(String) : [])];
   if (!legacyId || !fullName || !username || !roles.includes(role)) return fail("Completa nombre, usuario y rol válido.");
   if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return fail("Ingresa un correo electrónico válido.");
   if (tempPassword && tempPassword.length < 8) return fail("La clave temporal debe tener al menos 8 caracteres.");

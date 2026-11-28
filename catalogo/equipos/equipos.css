@@ -5,6 +5,23 @@
   background: #191b22;
 }
 
+.orders-export { flex-wrap:wrap; }
+.orders-export button:disabled { opacity:.5; cursor:not-allowed; }
+.orders-filters { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)) auto; align-items:end; gap:14px; }
+.orders-filters label { display:grid; gap:7px; min-width:0; color:var(--muted); font-size:12px; }
+.orders-filters input, .orders-filters select { box-sizing:border-box; width:100%; min-width:0; min-height:44px; padding:10px 12px; border:1px solid var(--line); border-radius:9px; background:#111319; color:var(--text); font:inherit; color-scheme:dark; }
+.orders-filters input:focus-visible, .orders-filters select:focus-visible, .orders-table-wrap:focus-visible { outline:2px solid var(--yellow); outline-offset:2px; }
+.orders-count { margin:20px 0 10px; color:var(--muted); font-size:12px; }
+.orders-table-wrap { max-width:100%; overflow-x:auto; border:1px solid var(--line); border-radius:12px; }
+.orders-table { width:100%; border-collapse:collapse; text-align:left; font-size:13px; }
+.orders-table th { padding:14px 16px; background:#23262e; color:var(--muted); font-weight:600; white-space:nowrap; }
+.orders-table td { padding:16px; border-top:1px solid var(--line); }
+.orders-table .orders-empty { padding:44px 16px; text-align:center; }
+.orders-empty strong, .orders-empty span { display:block; }
+.orders-empty span { margin-top:8px; color:var(--muted); font-size:12px; }
+@media(max-width:900px) { .orders-filters { grid-template-columns:repeat(2,minmax(0,1fr)); } .orders-filters > button { justify-self:start; } }
+@media(max-width:480px) { .orders-filters { grid-template-columns:minmax(0,1fr); } .orders-table { min-width:480px; } }
+
 .catalog-recovery-status {
   position: fixed;
   z-index: 10000;
@@ -341,7 +358,7 @@ a.equipment-card:hover {
 .inventory-brand-choices { display:flex; flex-wrap:wrap; gap:10px 18px; grid-column:1/-1; min-width:0; border:1px solid var(--line); border-radius:9px; padding:12px; margin:0 0 14px; }
 .inventory-brand-choices label { display:flex; align-items:center; gap:6px; font-size:13px; }
 .inventory-piece-dialog > form { padding:24px; }
-#inventoryList > [data-inventory-back] { margin-bottom:18px; }
+#inventoryBack { margin-inline-start:auto; }
 .inventory-brand-heading img { width:42px; height:42px; object-fit:contain; padding:4px; border-radius:9px; background:#fff; }
 .inventory-equipment-links { margin-top:7px; font-size:12px; }
 .inventory-equipment-links summary { width:fit-content; cursor:pointer; color:var(--yellow); }

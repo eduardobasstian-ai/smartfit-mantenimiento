@@ -1,5 +1,6 @@
 window.CatalogSync = (() => {
   let session;
+  let ordersContext;
   const scopes = new Map();
   const brandNames = new Map();
   const photos = new Map();
@@ -231,8 +232,29 @@ window.CatalogSync = (() => {
   }
 
   return {
-    connect(settings) { session = settings; scopes.clear(); brandNames.clear(); clearPhotos(); },
-    disconnect() { session = null; scopes.clear(); brandNames.clear(); clearPhotos(); },
+    connect(settings) { session = settings; ordersContext = null; scopes.clear(); brandNames.clear(); clearPhotos(); },
+    disconnect() { session = null; ordersContext = null; scopes.clear(); brandNames.clear(); clearPhotos(); window.dispatchEvent(new Event('catalog-session-ended')); },
+    get role() { return session?.role || ''; },
+    async readOrdersContext() {
+      if (!session) throw new Error('Inicia sesión para consultar Pedidos.');
+      if (ordersContext?.pending) return ordersContext.pending;
+      if (ordersContext?.data && Date.now()-ordersContext.time < 60000) return ordersContext.data;
+      const current = session;
+      const entry = {};
+      entry.pending = (async () => {
+        const response = await checked(await request('/rest/v1/rpc/catalogo_pedidos_contexto', { method:'POST', headers:{'Content-Type':'application/json'}, body:'{}' }));
+        const data = await response.json();
+        if (current !== session) throw new Error('La sesión cambió.');
+        if (!['administrador','supervisor','bodega'].includes(data?.role) ||
+          !Array.isArray(data.sites) || !Array.isArray(data.technicians) ||
+          data.allSites !== ['administrador','bodega'].includes(data.role) ||
+          data.sites.some(row=>!row.id || typeof row.name !== 'string') ||
+          data.technicians.some(row=>!row.id || typeof row.name !== 'string' || !Array.isArray(row.siteIds))) throw new Error('Alcance de Pedidos inválido.');
+        entry.data = data; entry.time = Date.now(); return data;
+      })().finally(() => { entry.pending = null; if (!entry.data && ordersContext === entry) ordersContext = null; });
+      ordersContext = entry;
+      return entry.pending;
+    },
     readBrandNames,
     forModel: modelScope,
     get active() { return Boolean(session); },

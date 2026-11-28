@@ -91,6 +91,7 @@
   const planModel = document.getElementById("planModel");
   const listQuery = new URLSearchParams(window.location.search).get("buscar") || "";
   const savedParts = document.getElementById("savedPartsView");
+  document.getElementById("ordersFilters").addEventListener("submit", event => event.preventDefault());
   const equipmentNav = document.getElementById("equipmentNav");
   const partsNav = document.getElementById("partsNav");
   const inventoryNav = document.getElementById("inventoryNav");
@@ -102,6 +103,17 @@
   let refreshPlan;
   let inventoryController;
   let inventoryLoading;
+  let ordersController, ordersLoading;
+  function ordersPage() {
+    if (ordersController) return ordersController();
+    if (ordersLoading) return ordersLoading;
+    ordersLoading = window.catalogLoadScript('pedidos.js').then(() => {
+      ordersController = window.createCatalogOrders();
+      return ordersController();
+    }).catch(() => { document.getElementById('ordersScope').textContent = 'No se pudo cargar Pedidos. Vuelve a entrar para reintentar.'; })
+      .finally(() => { ordersLoading = null; });
+    return ordersLoading;
+  }
   function inventoryPage() {
     if (inventoryController) return inventoryController();
     if (inventoryLoading) return inventoryLoading;
@@ -217,10 +229,16 @@
 
   function renderRoute(focusHeading = false) {
     const route = window.location.hash;
+    const warehouse = window.CatalogSync.role === 'bodega';
+    for (const link of [equipmentNav, inventoryNav, document.querySelector('.sidebar > button')]) link.hidden = warehouse;
+    if (warehouse && route !== '#pedidos' && route !== '#repuestos') {
+      history.replaceState(history.state, '', '#pedidos');
+      return renderRoute(focusHeading);
+    }
     const activeModel = modelsById.get(window.catalogModelId);
     const showingParts = route === `#equipos/${activeModel?.brand}/${activeModel?.id}` ||
       (window.catalogModelId === "t600x-sf" && route === "#repuestos/matrix/t600x-sf");
-    const showingSavedParts = route === partsNav.hash;
+    const showingSavedParts = route === partsNav.hash || route === "#repuestos";
     const showingInventory = route === inventoryNav.hash;
     const brand = brands.find(([id]) => route === `#equipos/${id}`);
     directory.hidden = showingParts || showingSavedParts || showingInventory;
@@ -250,6 +268,7 @@
       return;
     }
     if (showingSavedParts) {
+      ordersPage();
       if (focusHeading) document.getElementById("savedPartsTitle").focus();
       return;
     }
@@ -271,6 +290,7 @@
 
   window.addEventListener("hashchange", () => renderRoute(true));
   window.addEventListener("catalog-session-ready", () => {
+    if (window.CatalogSync.role === 'bodega' || !savedParts.hidden) renderRoute();
     if (!parts.hidden && !refreshPlan) loadPlan();
   });
   renderRoute();

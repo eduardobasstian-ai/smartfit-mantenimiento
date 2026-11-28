@@ -1284,6 +1284,7 @@
           site_id: remoteSite.id,
           brand_id: brandId,
           fixed_asset: unit.activeFixed === "" || unit.activeFixed === null || unit.activeFixed === undefined ? null : String(unit.activeFixed),
+          serial_number: String(unit.serialNumber || "").toLocaleUpperCase("es") || null,
           name: String(group.name || "Equipo sin nombre"),
           model: String(group.model || "") || null,
           category: String(group.category || "") || null,
@@ -2104,7 +2105,11 @@
         image: row.image_url || "", quantity: 0, units: []
       };
       const parts = String(row.legacy_id || "").split("::");
-      group.units.push({ unitId: parts.slice(2).join("::") || row.id, activeFixed: row.fixed_asset === null ? "" : Number.isFinite(Number(row.fixed_asset)) ? Number(row.fixed_asset) : row.fixed_asset });
+      group.units.push({
+        unitId: parts.slice(2).join("::") || row.id,
+        activeFixed: row.fixed_asset === null ? "" : Number.isFinite(Number(row.fixed_asset)) ? Number(row.fixed_asset) : row.fixed_asset,
+        serialNumber: String(row.serial_number || "").toLocaleUpperCase("es")
+      });
       group.quantity = group.units.length;
       siteRows.set(groupKey, group);
       equipmentBySite.set(row.site_id, siteRows);

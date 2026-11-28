@@ -292,6 +292,7 @@ window.createCatalogInventory = (brands, models) => {
     $("inventoryAdd").disabled = !inventoryReady || inventoryWriting;
     const query = normalize(inventorySearch.value);
     const brand = inventoryBrand.value;
+    $("inventoryBack").hidden = !brand;
     $("inventoryAdd").hidden=!canWrite || Boolean(brand);
     const stock = records();
     const list = $("inventoryList");
@@ -325,7 +326,7 @@ window.createCatalogInventory = (brands, models) => {
         groups.get(group).rows.push({record,link,linked});
       }
     }
-    const markup = (brand?'<button class="btn equipment-back" type="button" data-inventory-back>← Volver a marcas</button>':'')+([...groups.entries()].sort(([a], [b]) => a.localeCompare(b, "es"))
+    const markup = ([...groups.entries()].sort(([a], [b]) => a.localeCompare(b, "es"))
       .map(([group, { rows }]) => {
         const brandId=brands.find(([,name])=>name===group)?.[0];
         const logo=brandId==='shua' ? 'marcas/shua/Shua_Logo.avif' : brandId ? `catalogo-assets/logos-mini/${brandId}.png` : '';
@@ -596,11 +597,11 @@ window.createCatalogInventory = (brands, models) => {
   $("inventoryAdd").onclick = () => open();
   inventorySearch.oninput = renderInventory;
   inventoryBrand.onchange = renderInventory;
+  $("inventoryBack").onclick = () => { inventoryBrand.value=''; inventorySearch.value=''; renderInventory(); };
   $("inventoryCancel").onclick = () => dialog.close();
   $("inventoryList").onclick = async event => {
     const brandCard=event.target.closest('[data-inventory-brand]');
     if(brandCard){inventoryBrand.value=brandCard.dataset.inventoryBrand;renderInventory();return;}
-    if(event.target.closest('[data-inventory-back]')){inventoryBrand.value='';inventorySearch.value='';renderInventory();return;}
     const viewButton=event.target.closest('[data-view-stock]');
     if(viewButton){showRecord(records().find(record=>record.id===viewButton.dataset.viewStock));return;}
     const photo = event.target.closest('[data-inventory-photo]');

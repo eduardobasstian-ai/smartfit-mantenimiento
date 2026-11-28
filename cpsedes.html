@@ -345,10 +345,15 @@
     .machine-save-button:hover { background: var(--yellow-hover); }
     .parts-request-view { display: grid; gap: 12px; }
     .parts-request-frame { display: block; width: 100%; height: min(76vh, 820px); min-height: 520px; border: 1px solid #343743; border-radius: 12px; background: #fff; }
-    .parts-request-note { margin: 0; color: var(--muted); font-size: 11px; line-height: 1.5; }
-    .parts-request-note a { color: var(--yellow); }
+    .parts-request-actions { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; }
+    .parts-request-actions button { min-height: 40px; border: 1px solid #343743; border-radius: 9px; background: #22252e; color: var(--text); font-size: 12px; font-weight: 800; }
+    .parts-request-actions [data-parts-action="addOrder"] { grid-column: 1 / -1; border-color: var(--yellow); background: var(--yellow); color: #171717; }
+    .parts-request-actions [data-parts-action="saveDraft"] { grid-column: 1 / -1; }
+    .parts-request-actions button:disabled { cursor: not-allowed; opacity: .48; }
     .view-refresh-button { min-height: 40px; padding: 0 12px; border: 1px solid #343743; border-radius: 9px; background: #22252e; color: var(--text); font-size: 11px; font-weight: 800; white-space: nowrap; }
     .view-refresh-button:disabled { cursor: progress; opacity: .65; }
+    .parts-request-note { margin: 0; color: var(--muted); font-size: 11px; line-height: 1.5; }
+    .parts-request-note a { color: var(--yellow); }
     .machine-log-list { display: grid; gap: 8px; margin-top: 14px; }
     .machine-log-entry { padding: 12px; border: 1px solid #30323c; border-radius: 9px; background: #22252e; }
     .machine-log-entry strong { color: var(--text); font-size: 12px; }
@@ -3432,13 +3437,16 @@
       if (!currentSite) return;
       if (returnTo === "machine") captureMaintenanceDraft();
       requestReturnTo = returnTo;
-      const requestUrl = new URL(PARTS_REQUEST_URL);
+      const localEquipmentRequest = returnTo === "machine";
+      const requestUrl = new URL(localEquipmentRequest ? "solicitud-repuestos-local.html" : PARTS_REQUEST_URL, window.location.href);
       requestUrl.searchParams.set("sede", currentSite.name || "");
       requestUrl.searchParams.set("sedeId", currentSite.id || "");
       requestUrl.searchParams.set("tecnico", user.name || "");
       requestUrl.searchParams.set("usuario", user.name || "");
       requestUrl.searchParams.set("rol", user.role || "");
       requestUrl.searchParams.set("tecnicoId", user.id || "");
+      const equipmentCount = (currentSite?.equipment || []).reduce((total, entry) => total + (Array.isArray(entry.units) && entry.units.length ? entry.units.length : Math.max(0, Number(entry.quantity) || 0)), 0);
+      requestUrl.searchParams.set("equipos", String(equipmentCount));
       if (currentMachine) {
         const item = currentMachine.item;
         const rawFixedNumber = currentMachine.unit.activeFixed;
@@ -3461,8 +3469,9 @@
       $("siteGrid").className = "parts-request-view";
       $("siteGrid").innerHTML = `
         <iframe class="parts-request-frame" id="partsRequestFrame" title="Solicitud de repuestos" src="${escapeHtml(requestUrl.href)}" referrerpolicy="no-referrer" loading="eager"></iframe>
-        <p class="parts-request-note">Si la solicitud no carga dentro de esta ventana o no reconoce la sede y el técnico, <a href="${escapeHtml(requestUrl.href)}" target="_blank" rel="noopener noreferrer">ábrela en una pestaña nueva</a>. El sitio externo debe permitir la vista integrada y leer estos datos desde la URL.</p>
-        <div><button class="back-button" type="button" data-close-parts-request>${returnTo === "machine" ? "← Volver a ficha" : "← Volver a marcas"}</button></div>`;
+        ${localEquipmentRequest ? `<div class="parts-request-actions" aria-label="Acciones del pedido"><button type="button" data-parts-action="clearSelection" disabled>Limpiar selección</button><span aria-hidden="true"></span><button type="button" data-parts-action="addOrder" disabled>＋ Agregar al pedido</button><button type="button" data-parts-action="saveDraft" disabled>Guardar borrador</button></div>` : ""}
+        <p class="parts-request-note">${localEquipmentRequest ? "Vista local de prueba: los borradores y el pedido se guardan solo en este dispositivo; todavía no se envían a Supabase." : `Si la solicitud no carga dentro de esta ventana o no reconoce la sede y el técnico, <a href="${escapeHtml(requestUrl.href)}" target="_blank" rel="noopener noreferrer">ábrela en una pestaña nueva</a>. El sitio externo debe permitir la vista integrada y leer estos datos desde la URL.`}</p>
+        ${localEquipmentRequest ? "" : `<div><button class="back-button" type="button" data-close-parts-request>${returnTo === "machine" ? "← Volver a ficha" : "← Volver a marcas"}</button></div>`}`;
     }
 
     function closePartsRequest() {
@@ -3983,6 +3992,7 @@
           <button class="machine-tab${currentMachineTab === "tickets" ? " active" : ""}" type="button" role="tab" aria-selected="${currentMachineTab === "tickets"}" data-machine-tab="tickets">Ver tickets</button>
           ${showMachineInspectionTab ? `<button class="machine-tab${currentMachineTab === "inspections" ? " active" : ""}" type="button" role="tab" aria-selected="${currentMachineTab === "inspections"}" data-machine-tab="inspections">Inspección${pendingMachineInspections.length ? ` <span class="inspection-tab-mark">I ${pendingMachineInspections.length}</span>` : ""}</button>` : ""}
           ${user?.role === "Técnico" ? `<button class="machine-tab${currentMachineTab === "common-failures" ? " active" : ""}" type="button" role="tab" aria-selected="${currentMachineTab === "common-failures"}" data-machine-tab="common-failures">Fallas comunes</button>` : ""}
+          ${user?.role === "Técnico" ? `<button class="machine-tab" type="button" data-open-parts-request="machine">Pedir repuesto</button>` : ""}
           ${treadmill ? `<button class="machine-tab${currentMachineTab === "mileage" ? " active" : ""}" type="button" role="tab" aria-selected="${currentMachineTab === "mileage"}" data-machine-tab="mileage">Historial de kilometraje (Km)</button>` : ""}
         </div>
         <section class="machine-tab-panel" data-machine-panel="maintenance" ${currentMachineTab === "maintenance" ? "" : "hidden"}>
@@ -3999,7 +4009,7 @@
                 <div class="machine-form-field"><label for="maintenanceTechnician">Técnico / responsable</label><input id="maintenanceTechnician" value="${escapeHtml(maintenanceResponsibleName)}" readonly aria-readonly="true"></div>
                 <div class="machine-form-field full"><label for="maintenanceObservations">Observaciones</label><textarea id="maintenanceObservations" placeholder="Detalle adicional">${escapeHtml(savedDraft ? savedDraft.observations : editingMaintenance?.observations || "")}</textarea></div>
               </div>
-              <div class="machine-record-actions"><button class="machine-save-button" type="submit">${editingMaintenance ? "Guardar cambios" : "Guardar"}</button><button class="back-button" type="button" data-toggle-maintenance-image-menu aria-expanded="false">Agregar imágenes (${maintenanceImages.length}/4)</button><button class="back-button machine-request-button" type="button" data-open-parts-request="machine">Pedir repuesto</button>${editingMaintenance ? '<button class="back-button" type="button" data-cancel-machine-edit>Cancelar edición</button>' : ""}</div>
+              <div class="machine-record-actions"><button class="machine-save-button" type="submit">${editingMaintenance ? "Guardar cambios" : "Guardar"}</button><button class="back-button" type="button" data-toggle-maintenance-image-menu aria-expanded="false">Agregar imágenes (${maintenanceImages.length}/4)</button>${editingMaintenance ? '<button class="back-button" type="button" data-cancel-machine-edit>Cancelar edición</button>' : ""}</div>
               <div class="maintenance-image-picker">
                 <div class="maintenance-image-menu" data-maintenance-image-menu hidden>
                   <button class="back-button" type="button" data-select-maintenance-images="gallery">Desde almacenamiento</button>
@@ -4497,6 +4507,11 @@
       $("supervisorMenu").classList.remove("open");
       $("supervisorMenuToggle").setAttribute("aria-expanded", "false");
       $("supervisorMenuToggle").setAttribute("aria-label", "Abrir menú");
+    });
+    window.addEventListener("message", event => {
+      if (event.origin !== window.location.origin || event.data?.type !== "smartfit:close-parts-request") return;
+      if (event.source !== $("partsRequestFrame")?.contentWindow) return;
+      closePartsRequest();
     });
     async function refreshCurrentViewData(dispatchUpdate) {
       const machineKey = currentMachine?.recordKey || "";

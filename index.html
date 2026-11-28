@@ -1083,7 +1083,8 @@
         "Líder": ["cplider.html", "smartfit.leader.session"],
         "Supervisor": ["cpsedes.html", "smartfit.site.session"],
         "Técnico": ["cpsedes.html", "smartfit.site.session"],
-        "Coordinador": ["cpsedes.html", "smartfit.site.session"],
+        "Coordinador": ["coordinador.html", "smartfit.site.session"],
+        "Bodega": ["catalogo/catalogo.html", "smartfit.bodega.session"],
       };
       const destination = destinations[authenticatedUser.role];
       if (!destination) {
@@ -1097,7 +1098,7 @@
         console.warn("No se pudo sincronizar el acceso; se conserva en este navegador.", error);
         AdminStore.recordAccess(authenticatedUser);
       }
-      ["smartfit.admin.session", "smartfit.leader.session", "smartfit.site.session"].forEach(key => sessionStorage.removeItem(key));
+      ["smartfit.admin.session", "smartfit.leader.session", "smartfit.site.session", "smartfit.bodega.session", "smartfit.catalog.auth-user"].forEach(key => sessionStorage.removeItem(key));
       sessionStorage.setItem(destination[1], JSON.stringify(authenticatedUser));
       window.location.href = authenticatedUser.mustChangePassword ? "change-password.html" : destination[0];
     });

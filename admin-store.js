@@ -213,7 +213,7 @@
       throw new Error("La clave debe tener al menos 6 caracteres.");
     }
     const role = fields.role || "Técnico";
-    if (!["Técnico", "Supervisor", "Líder", "Coordinador", "Administrador"].includes(role)) {
+    if (!["Técnico", "Supervisor", "Líder", "Coordinador", "Administrador", "Bodega"].includes(role)) {
       throw new Error("Selecciona un rol válido.");
     }
     return { name, username, password, role };
@@ -251,7 +251,8 @@
           }
           return {
             unitId: String(unit.unitId || makeId()),
-            activeFixed
+            activeFixed,
+            serialNumber: String(unit.serialNumber || "").toLocaleUpperCase("es")
           };
         })
       };
@@ -340,7 +341,7 @@
         password: validated.password,
         role: validated.role,
         active: fields.active !== false,
-        siteIds: Array.isArray(fields.siteIds) ? fields.siteIds.filter(id => ensureSitesSeeded().some(site => site.id === id)) : [],
+        siteIds: validated.role === "Bodega" ? [] : Array.isArray(fields.siteIds) ? fields.siteIds.filter(id => ensureSitesSeeded().some(site => site.id === id)) : [],
         createdAt: now,
         updatedAt: now
       };
@@ -368,7 +369,7 @@
         username: validated.username,
         role: validated.role,
         active: fields.active !== false,
-        siteIds: Array.isArray(fields.siteIds) ? fields.siteIds.filter(siteId => ensureSitesSeeded().some(site => site.id === siteId)) : (current.siteIds || []),
+        siteIds: validated.role === "Bodega" ? [] : Array.isArray(fields.siteIds) ? fields.siteIds.filter(siteId => ensureSitesSeeded().some(site => site.id === siteId)) : (current.siteIds || []),
         updatedAt: new Date().toISOString()
       });
       if (validated.password) next.password = validated.password;

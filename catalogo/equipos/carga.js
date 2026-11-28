@@ -23,7 +23,7 @@
     if (pending.has(name)) return pending.get(name);
     const promise = new Promise((resolve, reject) => {
       const script = document.createElement('script');
-      script.src = 'equipos/' + name + '?v=' + (['inventario.js', 'inventario-fotos.js', 'inventario-busqueda.js', 'plano.js'].includes(name) ? '20261127-archivo1' : '20261125-perf1');
+      script.src = 'equipos/' + name + '?v=' + (name === 'pedidos.js' ? '20261128-permisos1' : name === 'inventario.js' ? '20261128-volver1' : ['inventario-fotos.js', 'inventario-busqueda.js', 'plano.js'].includes(name) ? '20261127-archivo1' : '20261125-perf1');
       script.onload = () => { script.remove(); resolve(); };
       script.onerror = () => { script.remove(); reject(new Error('No se pudo cargar la vista. Vuelve a intentarlo.')); };
       document.head.append(script);

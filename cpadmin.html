@@ -422,12 +422,13 @@
     .inventory-modal { width: min(1120px, 100%); }
     .inventory-filter-tools { display: grid; grid-template-columns: repeat(2, minmax(180px, 1fr)); gap: 10px; margin-bottom: 12px; }
     .inventory-list { max-height: min(62vh, 620px); overflow: auto; border: 1px solid #30323c; border-radius: 11px; }
-    .inventory-list table { min-width: 790px; }
+    .inventory-list table { min-width: 970px; }
     .inventory-list th, .inventory-list td { vertical-align: middle; }
     .inventory-brand-row td { padding: 10px 12px; background: #22252e; color: var(--yellow); font-size: 11px; font-weight: 800; letter-spacing: .4px; }
     .inventory-thumb { width: 44px; height: 44px; object-fit: contain; border: 1px solid #e6e7eb; border-radius: 9px; background: #f5f5f7; padding: 2px; cursor: zoom-in; }
     .inventory-fixed-input { width: 145px; min-height: 36px; }
     .inventory-fixed-input[readonly] { opacity: .75; }
+    .inventory-serial-input { width: 190px; min-height: 36px; text-transform: uppercase; }
     .inventory-actions { display: flex; gap: 7px; }
     .inventory-actions button { min-height: 34px; padding: 0 10px; }
     .check-row { display: flex; align-items: center; gap: 9px; color: #e7e7eb; font-size: 12px; }
@@ -502,7 +503,7 @@
       .equipment-modal .modal-body { padding: 14px; }
       .site-equipment-choice { flex-wrap: wrap; gap: 8px; }
       .site-equipment-quantity { margin-left: auto; }
-      .inventory-list table { min-width: 740px; }
+      .inventory-list table { min-width: 900px; }
       .lightbox-backdrop { padding: 6px; }
       .lightbox-frame { max-width: 98vw; max-height: 94dvh; }
       .lightbox-image { max-width: 96vw; max-height: 92dvh; }
@@ -1146,6 +1147,7 @@
                 <option>Líder</option>
                 <option>Coordinador</option>
                 <option>Administrador</option>
+                <option>Bodega</option>
               </select>
             </div>
             <div class="form-field full">
@@ -1153,12 +1155,12 @@
               <input class="form-control" id="userPassword" type="password" autocomplete="new-password">
               <span class="form-help" id="passwordHelp">Al crear el acceso, debe tener al menos 8 caracteres. El usuario tendrá que cambiarla al ingresar.</span>
             </div>
-            <div class="form-field full">
+            <div class="form-field full" id="userSiteAssignmentField">
               <label>Sedes asignadas</label>
               <input class="form-control" id="userSiteSearch" type="search" placeholder="Buscar sede..." autocomplete="off" aria-label="Buscar sede para asignar al usuario">
               <div class="site-checklist" id="siteAssignmentList"></div>
               <span class="form-help" id="userSiteSearchEmpty" hidden>No hay sedes que coincidan con la búsqueda.</span>
-              <span class="form-help">El usuario verá estas sedes y su cantidad de máquinas al ingresar.</span>
+              <span class="form-help" id="userSiteAssignmentHelp">El usuario verá estas sedes y su cantidad de máquinas al ingresar.</span>
             </div>
             <label class="check-row form-field full" id="activeUserRow">
               <input type="checkbox" id="userActive" checked>
@@ -1269,7 +1271,7 @@
         </div>
         <div class="inventory-list">
           <table>
-            <thead><tr><th>Imagen</th><th>Equipo</th><th>Modelo</th><th>Sector</th><th>Activo fijo</th><th>Acciones</th></tr></thead>
+            <thead><tr><th>Imagen</th><th>Equipo</th><th>Modelo</th><th>Sector</th><th>Activo fijo</th><th>Serial/Number</th><th>Acciones</th></tr></thead>
             <tbody id="siteInventoryBody"></tbody>
           </table>
         </div>
@@ -2968,6 +2970,7 @@
           <input type="checkbox" value="${escapeHtml(site.id)}" ${assignedSiteIds.includes(site.id) ? "checked" : ""}>
           <span>${escapeHtml(site.name)} <span class="subtext">${Number(site.machineCount) || 0} máquinas</span></span>
         </label>`).join("") || '<span class="form-help">Primero registra una sede.</span>';
+      updateUserSiteAssignmentVisibility();
       filterUserAssignmentSites();
       $("userModal").hidden = false;
       $("userName").focus();
@@ -2983,6 +2986,21 @@
         if (!siteCheck.hidden) visibleCount += 1;
       });
       $("userSiteSearchEmpty").hidden = !query || visibleCount > 0;
+    }
+
+    function updateUserSiteAssignmentVisibility() {
+      const isWarehouse = $("userRole").value === "Bodega";
+      $("userSiteAssignmentField").querySelector("label").hidden = isWarehouse;
+      $("userSiteSearch").hidden = isWarehouse;
+      $("userSiteSearch").disabled = isWarehouse;
+      $("siteAssignmentList").hidden = isWarehouse;
+      $("userSiteSearchEmpty").hidden = true;
+      if (isWarehouse) {
+        $("siteAssignmentList").querySelectorAll('input[type="checkbox"]').forEach(input => { input.checked = false; });
+      }
+      $("userSiteAssignmentHelp").textContent = isWarehouse
+        ? "Bodega tendrá alcance global de sedes y técnicos en Pedidos, sin asignaciones ni acceso a los registros de mantenimiento."
+        : "El usuario verá estas sedes y su cantidad de máquinas al ingresar.";
     }
 
     function closeUserModal() { $("userModal").hidden = true; }
@@ -3004,7 +3022,7 @@
     }
 
     function newMachineUnit() {
-      return { unitId: `unit-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`, activeFixed: "" };
+      return { unitId: `unit-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`, activeFixed: "", serialNumber: "" };
     }
 
     function resizeMachineUnits(item, targetQuantity) {
@@ -3015,6 +3033,7 @@
       units.forEach(unit => {
         if (!unit.unitId) unit.unitId = newMachineUnit().unitId;
         if (unit.activeFixed === undefined || unit.activeFixed === null) unit.activeFixed = "";
+        unit.serialNumber = String(unit.serialNumber || "").toLocaleUpperCase("es");
       });
       item.units = units;
       item.quantity = quantity;
@@ -3107,7 +3126,7 @@
       const brands = Array.from(grouped.keys()).sort((a, b) => a.localeCompare(b, "es"));
       let rows = "";
       brands.forEach(brand => {
-        rows += `<tr class="inventory-brand-row"><td colspan="6">${escapeHtml(brand)}</td></tr>`;
+        rows += `<tr class="inventory-brand-row"><td colspan="7">${escapeHtml(brand)}</td></tr>`;
         grouped.get(brand).sort((a, b) => `${a.item.name} ${a.item.model}`.localeCompare(`${b.item.name} ${b.item.model}`, "es"));
         grouped.get(brand).forEach(({ item, unit }) => {
           const isEditing = editingFixedUnitId === unit.unitId;
@@ -3119,6 +3138,7 @@
             <td>${escapeHtml(item.model || "—")}</td>
             <td>${escapeHtml(catalogItem?.category || item.category || "—")}</td>
             <td><input class="form-control inventory-fixed-input" type="number" min="0" step="1" value="${unit.activeFixed === "" ? "" : escapeHtml(unit.activeFixed)}" data-inventory-fixed="${escapeHtml(unit.unitId)}" aria-label="Número de activo fijo para ${escapeHtml(item.name)}" ${isEditing ? "" : "readonly"}></td>
+            <td><input class="form-control inventory-serial-input" type="text" value="${escapeHtml(unit.serialNumber)}" data-inventory-serial="${escapeHtml(unit.unitId)}" aria-label="Serial/Number para vincular pedidos del catálogo" autocapitalize="characters" autocomplete="off" ${isEditing ? "" : "readonly"}></td>
             <td><div class="inventory-actions">
               <button class="secondary-button" type="button" data-edit-fixed="${escapeHtml(unit.unitId)}">${isEditing ? "Guardar" : "Editar"}</button>
               <button class="danger-button" type="button" data-remove-unit="${escapeHtml(unit.unitId)}" data-remove-catalog="${escapeHtml(item.catalogId)}">Eliminar</button>
@@ -3127,7 +3147,7 @@
         });
       });
       const hasInventory = selectedSiteEquipment.some(item => Number(item.quantity) > 0);
-      $("siteInventoryBody").innerHTML = rows || `<tr><td colspan="6" class="empty-state">${hasInventory ? "No hay máquinas que coincidan con esos filtros." : "Aún no hay máquinas asignadas a esta sede."}</td></tr>`;
+      $("siteInventoryBody").innerHTML = rows || `<tr><td colspan="7" class="empty-state">${hasInventory ? "No hay máquinas que coincidan con esos filtros." : "Aún no hay máquinas asignadas a esta sede."}</td></tr>`;
       $("siteInventorySubtitle").textContent = `${$("siteName").value || "Sede nueva"} · ${siteEquipmentCount(selectedSiteEquipment)} máquinas en el inventario`;
     }
 
@@ -3383,6 +3403,7 @@
     });
     $("newUserButton").addEventListener("click", () => openUserModal(null));
     $("userSiteSearch").addEventListener("input", filterUserAssignmentSites);
+    $("userRole").addEventListener("change", updateUserSiteAssignmentVisibility);
     $("newSiteButton").addEventListener("click", () => openSiteModal(null));
     $("newBrandButton").addEventListener("click", () => openBrandModal(null));
     $("closeUserModal").addEventListener("click", closeUserModal);
@@ -3416,6 +3437,7 @@
         const unitId = editButton.dataset.editFixed;
         if (editingFixedUnitId === unitId) {
           const input = $("siteInventoryBody").querySelector(`[data-inventory-fixed="${unitId}"]`);
+          const serialInput = $("siteInventoryBody").querySelector(`[data-inventory-serial="${unitId}"]`);
           if (!input || !input.reportValidity()) return;
           if (input.value !== "" && (!Number.isInteger(Number(input.value)) || Number(input.value) < 0)) {
             input.setCustomValidity("Ingresa un número entero igual o mayor que cero.");
@@ -3425,14 +3447,27 @@
           input.setCustomValidity("");
           const equipment = selectedSiteEquipment.find(item => (item.units || []).some(unit => unit.unitId === unitId));
           const unit = equipment && equipment.units.find(entry => entry.unitId === unitId);
-          if (unit) unit.activeFixed = input.value === "" ? "" : Number(input.value);
+          if (unit) {
+            unit.activeFixed = input.value === "" ? "" : Number(input.value);
+            unit.serialNumber = String(serialInput?.value || "").toLocaleUpperCase("es");
+          }
           editingFixedUnitId = null;
           renderSiteInventory();
         } else {
           editingFixedUnitId = unitId;
           renderSiteInventory();
           const input = $("siteInventoryBody").querySelector(`[data-inventory-fixed="${unitId}"]`);
+          const serialInput = $("siteInventoryBody").querySelector(`[data-inventory-serial="${unitId}"]`);
           if (input) input.focus();
+          if (serialInput) serialInput.addEventListener("input", () => {
+            const start = serialInput.selectionStart;
+            const end = serialInput.selectionEnd;
+            const upper = serialInput.value.toLocaleUpperCase("es");
+            if (serialInput.value !== upper) {
+              serialInput.value = upper;
+              serialInput.setSelectionRange(start, end);
+            }
+          });
         }
         return;
       }

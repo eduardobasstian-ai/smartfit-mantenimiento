@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="es">
 <head>
-  <script defer src="../telemetry.js?v=1"></script>
+  <script defer src="../telemetry.js?v=2"></script>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#101116">
@@ -90,7 +90,7 @@
   </style>
   <link rel="icon" type="image/x-icon" href="IMG/favicon.ico">
   <link rel="icon" type="image/png" href="IMG/favicon.png">
-  <link rel="stylesheet" href="equipos/equipos.css?v=20261127-busqueda2">
+  <link rel="stylesheet" href="equipos/equipos.css?v=20261128-pedidos1">
 </head>
 <body>
   <header class="topbar"><div class="brand"><img class="brand-mark" src="IMG/logo-header.png" alt="Smart Fit"><div class="brand-copy"><div class="brand-heading"><p class="brand-title">CATÁLOGO DE REPUESTOS</p></div><p class="brand-subtitle">Gestión de equipos y sedes</p></div></div><div id="catalogSession" class="catalog-session" hidden><span>Sesión: <strong id="catalogUserName"></strong></span><button id="catalogLogout" class="btn" type="button">Cerrar sesión</button></div></header>
@@ -124,7 +124,7 @@
     </section>
   </main>
   <div class="app-shell" id="catalogApp" hidden>
-    <nav class="sidebar" aria-label="Navegación del catálogo"><button class="side-link" type="button"><span class="ico">▥</span><span>Resumen</span></button><a class="side-link" id="equipmentNav" href="#equipos"><span class="ico" aria-hidden="true">♟</span><span>Equipos</span></a><a class="side-link" id="inventoryNav" href="#inventario"><span class="ico" aria-hidden="true">▤</span><span>Inventario</span></a><a class="side-link" id="partsNav" href="#repuestos"><span class="ico" aria-hidden="true">⚙</span><span>Repuestos</span></a></nav>
+    <nav class="sidebar" aria-label="Navegación del catálogo"><button class="side-link" type="button"><span class="ico">▥</span><span>Resumen</span></button><a class="side-link" id="equipmentNav" href="#equipos"><span class="ico" aria-hidden="true">♟</span><span>Equipos</span></a><a class="side-link" id="inventoryNav" href="#inventario"><span class="ico" aria-hidden="true">▤</span><span>Inventario</span></a><a class="side-link" id="partsNav" href="#pedidos"><span class="ico" aria-hidden="true">⚙</span><span>Pedidos</span></a></nav>
     <main class="wrap">
       <section class="equipment-directory" id="equipmentDirectory" aria-labelledby="equipmentTitle" hidden>
         <header class="equipment-header">
@@ -160,6 +160,7 @@
             <label class="sr-only" for="inventoryListSearch">Buscar en inventario por marca, equipo, modelo, nombre técnico, descripción o referencia</label>
             <input id="inventoryListSearch" type="search" placeholder="Buscar marca, modelo o repuesto…" autocomplete="off" aria-controls="inventoryList">
             <button class="btn primary" id="inventoryAdd" type="button">＋ Crear repuesto</button>
+            <button class="btn equipment-back" id="inventoryBack" type="button" hidden>← Volver a marcas</button>
           </div>
         </header>
         <p id="inventoryStatus" role="status"></p>
@@ -168,10 +169,30 @@
       <section class="equipment-directory" id="savedPartsView" aria-labelledby="savedPartsTitle" hidden>
         <header class="equipment-header">
           <div>
-            <h2 id="savedPartsTitle" tabindex="-1">Repuestos seleccionados</h2>
-            <p>El guardado de repuestos estará disponible en una próxima etapa.</p>
+            <h2 id="savedPartsTitle" tabindex="-1">Pedidos</h2>
+            <p>Consulta los pedidos de repuestos de las sedes y sus técnicos.</p>
+          </div>
+          <div class="equipment-header-actions orders-export" aria-label="Exportar pedidos">
+            <button class="btn" type="button" disabled title="Disponible cuando haya pedidos para exportar">Exportar PDF</button>
+            <button class="btn" type="button" disabled title="Disponible cuando haya pedidos para exportar">Exportar Excel</button>
           </div>
         </header>
+        <form class="orders-filters" id="ordersFilters" aria-label="Filtrar pedidos">
+          <label for="ordersDate">Fecha<input id="ordersDate" type="date" aria-controls="ordersList"></label>
+          <label for="ordersSite">Sede<select id="ordersSite" aria-controls="ordersList"><option value="">Todas las sedes</option></select></label>
+          <label for="ordersTechnician">Técnico<select id="ordersTechnician" aria-controls="ordersList"><option value="">Todos los técnicos</option></select></label>
+          <label for="ordersState">Estado<select id="ordersState" aria-controls="ordersList"><option value="">Todos los estados</option><option value="pendiente">Pendiente</option><option value="ejecutado">Ejecutado</option></select></label>
+          <button class="btn" type="reset">Limpiar filtros</button>
+        </form>
+        <p id="ordersScope" class="orders-count" role="status">Verificando acceso a Pedidos…</p>
+        <p class="orders-count">0 pedidos</p>
+        <div class="orders-table-wrap" role="region" aria-label="Listado de pedidos" tabindex="0">
+          <table class="orders-table" id="ordersList">
+            <caption class="sr-only">Pedidos por fecha, sede, técnico y estado</caption>
+            <thead><tr><th scope="col">Fecha</th><th scope="col">Sede</th><th scope="col">Técnico</th><th scope="col">Estado</th><th scope="col">Ver pedido</th></tr></thead>
+            <tbody><tr><td colspan="5" class="orders-empty"><strong>Aún no hay pedidos</strong><span>Los pedidos de las sedes y sus técnicos aparecerán aquí.</span></td></tr></tbody>
+          </table>
+        </div>
       </section>
       <section id="partsView" aria-label="Despiece del equipo" hidden>
       <div class="catalog-nav-row">
@@ -209,10 +230,10 @@
   <script src="catalogo-assets/manuales/datos.js?v=por-equipo-1"></script>
   <script src="equipos/catalogo-datos.js?v=20261127-perf2"></script>
   <script src="equipos/nombres.js"></script>
-  <script src="equipos/sincronizacion.js?v=20261127-busqueda2"></script>
+  <script src="equipos/sincronizacion.js?v=20261128-permisos1"></script>
   <script src="equipos/catalogo-nombres.js?v=20261127-marca1"></script>
   <script src="equipos/catalogo-locales.js?v=aviso-flotante-1"></script>
-  <script src="equipos/carga.js?v=20261127-archivo1"></script>
+  <script src="equipos/carga.js?v=20261128-permisos1"></script>
   <dialog class="ref-dialog" id="inventoryDialog" aria-labelledby="inventoryDialogTitle">
     <form id="inventoryForm">
       <h2 id="inventoryDialogTitle">Agregar a inventario</h2>
@@ -276,7 +297,7 @@
     </form>
   </dialog>
   <script src="equipos/fotos-mantencion.js?v=miniaturas-1"></script>
-  <script src="equipos/equipos.js?v=20261126-inventario-fotos-1"></script>
+  <script src="equipos/equipos.js?v=20261128-permisos1"></script>
   <script src="supabase-auth.js?v=catalog-session-v1"></script>
   <script id="catalogAuthController">
     (() => {
@@ -414,8 +435,20 @@
         const query = new URLSearchParams({ select: "id,full_name,username,role,active", id: `eq.${authUser.id}`, limit: "1" });
         const rows = await fetchJson(`${SUPABASE_URL}/rest/v1/profiles?${query}`, { headers });
         const profile = Array.isArray(rows) ? rows[0] : null;
-        if (!isAllowed(profile)) throw rejectedSession("Este catálogo está habilitado solo para cuentas activas de Administrador y Supervisor.");
-        const safeProfile = { authId: profile.id, name: profile.full_name, username: profile.username, role: profile.role, active: profile.active };
+        if (!profile?.active) throw rejectedSession("Tu cuenta no tiene acceso activo al catálogo.");
+        let catalogRole = profile.role;
+        if (!isAllowed(profile)) {
+          // Bodega es una concesión del catálogo, independiente del rol de Mantenimiento.
+          const scope = await fetchJson(`${SUPABASE_URL}/rest/v1/rpc/catalogo_pedidos_contexto`, {
+            method:'POST', headers:{...headers, 'Content-Type':'application/json'}, body:'{}'
+          }).catch(error => {
+            if ([401,403].includes(error.status)) throw rejectedSession('Tu cuenta ya no tiene acceso autorizado al catálogo.');
+            throw error;
+          });
+          if (scope?.role !== 'bodega') throw rejectedSession('Tu cuenta no tiene un perfil autorizado para el catálogo.');
+          catalogRole = 'bodega';
+        }
+        const safeProfile = { authId: profile.id, name: profile.full_name, username: profile.username, role: catalogRole, active: profile.active };
         sessionStorage.setItem(CATALOG_USER_KEY, JSON.stringify(safeProfile));
         return safeProfile;
       }
@@ -441,7 +474,7 @@
         submit.textContent = "Validando acceso…";
         try {
           const signedInUser = await window.SmartFitSupabaseAuth.login(username, password);
-          if (!isAllowed(signedInUser)) throw new Error("Este catálogo está habilitado solo para cuentas activas de Administrador y Supervisor.");
+          if (!signedInUser?.active) throw new Error('Tu cuenta no tiene acceso activo al catálogo.');
           const profile = await validateAndGetProfile(signedInUser.authId || "");
           $("catalogPassword").value = "";
           history.replaceState(history.state, "", "#equipos");
