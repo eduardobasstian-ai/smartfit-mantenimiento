@@ -1,6 +1,6 @@
 {
   "name": "smartfit-catalogo-desktop",
-  "version": "0.1.12-beta.1",
+  "version": "0.1.13-beta.1",
   "description": "Beta de escritorio del catálogo de repuestos SmartFit",
   "author": "SmartFit",
   "private": true,
@@ -14,7 +14,15 @@
     "appId": "cl.smartfit.catalogo.beta",
     "productName": "Catálogo SmartFit Beta",
     "artifactName": "Catalogo-SmartFit-Beta-${version}-Setup.exe",
-    "publish": [{ "provider": "github", "owner": "eduardobasstian-ai", "repo": "smartfit-mantenimiento", "releaseType": "prerelease", "channel": "beta" }],
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "eduardobasstian-ai",
+        "repo": "smartfit-mantenimiento",
+        "releaseType": "prerelease",
+        "channel": "beta"
+      }
+    ],
     "directories": {
       "output": "dist"
     },

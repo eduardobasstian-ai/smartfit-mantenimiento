@@ -23,6 +23,11 @@ jobs:
           $version = (Get-Content catalogo-desktop/package.json | ConvertFrom-Json).version
           if ($env:GITHUB_REF_NAME -ne "v$version") { throw 'La etiqueta no coincide con el aplicativo.' }
           node scripts/verificar-actualizaciones-catalogo.cjs
+          if ($LASTEXITCODE -ne 0) { throw 'Fallaron las pruebas del actualizador.' }
+          node scripts/verificar-pedidos-sesion.cjs
+          if ($LASTEXITCODE -ne 0) { throw 'Fallaron las pruebas de sesión de Pedidos.' }
+          node scripts/verificar-telemetria-catalogo.cjs
+          if ($LASTEXITCODE -ne 0) { throw 'Fallaron las pruebas de telemetría.' }
       - run: npm ci
         working-directory: catalogo-desktop
       - run: npm run build
